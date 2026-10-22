@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Tests – Diagramm-Designer</title>
+<!-- Prüft Parser- und Statistikfunktionen aus PlotTransformer.html gegen feste Erwartungswerte.
+     Die Vergleichswerte stammen aus tools/referenzwerte.py (numpy, scipy, seaborn).
+     Aufruf über einen lokalen Server: python -m http.server 8765, dann http://localhost:8765/tests.html -->
+<style>body{font:13px/1.5 "Segoe UI",system-ui,sans-serif;margin:16px}.ok{color:#18794e}.fail{color:#c0392b;font-weight:600}#sum{font-size:16px;font-weight:600;margin:8px 0}iframe{display:none}</style>
+</head>
+<body>
+<h1>Tests – Diagramm-Designer</h1>
+<div id="sum">läuft …</div>
+<ol id="out"></ol>
+<iframe id="app" src="PlotTransformer.html"></iframe>
+<script>
+'use strict';
+const REF = {"mean": 4.581818181818182, "median": 4.4, "sd": 2.5521826665888088, "se": 0.7695120274112539, "ci": 1.7145796453293236, "q1": 2.8, "q3": 5.75, "t975_df1": 12.706204736432095, "t975_df5": 2.570581835636314, "t975_df30": 2.0422724563012373, "fd_n": 12, "fd_e0": 31.33, "fd_e1": 35.22833333333333, "fd_counts": [5, 9, 7, 19, 27, 35, 33, 26, 15, 9, 12, 3], "kde_at_5": 0.12669898637941537, "sns_bars": [["A", 0, 9.915000000000001, 9.153708333333334, 10.721770833333332], ["A", 2, 11.116666666666667, 10.561666666666666, 11.698583333333332], ["A", 4, 13.306666666666667, 12.699895833333331, 13.903354166666668], ["A", 6, 13.484166666666667, 13.063250000000002, 13.910104166666668], ["A", 8, 15.701666666666668, 15.057437500000002, 16.374250000000004], ["A", 10, 17.571666666666662, 16.965, 18.205], ["B", 0, 12.145833333333336, 11.494937499999999, 12.903375], ["B", 2, 14.153333333333336, 13.553270833333334, 14.715979166666667], ["B", 4, 16.055833333333332, 15.120687500000003, 17.083333333333332], ["B", 6, 17.843333333333334, 16.828958333333336, 18.864124999999998], ["B", 8, 20.715833333333332, 19.708499999999997, 21.643979166666668], ["B", 10, 22.55, 21.571645833333335, 23.59510416666667], ["C", 0, 8.768333333333334, 8.181625, 9.370125], ["C", 2, 9.609166666666667, 8.830687500000002, 10.393458333333333], ["C", 4, 10.904166666666667, 10.209125000000002, 11.510833333333332], ["C", 6, 11.457500000000001, 10.806562499999998, 12.069395833333335], ["C", 8, 12.131666666666666, 11.633229166666666, 12.583395833333334], ["C", 10, 12.600000000000001, 11.754000000000001, 13.406791666666669]]};
+const out = document.getElementById('out');
+let nOk = 0, nFail = 0;
+function check(name, got, exp, tol = 1e-9) {
+  const eq = (a, b) => typeof b === 'number' ? (a === b || Math.abs(a - b) <= tol * Math.max(1, Math.abs(b))) : JSON.stringify(a) === JSON.stringify(b);
+  const ok = Array.isArray(exp) ? Array.isArray(got) && got.length === exp.length && exp.every((v, i) => eq(got[i], v)) : eq(got, exp);
+  ok ? nOk++ : nFail++;
+  out.insertAdjacentHTML('beforeend', `<li class="${ok ? 'ok' : 'fail'}">${ok ? 'OK' : 'FEHLER'} – ${name}${ok ? '' : `: erhalten ${JSON.stringify(got)}, erwartet ${JSON.stringify(exp)}`}</li>`);
+}
+const text = async f => (await fetch(f)).text();
+document.getElementById('app').onload = async () => {
+  const w = document.getElementById('app').contentWindow, ev = s => w.eval(s);
+  try {
+    // Zahlen erkennen (deutsche und englische Formate)
+    check('1.234,5 mit Komma', w.parseNum('1.234,5', ','), 1234.5);
+    check('1234,5 mit Komma', w.parseNum('1234,5', ','), 1234.5);
+    check('1,234.5 mit Punkt', w.parseNum('1,234.5', '.'), 1234.5);
+    check('12 % → 12', w.parseNum('12 %', ','), 12);
+    check('Unicode-Minus −3,5', w.parseNum('−3,5', ','), -3.5);
+    check('1e-3 wissenschaftlich', w.parseNum('1e-3', '.'), 0.001);
+    check('ungültige Tausendergruppen (1.23.4)', w.parseNum('1.23.4', ','), null);
+    check('1.234 ist mehrdeutig', w.decVote('1.234'), null);
+    check('0,123 ist Dezimalkomma', w.decVote('0,123'), ',');
+    check('1.234.567 → Punkt ist Tausendertrenner', w.decVote('1.234.567'), ',');
+    // Datum
+    check('TT.MM.JJJJ', w.parseDate('24.12.2025'), Date.UTC(2025, 11, 24));
+    check('ISO mit Uhrzeit', w.parseDate('2025-03-01T12:30:00'), Date.UTC(2025, 2, 1, 12, 30));
+    check('ungültiges Datum 31.02.2025', w.parseDate('31.02.2025'), null);
+    check('MM/TT bei eindeutigen Werten', w.slashOrder(['12/25/2025', '01/02/2025']), 'md');
+    check('MM/TT mehrdeutig → nicht erkannt', w.slashOrder(['01/02/2025', '03/04/2025']), null);
+    // Trennzeichen, CSV, Markdown
+    check('Semikolon trotz Dezimalkomma', w.detectDelim('Zeit;A;B\n0,1;2,5;3,5\n0,2;2,6;3,6'), ';');
+    check('Tabulator', w.detectDelim('a\tb\n1\t2'), '\t');
+    check('CSV mit Anführungszeichen und Umbruch', w.parseCSV('a,b\n"x, y","1\n2"\n', ','), [['a', 'b'], ['x, y', '1\n2']]);
+    check('CSV mit BOM', w.parseInput('﻿a;b\n1;2')[0].rows, [['a', 'b'], ['1', '2']]);
+    check('Markdown-Tabelle', w.parseInput('| A | B |\n|---|--:|\n| 1 | -8 |')[0].rows, [['A', 'B'], ['1', '-8']]);
+    const d = ev(`buildData([['x','y','z'],['1.234','1,5','01.02.2025'],['2.500','2,5','02.02.2025'],['3.750','3',''],['4.000','x','03.02.2025'],['5.125','4','04.02.2025']])`);
+    check('Spaltentypen', d.cols.map(c => c.type), ['num', 'num', 'date']);
+    check('mehrdeutige Tausender per Mehrheit der Tabelle', d.cols[0].val, [1234, 2500, 3750, 4000, 5125]);
+    check('nicht lesbarer Wert wird fehlend (4 von 5 lesbar = 80 %)', d.cols[1].val, [1.5, 2.5, 3, null, 4]);
+    // Statistik
+    const a = [2.5, 3.1, 4.7, 1.2, 9.8, 5.5, 6.0, 3.3, 7.7, 4.4, 2.2];
+    check('Mittelwert', ev('mean')(a), REF.mean);
+    check('Median', ev('median')(a), REF.median);
+    check('Standardabweichung', w.sd(a), REF.sd);
+    check('Standardfehler', w.errHalf(a, 'se'), REF.se);
+    check('95-%-KI (t-Verteilung)', w.errHalf(a, 'ci'), REF.ci, 1e-7);
+    check('t(0,975; 1)', w.tInv(0.975, 1), REF.t975_df1, 1e-7);
+    check('t(0,975; 5)', w.tInv(0.975, 5), REF.t975_df5, 1e-7);
+    check('t(0,975; 30)', w.tInv(0.975, 30), REF.t975_df30, 1e-7);
+    const bs = w.boxStats(a);
+    check('Quartile', [bs.q1, bs.q3], [REF.q1, REF.q3]);
+    const k = w.kde(a), z = 5, dens = a.reduce((s, v) => s + Math.exp(-0.5 * ((z - v) / k.bw) ** 2), 0) / (a.length * k.bw * Math.sqrt(2 * Math.PI));
+    check('Kerndichte bei 5 (Scott-Bandbreite)', dens, REF.kde_at_5);
+    // Histogramm (Freedman–Diaconis) an samples/verteilung.tsv
+    const v = (await text('samples/verteilung.tsv')).trim().split('\n').slice(1).map(l => +l.split('\t')[1]);
+    const e = w.binEdges(v, 'fd');
+    check('FD: Anzahl Klassen', e.length - 1, REF.fd_n);
+    check('FD: erste Klassengrenzen', [e[0], e[1]], [REF.fd_e0, REF.fd_e1]);
+    check('FD: Häufigkeiten', w.histCounts(v, e), REF.fd_counts);
+    // Balken wie sns.barplot(errorbar=('ci', 95)) an samples/gruppen.csv
+    ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/gruppen.csv'))};parseSrc();
+      Object.assign(P,{type:'bar',x:'Zeit',ys:['Wert'],hue:'Gruppe',style:'',agg:'mean',err:'ci'});`);
+    const res = ev('pipeline()');
+    let maxMean = 0, maxCi = 0;
+    for (const [g, zt, m, lo, hi] of REF.sns_bars) {
+      const p = res.series.find(s => s.key === g).pts.find(p => p.xl === String(zt));
+      maxMean = Math.max(maxMean, Math.abs(p.y - m));
+      maxCi = Math.max(maxCi, Math.abs(p.lo - lo) / m, Math.abs(p.hi - hi) / m);
+    }
+    check('Balkenhöhen = seaborn (Mittelwert)', maxMean < 1e-9, true);
+    check(`KI-Grenzen innerhalb 2 % von seaborn (Bootstrap), max. Abweichung ${(maxCi * 100).toFixed(2)} %`, maxCi < 0.02, true);
+    // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
+    ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
+      Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);
+    const png = new Uint8Array(await (await ev('pngBlob()')).arrayBuffer()), dv = new DataView(png.buffer);
+    const pw = dv.getUint32(16), ph = dv.getUint32(20), ppm = dv.getUint32(41);
+    check('PNG: 3 Reihen gezeichnet', ev('R.res.series.length'), 3);
+    check('PNG: Breite 8,5 cm bei 300 dpi (±1 px)', Math.abs(pw - 8.5 / 2.54 * 300) <= 1, true);
+    check('PNG: Höhe 6 cm bei 300 dpi (±1 px)', Math.abs(ph - 6 / 2.54 * 300) <= 1, true);
+    check('PNG: pHYs-Block mit 300 dpi', [String.fromCharCode(...png.subarray(37, 41)), Math.round(ppm * 0.0254)], ['pHYs', 300]);
+    check('PNG: Breite laut Datei in cm', Math.round(pw / (ppm / 100) * 100) / 100, 8.5, 0.002);
+    // Excel über SheetJS
+    await w.loadXlsx(new w.File([await (await fetch('samples/zeitreihe.xlsx')).blob()], 'zeitreihe.xlsx'));
+    check('Excel: zwei Tabellenblätter', ev('wb.SheetNames'), ['Temperatur', 'Niederschlag']);
+    check('Excel: Datumsspalte erkannt', ev('D.cols.map(c => c.type)'), ['date', 'num', 'num', 'num']);
+    check('Excel: erstes Datum', ev('D.cols[0].val[0]'), Date.UTC(2025, 0, 1));
+  } catch (err) { nFail++; out.insertAdjacentHTML('beforeend', `<li class="fail">FEHLER – Ausnahme: ${err.stack || err}</li>`); }
+  const sum = document.getElementById('sum');
+  sum.textContent = nFail ? `${nFail} FEHLER, ${nOk} OK` : `Alle ${nOk} Tests OK`;
+  sum.className = nFail ? 'fail' : 'ok';
+  document.title = sum.textContent;
+};
+</script>
+</body>
+</html>

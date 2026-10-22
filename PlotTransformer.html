@@ -1,0 +1,2949 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagramm-Designer</title>
+<!--
+  PlotTransformer (Diagramm-Designer) – Copyright (C) 2026 Tizian Arold
+  SPDX-License-Identifier: GPL-3.0-or-later
+  This program is free software: you can redistribute it and/or modify it under the terms of the
+  GNU General Public License as published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version. See LICENSE or <https://www.gnu.org/licenses/>.
+-->
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ffffff">
+<style>
+:root{--bg:#f3f4f7;--panel:#ffffff;--text:#1d2330;--muted:#687083;--border:#d9dde5;--accent:#2f6fde;--accent-soft:#e7efff}
+@media (prefers-color-scheme: dark){:root{--bg:#15171c;--panel:#1f232a;--text:#e6e8ec;--muted:#9aa3b2;--border:#353b46;--accent:#6c9cff;--accent-soft:#25324d}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;font:13px/1.4 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap}
+header h1{font-size:15px;margin:0 12px 0 0}
+header .sp{flex:1}
+main{flex:1;display:flex;min-height:0}
+aside{width:380px;min-width:260px;max-width:75vw;flex:none;overflow:auto;background:var(--panel);padding:4px 12px 30px}
+#splitter{flex:none;width:6px;cursor:col-resize;background:var(--border);touch-action:none;transition:background .15s}
+#splitter:hover,#splitter.active{background:var(--accent)}
+body.resizing{cursor:col-resize;user-select:none}
+details{border-bottom:1px solid var(--border);padding:4px 0 8px}
+summary{font-weight:600;cursor:pointer;padding:6px 0;user-select:none}
+.row{display:flex;align-items:center;gap:6px;margin:5px 0}
+.row>label:first-child,.row>span:first-child{flex:1}
+.hint{color:var(--muted);font-size:12px;margin:4px 0}
+.sub{font-weight:600;font-size:12px;color:var(--muted);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.03em}
+input,select,textarea,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 6px}
+input[type=number]{width:72px}
+input[type=color]{width:38px;height:26px;padding:1px 2px}
+input[type=checkbox]{accent-color:var(--accent)}
+select{max-width:200px}
+textarea{width:100%;font-family:Consolas,"Courier New",monospace;font-size:12px;resize:vertical}
+#src{height:150px;white-space:pre;overflow-wrap:normal}
+textarea.small{height:46px;font-family:inherit;font-size:13px}
+button{cursor:pointer;background:var(--panel)}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btns{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.chk{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin:6px 0}
+.chk label{display:flex;gap:5px;align-items:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.types{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}
+.types button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;font-size:11px;line-height:1.15}
+.types svg{width:30px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6}
+.dis{opacity:.45}
+#preview{overflow:auto;max-height:260px;margin:6px 0;border:1px solid var(--border);border-radius:5px}
+#preview table{border-collapse:collapse;font-size:12px;white-space:nowrap}
+#preview th,#preview td{padding:2px 6px;border-bottom:1px solid var(--border);text-align:left}
+#preview th{position:sticky;top:0;background:var(--panel);vertical-align:top}
+#preview th select{display:block;margin-top:2px;font-size:11px;padding:1px 2px;font-weight:400}
+#preview td.num{text-align:right}
+#preview td.na{color:var(--muted)}
+.flt{display:flex;gap:4px;align-items:center;margin:4px 0}
+.flt select{max-width:120px}
+.flt input{width:80px}
+.grid{display:grid;gap:4px 6px;align-items:center;margin:6px 0}
+.grid .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grid input[type=number]{width:52px}
+.grid select{max-width:92px}
+.grid .h{color:var(--muted);font-size:11px}
+.lv{cursor:grab}
+.lv.drag{opacity:.4}
+.lv.over{outline:2px dashed var(--accent)}
+.row>.handle:first-child,.handle{flex:none;cursor:grab;color:var(--muted);user-select:none;padding:0 2px}
+#series .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#series select{max-width:108px;padding:2px 3px}
+#series input[type=number]{width:50px}
+.swatch{display:flex;height:12px;border-radius:3px;overflow:hidden;margin:2px 0 6px;border:1px solid var(--border)}
+.swatch span{flex:1}
+#stage{flex:1;display:flex;flex-direction:column;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--border)}
+.toolbar label{display:flex;align-items:center;gap:4px}
+.toolbar .sep{width:1px;height:22px;background:var(--border);margin:0 4px}
+#view{flex:1;overflow:auto;display:flex;padding:30px;position:relative}
+#wrap{margin:auto;line-height:0;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+#wrap.checker{background:repeating-conic-gradient(#cfcfcf 0 25%,#fff 0 50%) 0 0/16px 16px}
+#wrap svg{display:block}
+#wrap [data-sk],#wrap [data-lv]{cursor:pointer}
+#wrap [data-edit]{cursor:text}
+#tip{position:fixed;pointer-events:none;background:rgba(25,28,35,.94);color:#fff;font-size:12px;padding:5px 8px;border-radius:5px;white-space:pre;z-index:9;display:none;line-height:1.35}
+#editBox{position:fixed;z-index:9;font:inherit;padding:2px 4px;border:2px solid var(--accent);border-radius:4px;background:var(--panel);color:var(--text)}
+#status{padding:4px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel)}
+#status b{color:#c0392b;font-weight:600}
+#toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:10}
+#toast.show{opacity:.95}
+@media (max-width:820px){main{flex-direction:column}aside{width:auto!important;max-width:none;max-height:45vh;border-bottom:1px solid var(--border)}#splitter{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Diagramm-Designer</h1>
+  <span class="hint">Tabelle einfügen → Diagramm gestalten → als Bild oder für Word exportieren</span>
+  <span class="sp"></span>
+  <button id="hWord" class="primary" title="PNG (in Originalgröße) und, wenn möglich, SVG in die Zwischenablage, dann in Word Strg+V">Für Word kopieren</button>
+  <button id="hCopy">Bild kopieren</button>
+  <button id="hPng">PNG speichern</button>
+</header>
+<main>
+<aside>
+  <details open>
+    <summary>Daten</summary>
+    <textarea id="src" spellcheck="false" placeholder="Zeit;Messwert&#10;0;1,5&#10;1;2,3"></textarea>
+    <div class="row">
+      <input type="file" id="file" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls" hidden>
+      <button id="btnOpen">Datei öffnen…</button>
+      <select id="sheetSel" hidden title="Tabellenblatt"></select>
+      <select id="tblSel" hidden title="Tabelle"></select>
+      <span style="flex:1"></span>
+      <select id="sampleSel" title="Beispieldaten laden"><option value="">Beispiel…</option></select>
+    </div>
+    <div class="row"><label><input type="checkbox" data-p="useHeader"> Erste Zeile ist Kopfzeile</label></div>
+    <div id="dataInfo" class="hint"></div>
+    <div id="preview"></div>
+    <div class="sub">Zeilen filtern</div>
+    <div id="filters"></div>
+    <div class="btns"><button id="btnAddFilter">+ Filter</button></div>
+    <p class="hint">Markdown-Tabellen, CSV/TSV (Trennzeichen wird erkannt), aus Excel kopierte Zellen und .xlsx-Dateien, auch per Drag &amp; Drop. Deutsche Zahlen wie 1.234,5 werden erkannt. Den Typ einer Spalte kannst du in der Vorschau ändern.</p>
+  </details>
+
+  <details open>
+    <summary>Diagramm</summary>
+    <div id="types" class="types"></div>
+    <div class="row"><span id="lblX">X-Achse</span><select data-p="x" class="colSel"></select></div>
+    <div class="hint" id="lblYs">Y-Werte (mehrere Spalten ergeben mehrere Reihen)</div>
+    <div id="ys" class="chk"></div>
+    <div class="sub">Gruppierung</div>
+    <div class="row"><span>Farbe (hue)</span><select data-p="hue" class="grpSel"></select></div>
+    <div class="row" id="rowHueBins"><span>Numerisch: in Klassen einteilen (0 = fortlaufend)</span><input type="number" min="0" max="12" data-p="hueBins"></div>
+    <div class="row"><span>Stil (style)</span><select data-p="style" class="grpSel"></select></div>
+    <div class="row" id="rowSize"><span>Größe (size)</span><select data-p="size" class="grpSel"></select></div>
+    <div id="statBox">
+      <div class="sub">Statistik</div>
+      <div class="row"><span>Bei gleichem X-Wert</span>
+        <select data-p="agg"><option value="none">nicht zusammenfassen</option><option value="mean">Mittelwert</option><option value="median">Median</option><option value="sum">Summe</option><option value="count">Anzahl</option><option value="min">Minimum</option><option value="max">Maximum</option></select></div>
+      <div class="row"><span>Streuung</span>
+        <select data-p="err"><option value="none">keine</option><option value="sd">Standardabweichung</option><option value="se">Standardfehler</option><option value="ci">95-%-Konfidenzintervall</option></select>
+        <select data-p="errStyle"><option value="band">Band</option><option value="bars">Fehlerbalken</option></select></div>
+      <div class="row" id="rowLineOpts"><label><input type="checkbox" data-p="sortX"> X sortieren</label><label><input type="checkbox" data-p="connectGaps"> Lücken verbinden</label></div>
+      <div class="row" id="rowTrend"><label><input type="checkbox" data-p="trend"> Trendlinie (linear)</label><label><input type="checkbox" data-p="trendEq"> Gleichung und R²</label></div>
+    </div>
+    <div id="barBox">
+      <div class="sub">Balken</div>
+      <div class="row"><span>Höhe</span>
+        <select data-p="bar.stat"><option value="value">Werte (Y-Spalten)</option><option value="count">Häufigkeit (Anzahl)</option><option value="percent">Häufigkeit (Prozent)</option></select></div>
+      <div class="row"><span>Anordnung</span>
+        <select data-p="bar.mode"><option value="dodge">nebeneinander</option><option value="stack">gestapelt</option><option value="stack100">gestapelt 100 %</option></select></div>
+      <div class="row" id="rowOrient"><span>Ausrichtung</span>
+        <select data-p="bar.orient"><option value="v">vertikal</option><option value="h">horizontal</option></select></div>
+      <div class="row"><span>Reihenfolge der Kategorien</span>
+        <select data-p="bar.order"><option value="data">wie in den Daten</option><option value="alpha">alphabetisch</option><option value="asc">nach Wert aufsteigend</option><option value="desc">nach Wert absteigend</option><option value="manual">manuell (Reihen-Panel)</option></select></div>
+      <div class="row"><span>Bezugslinie bei</span><input type="number" step="any" data-p="bar.base"></div>
+      <div class="row"><label><input type="checkbox" data-p="bar.zero"> Achse beginnt bei der Bezugslinie</label></div>
+    </div>
+    <div id="histBox">
+      <div class="sub">Histogramm</div>
+      <div class="row"><span>Klassen</span>
+        <select data-p="hist.binMode"><option value="fd">automatisch (Freedman–Diaconis)</option><option value="n">Anzahl</option><option value="w">Klassenbreite</option></select></div>
+      <div class="row" id="rowBins"><span>Anzahl Klassen</span><input type="number" min="1" max="500" data-p="hist.bins"></div>
+      <div class="row" id="rowBinW"><span>Klassenbreite</span><input type="number" step="any" min="0" data-p="hist.width"></div>
+      <div class="row"><span>Y-Achse</span>
+        <select data-p="hist.stat"><option value="count">Anzahl</option><option value="density">Dichte</option><option value="percent">Prozent</option></select></div>
+      <div class="row"><span>Mehrere Gruppen</span>
+        <select data-p="hist.multiple"><option value="layer">überlagert</option><option value="stack">gestapelt</option><option value="dodge">nebeneinander</option></select></div>
+    </div>
+    <div id="boxBox">
+      <div class="sub">Boxplot / Violin</div>
+      <div class="row"><label><input type="checkbox" data-p="box.fliers"> Ausreißer zeigen (Boxplot)</label></div>
+      <div class="row"><span>Innen (Violin)</span>
+        <select data-p="box.inner"><option value="box">Box</option><option value="quart">Quartile</option><option value="none">nichts</option></select></div>
+      <div class="row"><span>Breite (Violin)</span>
+        <select data-p="box.norm"><option value="area">gleiche Fläche</option><option value="width">gleiche Breite</option></select></div>
+    </div>
+    <div id="hmBox">
+      <div class="sub">Heatmap</div>
+      <div class="row"><label><input type="checkbox" data-p="hm.annot"> Werte in den Zellen</label></div>
+      <div class="row"><span>Nachkommastellen</span><select data-p="hm.dec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+      <p class="hint">Zeilen = Kategorien der X-Spalte, Spalten = Y-Spalten bzw. Stufen von „Farbe (hue)“, Zellwert = Aggregat (Standard Mittelwert).</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Reihen</summary>
+    <div id="series"></div>
+    <div class="btns"><button id="btnResetSeries">Auf Palette zurücksetzen</button></div>
+    <p class="hint">Stufen und Kategorien lassen sich mit ⠿ ziehen, um die Reihenfolge (Legende, Farben, Balken) zu ändern. Einstellungen werden je Reihenname gespeichert und bleiben bei neuen Daten mit gleichen Namen erhalten. In der Vorschau blendet ein Klick auf einen Legendeneintrag die Reihe aus oder ein.</p>
+  </details>
+
+  <details open>
+    <summary>Vorlagen</summary>
+    <div class="btns" id="presetBtns"></div>
+    <div class="row"><span>Kontext (Skalierung)</span>
+      <select data-k="context"><option value="paper">paper (0,8×)</option><option value="notebook">notebook (1×)</option><option value="talk">talk (1,5×)</option><option value="poster">poster (2×)</option></select></div>
+    <div class="row"><input id="presetName" placeholder="Name für eigene Vorlage" style="flex:1"><button id="btnSavePreset">Speichern</button></div>
+    <div class="row"><select id="userPresets" style="flex:1;max-width:none"></select><button id="btnLoadPreset">Laden</button><button id="btnDelPreset" title="Vorlage löschen">✕</button></div>
+    <div id="folderBox">
+      <div class="hint" style="margin-top:10px;font-weight:600">Stil-Ordner</div>
+      <div class="row"><span id="dirName" class="hint" style="flex:1">kein Ordner gewählt</span><button id="btnDirGrant" hidden>Freigeben</button><button id="btnDirPick">Ordner wählen…</button></div>
+      <div class="row"><select id="dirStyles" style="flex:1;max-width:none"></select><button id="btnDirLoad">Laden</button><button id="btnDirRefresh" title="Liste aktualisieren">⟳</button></div>
+      <div class="row"><button id="btnDirSave">Im Ordner speichern</button><span class="hint">verwendet den Namen aus dem Feld oben</span></div>
+      <p class="hint">Ist ein Ordner verbunden, legt „Stil exportieren“ automatisch eine Kopie darin ab. Liegt der Ordner auf einem Netzlaufwerk oder in OneDrive, nutzen alle dieselben Stile.</p>
+    </div>
+    <p id="folderNo" class="hint" hidden>Der Stil-Ordner funktioniert nur in Edge und Chrome. Hier bitte „Stil exportieren“ und „Stil importieren“ verwenden.</p>
+    <div class="btns">
+      <button id="btnExportStyle">Stil exportieren (.json)</button>
+      <button id="btnImportStyle">Stil importieren</button>
+      <input type="file" id="styleFile" accept=".json" hidden>
+      <button id="btnReset">Alles zurücksetzen</button>
+    </div>
+    <p class="hint">Ein Stil ändert nur das Aussehen. Daten, Titel und Achsentitel bleiben erhalten.</p>
+  </details>
+
+  <details open>
+    <summary>Farben</summary>
+    <div class="row"><span>Palette (Gruppen)</span><select data-k="palette"></select></div>
+    <div id="palSw" class="swatch"></div>
+    <div class="row"><span>Fortlaufend (Zahlen, Heatmap)</span><select data-k="seqPal"></select><label><input type="checkbox" data-k="seqRev"> umkehren</label></div>
+    <div id="seqSw" class="swatch"></div>
+    <div class="row"><span>Hintergrund Abbildung</span><input type="color" data-k="bg"></div>
+    <div class="row"><span>Hintergrund Plotbereich</span><input type="color" data-k="plotBg"></div>
+    <div class="row"><label><input type="checkbox" data-k="transparent"> Transparenter Hintergrund</label></div>
+    <div class="row"><span>Textfarbe</span><input type="color" data-k="textColor"></div>
+  </details>
+
+  <details>
+    <summary>Linien, Marker &amp; Balken</summary>
+    <div class="row"><span>Linienbreite (pt)</span><input type="number" step="0.25" min="0" data-k="lineW"></div>
+    <div class="row"><span>Markergröße (pt)</span><input type="number" step="0.5" min="0" data-k="markerSize"></div>
+    <div class="row"><span>Markerrand</span><select data-k="markerEdge"><option value="none">keiner</option><option value="white">weiß</option><option value="darker">dunkler</option></select></div>
+    <div class="row"><span>Deckkraft</span><input type="number" step="0.05" min="0" max="1" data-k="alpha"></div>
+    <div class="row"><span>Deckkraft Band / Fläche</span><input type="number" step="0.05" min="0" max="1" data-k="bandAlpha"><input type="number" step="0.05" min="0" max="1" data-k="areaAlpha"></div>
+    <div class="row"><label><input type="checkbox" data-k="autoDash"> Reihen zusätzlich über Linienstil/Marker unterscheiden</label></div>
+    <div class="sub">Größen-Zuordnung (size)</div>
+    <div class="row"><span>Marker von–bis (pt)</span><input type="number" step="0.5" min="0" data-k="sizeMin"><input type="number" step="0.5" min="0" data-k="sizeMax"></div>
+    <div class="row"><span>Linie von–bis (pt)</span><input type="number" step="0.25" min="0" data-k="lwMin"><input type="number" step="0.25" min="0" data-k="lwMax"></div>
+    <div class="sub">Balken</div>
+    <div class="row"><span>Balkenbreite (0–1)</span><input type="number" step="0.05" min="0.05" max="1" data-k="barWidth"></div>
+    <div class="row"><span>Abstand in der Gruppe (0–1)</span><input type="number" step="0.05" min="0" max="0.9" data-k="barGap"></div>
+    <div class="row"><span>Rahmen</span><select data-k="barEdge"><option value="none">keiner</option><option value="darker">wie Füllung, dunkler</option><option value="color">Farbe</option></select><input type="color" data-k="barEdgeColor"></div>
+    <div class="row"><span>Rahmenbreite (pt)</span><input type="number" step="0.25" min="0" data-k="barEdgeW"></div>
+    <div class="row"><span>Deckkraft Füllung</span><input type="number" step="0.05" min="0" max="1" data-k="barAlpha"></div>
+    <div class="row"><span>Werte an den Balken</span><select data-k="valueLabels"><option value="none">keine</option><option value="above">über dem Balken</option><option value="inside">im Balken</option><option value="center">in der Mitte</option></select></div>
+    <div class="row"><span>Nachkommastellen der Werte</span><select data-k="valueDec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+    <div class="sub">Fehlerbalken</div>
+    <div class="row"><span>Farbe</span><select data-k="errColorMode"><option value="fixed">fest</option><option value="series">wie Reihe</option></select><input type="color" data-k="errColor"></div>
+    <div class="row"><span>Linienbreite (pt)</span><input type="number" step="0.25" min="0" data-k="errW"></div>
+    <div class="row"><span>Kappenbreite (Anteil Balken)</span><input type="number" step="0.05" min="0" max="1" data-k="errCap"></div>
+  </details>
+
+  <details>
+    <summary>Achsen</summary>
+    <div class="sub">X-Achse</div>
+    <div class="row"><span>Titel</span><input data-k="xTitle" style="width:170px"></div>
+    <div class="row"><span>Min / Max</span><input data-k="xMin" placeholder="auto" style="width:70px"><input data-k="xMax" placeholder="auto" style="width:70px"></div>
+    <div class="row"><span>Skala</span><select data-k="xScale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
+    <div class="row"><span>Ticks: Anzahl / Abstand</span><input type="number" min="0" max="30" data-k="xTicks" title="0 = automatisch"><input data-k="xStep" placeholder="auto" style="width:70px"></div>
+    <div class="row"><span>Nachkommastellen</span><select data-k="xDec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><label><input type="checkbox" data-k="xSci"> wiss.</label></div>
+    <div class="row"><span>Datumsformat</span><select data-k="xDate" class="dateFmt"></select></div>
+    <div class="row"><span>Beschriftung drehen</span><select data-k="xRot"><option value="auto">automatisch</option><option value="0">0°</option><option value="45">45°</option><option value="90">90°</option></select></div>
+    <div class="sub">Y-Achse</div>
+    <div class="row"><span>Titel</span><input data-k="yTitle" style="width:170px"></div>
+    <div class="row"><span>Min / Max</span><input data-k="yMin" placeholder="auto" style="width:70px"><input data-k="yMax" placeholder="auto" style="width:70px"></div>
+    <div class="row"><span>Skala</span><select data-k="yScale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
+    <div class="row"><span>Ticks: Anzahl / Abstand</span><input type="number" min="0" max="30" data-k="yTicks" title="0 = automatisch"><input data-k="yStep" placeholder="auto" style="width:70px"></div>
+    <div class="row"><span>Nachkommastellen</span><select data-k="yDec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><label><input type="checkbox" data-k="ySci"> wiss.</label></div>
+    <div class="row"><span>Datumsformat</span><select data-k="yDate" class="dateFmt"></select></div>
+    <div class="sub">Rechte Y-Achse</div>
+    <p class="hint">Im Reihen-Panel einzelne Reihen der rechten Achse zuordnen.</p>
+    <div class="row"><span>Titel</span><input data-k="y2Title" style="width:170px"></div>
+    <div class="row"><span>Min / Max</span><input data-k="y2Min" placeholder="auto" style="width:70px"><input data-k="y2Max" placeholder="auto" style="width:70px"></div>
+    <div class="row"><span>Skala</span><select data-k="y2Scale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
+    <div class="row"><span>Nachkommastellen</span><select data-k="y2Dec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="sub">Zahlen</div>
+    <div class="row"><span>Dezimaltrennzeichen</span><select data-k="decSep"><option value=",">Komma (1,5)</option><option value=".">Punkt (1.5)</option></select></div>
+    <div class="row"><label><input type="checkbox" data-k="thousands"> Tausendertrennzeichen</label></div>
+    <div class="sub">Achsenlinien &amp; Ticks</div>
+    <div class="row"><span>Achsenlinien</span><select data-k="spines"><option value="all">alle vier</option><option value="lb">nur links + unten</option><option value="none">keine</option></select></div>
+    <div class="row"><span>Farbe / Breite (pt)</span><input type="color" data-k="spineColor"><input type="number" step="0.1" min="0" data-k="spineW"></div>
+    <div class="row"><span>Ticks</span><select data-k="tickDir"><option value="out">außen</option><option value="in">innen</option><option value="none">keine</option></select><label><input type="checkbox" data-k="minor"> Zwischen-Ticks</label></div>
+    <div class="row"><span>Tick-Länge (pt)</span><input type="number" step="0.5" min="0" data-k="tickLen"></div>
+    <div class="sub">Gitter</div>
+    <div class="row"><span>Gitterlinien</span><select data-k="grid"><option value="none">keine</option><option value="major">Haupt</option><option value="both">Haupt + Neben</option></select><label><input type="checkbox" data-k="gridX"> X</label><label><input type="checkbox" data-k="gridY"> Y</label></div>
+    <div class="row"><span>Farbe / Stil</span><input type="color" data-k="gridColor"><select data-k="gridStyle"><option value="solid">durchgezogen</option><option value="dashed">gestrichelt</option><option value="dotted">gepunktet</option></select></div>
+    <div class="row"><span>Breite (pt)</span><input type="number" step="0.1" min="0" data-k="gridW"></div>
+  </details>
+
+  <details open>
+    <summary>Beschriftung</summary>
+    <div class="row"><span>Titel</span><input data-k="title" style="width:200px"></div>
+    <div class="row"><span>Untertitel</span><input data-k="subtitle" style="width:200px"></div>
+    <textarea class="small" data-k="note" placeholder="Fußnote / Quelle, z. B. Quelle: eigene Messungen"></textarea>
+    <div class="row"><span>Titel ausrichten</span><select data-k="titleAlign"><option value="left">links</option><option value="center">zentriert</option><option value="right">rechts</option></select><label><input type="checkbox" data-k="titleBold"> fett</label></div>
+    <p class="hint">**fett** und *kursiv* sind möglich. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
+    <div class="sub">Legende</div>
+    <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
+    <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
+    <div class="row"><span>Spalten</span><input type="number" min="0" max="12" data-k="legendCols" title="0 = automatisch"><label><input type="checkbox" data-k="legendFrame"> Rahmen</label></div>
+    <div class="row"><span>Titel der Legende</span><input data-k="legendTitle" style="width:150px" placeholder="automatisch"></div>
+  </details>
+
+  <details open>
+    <summary>Abbildung</summary>
+    <div class="row"><span>Breite × Höhe</span><input type="number" step="0.1" min="0.5" data-k="figW"><input type="number" step="0.1" min="0.5" data-k="figH">
+      <select data-k="figUnit"><option>cm</option><option>mm</option><option value="in">Zoll</option><option>px</option></select></div>
+    <div class="btns" id="sizeBtns"></div>
+    <div class="row"><label><input type="checkbox" id="lockAspect"> Seitenverhältnis sperren</label></div>
+    <div class="row"><span>Schriftart</span>
+      <select data-k="font">
+        <option>Arial</option><option>Helvetica</option><option>DejaVu Sans</option><option>Calibri</option><option>Aptos</option><option>Segoe UI</option>
+        <option>Verdana</option><option>Tahoma</option><option>Century Gothic</option><option>Cambria</option>
+        <option>Times New Roman</option><option>Georgia</option><option>Garamond</option><option>Palatino Linotype</option>
+        <option>CMU Serif</option><option>Latin Modern Roman</option><option>Consolas</option><option>Courier New</option>
+      </select></div>
+    <div class="row"><span>Eigene Schrift</span><input data-k="fontCustom" placeholder="z. B. Source Sans Pro" style="width:160px"></div>
+    <div class="row"><span>Grundschrift / Titel (pt)</span><input type="number" step="0.5" min="3" data-k="fontSize"><input type="number" step="0.5" min="3" data-k="titleSize"></div>
+    <div class="row"><span>Achsentitel / Ticks (pt)</span><input type="number" step="0.5" min="3" data-k="labelSize"><input type="number" step="0.5" min="3" data-k="tickSize"></div>
+    <div class="row"><span>Legende (pt)</span><input type="number" step="0.5" min="3" data-k="legendSize"></div>
+    <div class="row"><span>Ränder</span><select data-k="marginMode"><option value="auto">automatisch</option><option value="manual">manuell (pt)</option></select></div>
+    <div class="row" id="rowMargins"><span>L / R / O / U</span><input type="number" min="0" data-k="mL" style="width:48px"><input type="number" min="0" data-k="mR" style="width:48px"><input type="number" min="0" data-k="mT" style="width:48px"><input type="number" min="0" data-k="mB" style="width:48px"></div>
+    <div class="row"><span>Export-Auflösung</span><select data-k="dpi" data-num="1"><option value="150">150 dpi</option><option value="300">300 dpi</option><option value="600">600 dpi</option></select></div>
+    <p class="hint">Schriftgrößen in pt und die Abbildungsgröße entsprechen der Größe im Dokument, wenn PNG oder SVG in Originalgröße (100 %) eingefügt werden.</p>
+  </details>
+
+  <details open>
+    <summary>Export</summary>
+    <div class="row"><span>Dateiname</span><input data-k="fileName" style="width:150px"></div>
+    <div class="btns"><button id="btnPng" class="primary">PNG speichern</button><button id="btnCopy">Bild kopieren</button><button id="btnWord">Für Word kopieren</button><button id="btnSvg">SVG speichern</button><button id="btnPdf">PDF (Drucken)</button></div>
+    <div class="btns"><button id="btnPyCopy">Python-Code kopieren</button><button id="btnPySave">.py speichern</button></div>
+    <details id="pyPrevBox" style="border:0;padding:0">
+      <summary style="font-weight:400">Code-Vorschau</summary>
+      <textarea id="pyPrev" readonly spellcheck="false" style="height:240px;white-space:pre"></textarea>
+    </details>
+    <p class="hint">SVG ist eine Vektorgrafik und bleibt bei jedem Zoom scharf; Word und PowerPoint können sie einfügen. „PDF“ öffnet den Druckdialog mit passender Seitengröße, dort „Als PDF speichern“ wählen. „Für Word kopieren“ fügt das Bild in Originalgröße ein. Der Python-Code baut das Diagramm mit pandas, matplotlib und seaborn nach.</p>
+  </details>
+</aside>
+<div id="splitter" title="Ziehen zum Ändern der Breite (Doppelklick = Standard)"></div>
+
+<section id="stage">
+  <div class="toolbar">
+    <label><input type="checkbox" id="fit" checked> Einpassen</label>
+    <label>Zoom <input type="range" id="zoom" min="25" max="400" value="150" style="width:110px"></label><span id="zoomLbl">150 %</span>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="tips" checked> Werte beim Überfahren zeigen</label>
+    <span class="sep"></span>
+    <button id="tPng">PNG</button><button id="tSvg">SVG</button><button id="tPdf">PDF</button>
+  </div>
+  <div id="view"><div id="wrap"></div></div>
+  <div id="status"></div>
+</section>
+</main>
+<div id="tip"></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const PT = 96 / 72;
+const STORE = 'plotDesigner.v1';
+const VAR = '\uE000Variable';   // Pseudo-Spalte der langen Form: Name der Y-Spalte
+const VAR_LABEL = 'Variable (Y-Spalten)';
+
+/* ---------- Paletten (Werte aus matplotlib/seaborn, erzeugt mit tools/paletten.py) ---------- */
+const CAT_PAL = {
+  'tab10': '1F77B4 FF7F0E 2CA02C D62728 9467BD 8C564B E377C2 7F7F7F BCBD22 17BECF',
+  'tab20': '1F77B4 AEC7E8 FF7F0E FFBB78 2CA02C 98DF8A D62728 FF9896 9467BD C5B0D5 8C564B C49C94 E377C2 F7B6D2 7F7F7F C7C7C7 BCBD22 DBDB8D 17BECF 9EDAE5',
+  'deep': '4C72B0 DD8452 55A868 C44E52 8172B3 937860 DA8BC3 8C8C8C CCB974 64B5CD',
+  'muted': '4878D0 EE854A 6ACC64 D65F5F 956CB4 8C613C DC7EC0 797979 D5BB67 82C6E2',
+  'pastel': 'A1C9F4 FFB482 8DE5A1 FF9F9B D0BBFF DEBB9B FAB0E4 CFCFCF FFFEA3 B9F2F0',
+  'bright': '023EFF FF7C00 1AC938 E8000B 8B2BE2 9F4800 F14CC1 A3A3A3 FFC400 00D7FF',
+  'dark': '001C7F B1400D 12711C 8C0800 591E71 592F0D A23582 3C3C3C B8850A 006374',
+  'colorblind': '0173B2 DE8F05 029E73 D55E00 CC78BC CA9161 FBAFE4 949494 ECE133 56B4E9',
+  'Set1': 'E41A1C 377EB8 4DAF4A 984EA3 FF7F00 FFFF33 A65628 F781BF 999999',
+  'Set2': '66C2A5 FC8D62 8DA0CB E78AC3 A6D854 FFD92F E5C494 B3B3B3',
+  'Dark2': '1B9E77 D95F02 7570B3 E7298A 66A61E E6AB02 A6761D 666666',
+  'Paired': 'A6CEE3 1F78B4 B2DF8A 33A02C FB9A99 E31A1C FDBF6F FF7F00 CAB2D6 6A3D9A FFFF99 B15928',
+  'ggplot': 'E24A33 348ABD 988ED5 777777 FBC15E 8EBA42 FFB5B8',
+  '538': '008FD5 FC4F30 E5AE38 6D904F 8B8B8B 810F7C',
+  'bmh': '348ABD A60628 7A68A6 467821 D55E00 CC79A7 56B4E9 009E73 F0E442 0072B2',
+  'grau': '000000 7F7F7F 404040 B2B2B2 262626 999999'
+};
+const PAL_LABEL = { tab10: 'tab10 (matplotlib)', deep: 'deep (seaborn)', '538': 'FiveThirtyEight', grau: 'Graustufen' };
+const SEQ_PAL = {
+  'viridis': '440154 482475 414487 355F8D 2A788E 21918C 22A884 44BF70 7AD151 BDDF26 FDE725',
+  'plasma': '0D0887 41049D 6A00A8 8F0DA4 B12A90 CC4778 E16462 F2844B FCA636 FCCE25 F0F921',
+  'cividis': '00224E 083370 35456C 4F576C 666970 7D7C78 948E77 AEA371 C8B866 E5CF52 FEE838',
+  'rocket': '03051A 251433 4C1D4B 751F58 A11A5B CB1B4F E83F3F F3714D F69C73 F7C6A6 FAEBDD',
+  'mako': '0B0405 251729 382A54 413F80 395D9C 357BA3 3497A9 3EB4AD 60CEAC A9E1BD DEF5E5',
+  'Blues': 'F7FBFF E3EEF9 D0E1F2 B7D4EA 94C4DF 6AAED6 4A98C9 2E7EBC 1764AB 084A91 08306B',
+  'RdBu': '67001F B1182B D6604D F3A481 FDDBC7 F6F7F7 D1E5F0 90C4DD 4393C3 2065AB 053061',
+  'coolwarm': '3B4CC0 5977E3 7B9FF9 9EBEFF C0D4F5 DDDCDC F2CBB7 F7AC8E EE8468 D65244 B40426',
+  'vlag': '2369BD 5B84BD 87A0C4 AFBCD1 D9DCE5 FAF5F4 ECD3D2 DBABA8 CC8582 BB5E5D A9373B'
+};
+const SEQ_LABEL = { RdBu: 'RdBu (divergierend)', coolwarm: 'coolwarm (divergierend)', vlag: 'vlag (divergierend)' };
+
+/* ---------- Linienstile, Marker, Schraffuren ---------- */
+// Strichmuster wie matplotlib, als Vielfaches der Linienbreite
+const DASH = { solid: null, dashed: [3.7, 1.6], dotted: [1, 1.65], dashdot: [6.4, 1.6, 1, 1.6], longdash: [8, 3], dashdotdot: [5, 1.5, 1, 1.5, 1, 1.5] };
+const DASH_LABEL = { solid: 'durchgezogen', dashed: 'gestrichelt', dotted: 'gepunktet', dashdot: 'Strich-Punkt', longdash: 'lang gestrichelt', dashdotdot: 'Strich-Punkt-Punkt' };
+const DASH_ORDER = ['solid', 'dashed', 'dotted', 'dashdot', 'longdash', 'dashdotdot'];
+const MARKER_LABEL = { none: 'keiner', o: '● Kreis', s: '■ Quadrat', '^': '▲ Dreieck', v: '▼ Dreieck', D: '◆ Raute', x: '✕ Kreuz', '+': '+ Plus', '*': '★ Stern' };
+const MARKER_ORDER = ['o', 's', '^', 'D', 'v', 'x', '+', '*'];
+const HATCH_LABEL = { '': 'keine', '/': '////', '\\': '\\\\\\\\', x: 'xxxx', '.': '....', '-': '----', '+': '++++', '|': '||||' };
+const HATCH_ORDER = ['', '/', '\\', 'x', '.', '-', '+', '|'];
+
+/* ---------- Standardwerte ---------- */
+const DEF = {
+  figW: 16, figH: 10, figUnit: 'cm', font: 'Arial', fontCustom: '', context: 'notebook',
+  fontSize: 10, titleSize: 12, labelSize: 10, tickSize: 10, legendSize: 10,
+  marginMode: 'auto', mL: 45, mR: 12, mT: 12, mB: 36, dpi: 300, baseStyle: 'mpl',
+  palette: 'tab10', seqPal: 'viridis', seqRev: false, bg: '#ffffff', plotBg: '#ffffff', transparent: false, textColor: '#000000',
+  lineW: 1.5, markerSize: 6, markerEdge: 'none', alpha: 1, bandAlpha: 0.2, areaAlpha: 0.4, autoDash: false,
+  sizeMin: 3, sizeMax: 12, lwMin: 0.75, lwMax: 3,
+  barWidth: 0.8, barGap: 0.05, barEdge: 'none', barEdgeColor: '#000000', barEdgeW: 0.75, barAlpha: 1,
+  valueLabels: 'none', valueDec: -1, errColorMode: 'fixed', errColor: '#424242', errW: 1.5, errCap: 0.3,
+  spines: 'all', spineColor: '#000000', spineW: 0.8, tickDir: 'out', tickLen: 3.5, minor: false,
+  grid: 'none', gridX: true, gridY: true, gridColor: '#b0b0b0', gridStyle: 'solid', gridW: 0.8,
+  decSep: ',', thousands: false,
+  xScale: 'linear', xTicks: 0, xDec: -1, xSci: false, xDate: 'auto', xRot: 'auto',
+  yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
+  y2Scale: 'linear', y2Dec: -1,
+  titleAlign: 'center', titleBold: false,
+  legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true,
+  title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
+  xMin: '', xMax: '', yMin: '', yMax: '', y2Min: '', y2Max: '', xStep: '', yStep: '', fileName: 'diagramm'
+};
+// Inhalt statt Aussehen: gehört nicht zu einem gespeicherten Stil
+const NON_STYLE = ['title', 'subtitle', 'note', 'xTitle', 'yTitle', 'y2Title', 'legendTitle',
+  'xMin', 'xMax', 'yMin', 'yMax', 'y2Min', 'y2Max', 'xStep', 'yStep', 'fileName'];
+const CONTEXT = { paper: 0.8, notebook: 1, talk: 1.5, poster: 2 };
+
+/* ---------- Eingebaute Stile (wie matplotlib-rcParams) ---------- */
+const MPL = {
+  baseStyle: 'mpl', palette: 'tab10', bg: '#ffffff', plotBg: '#ffffff', textColor: '#000000', context: 'notebook',
+  fontSize: 10, titleSize: 12, labelSize: 10, tickSize: 10, legendSize: 10, titleBold: false,
+  lineW: 1.5, markerSize: 6, markerEdge: 'none', autoDash: false,
+  spines: 'all', spineColor: '#000000', spineW: 0.8, tickDir: 'out', tickLen: 3.5, minor: false,
+  grid: 'none', gridX: true, gridY: true, gridColor: '#b0b0b0', gridStyle: 'solid', gridW: 0.8,
+  legendFrame: true, barEdge: 'none', barEdgeColor: '#000000', errColorMode: 'fixed', errColor: '#424242'
+};
+const SNS = { ...MPL, palette: 'deep', textColor: '#262626', fontSize: 12, titleSize: 12, labelSize: 12, tickSize: 11, legendSize: 11,
+  spineW: 1.25, tickLen: 6, gridW: 1, markerEdge: 'white' };
+const STYLES = {
+  'Standard (matplotlib)': MPL,
+  'Seaborn whitegrid': { ...SNS, baseStyle: 'whitegrid', spines: 'all', spineColor: '#cccccc', tickDir: 'none', grid: 'major', gridColor: '#cccccc' },
+  'Seaborn darkgrid': { ...SNS, baseStyle: 'darkgrid', plotBg: '#eaeaf2', spines: 'none', tickDir: 'none', grid: 'major', gridColor: '#ffffff' },
+  'Seaborn ticks': { ...SNS, baseStyle: 'ticks', spines: 'lb', spineColor: '#262626', tickDir: 'out' },
+  'ggplot': { ...MPL, baseStyle: 'ggplot', palette: 'ggplot', plotBg: '#e5e5e5', textColor: '#555555', spines: 'none', spineColor: '#555555',
+    grid: 'major', gridColor: '#ffffff', gridW: 0.8, legendFrame: false },
+  'FiveThirtyEight': { ...MPL, baseStyle: 'fivethirtyeight', palette: '538', bg: '#f0f0f0', plotBg: '#f0f0f0', textColor: '#3c3c3c',
+    fontSize: 11, titleSize: 15, labelSize: 11, tickSize: 11, legendSize: 11, titleBold: true, lineW: 3, markerSize: 7,
+    spines: 'none', tickDir: 'none', grid: 'major', gridColor: '#cbcbcb', gridW: 1, legendFrame: false },
+  'bmh': { ...MPL, baseStyle: 'bmh', palette: 'bmh', plotBg: '#eeeeee', spineColor: '#bcbcbc', grid: 'major', gridColor: '#b2b2b2',
+    gridStyle: 'dashed', gridW: 0.5, lineW: 2 },
+  'Graustufen / Druck': { ...MPL, baseStyle: 'grayscale', palette: 'grau', autoDash: true, barEdge: 'color', barEdgeColor: '#000000' },
+  'Publikation (minimal)': { ...MPL, baseStyle: 'ticks', palette: 'colorblind', spines: 'lb', fontSize: 8, titleSize: 9, labelSize: 8,
+    tickSize: 7, legendSize: 7, lineW: 1, markerSize: 4, spineW: 0.6, tickLen: 3, legendFrame: false, errW: 1, figW: 8.5, figH: 6, figUnit: 'cm' },
+  'Präsentation': { ...SNS, baseStyle: 'whitegrid', context: 'talk', spines: 'all', spineColor: '#cccccc', tickDir: 'none', grid: 'major',
+    gridColor: '#cccccc', lineW: 2, figW: 25.4, figH: 14.29, figUnit: 'cm' }
+};
+const SIZES = [['Einspaltig 8,5 cm', 8.5, 6], ['Zweispaltig 17 cm', 17, 10], ['Folie 16:9', 25.4, 14.29], ['A4 quer', 27.7, 19]];
+
+const freshP = () => ({
+  type: 'line', x: '', ys: [], hue: '', style: '', size: '', hueBins: 0, useHeader: true,
+  agg: 'mean', err: 'none', errStyle: 'band', sortX: true, connectGaps: false, trend: false, trendEq: true,
+  bar: { stat: 'value', mode: 'dodge', orient: 'v', order: 'data', base: 0, zero: true },
+  hist: { binMode: 'fd', bins: 10, width: 1, stat: 'count', multiple: 'layer' },
+  box: { fliers: true, inner: 'box', norm: 'area' },
+  hm: { annot: true, dec: -1 },
+  filters: [], types: {},
+  levels: { hue: {}, style: {}, size: {}, extra: {} },
+  order: { hue: [], style: [], size: [], extra: [], x: [] },
+  series: {}
+});
+
+let S = { ...DEF };
+let P = freshP();
+let D = { cols: [], n: 0 };     // eingelesene Tabelle
+let tables = [], tIdx = 0;      // gefundene Tabellen im Eingabefeld
+let wb = null;                  // geöffnete Excel-Datei (nur im Speicher)
+let R = null;                   // Ergebnis des letzten Renderns (Layout, Trefferflächen)
+let zoom = 1.5;
+
+const mctx = document.createElement('canvas').getContext('2d');
+
+/* ---------- Hilfsfunktionen ---------- */
+const UNIT_PX = { cm: 96 / 2.54, mm: 96 / 25.4, in: 96, px: 1 };
+const toPx = (v, u) => v * (UNIT_PX[u] || 1);
+const fromPx = (v, u) => v / (UNIT_PX[u] || 1);
+const r2 = v => Math.round(v * 100) / 100;
+const f2 = v => +(+v).toFixed(2);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const strip = s => String(s).replace(/<br\s*\/?>/gi, ' ').replace(/\*\*|__|`/g, '').replace(/\\\|/g, '|');
+const safeName = () => (S.fileName || 'diagramm').replace(/[\\/:*?"<>|]/g, '_');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const minOf = a => a.reduce((m, v) => v < m ? v : m, Infinity);
+const maxOf = a => a.reduce((m, v) => v > m ? v : m, -Infinity);
+const getPath = (o, p) => p.split('.').reduce((a, k) => a == null ? a : a[k], o);
+const setPath = (o, p, v) => { const ks = p.split('.'), last = ks.pop(); ks.reduce((a, k) => a[k] = a[k] || {}, o)[last] = v; };
+const ctxF = () => CONTEXT[S.context] || 1;
+
+// Farben
+const rgbOf = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+const hexOf = rgb => '#' + rgb.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
+const mix = (a, b, t) => { const x = rgbOf(a), y = rgbOf(b); return hexOf(x.map((v, i) => v + (y[i] - v) * t)); };
+const darker = (c, t = 0.35) => mix(c, '#000000', t);
+const lum = c => { const [r, g, b] = rgbOf(c).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const palColors = name => (CAT_PAL[name] || CAT_PAL.tab10).split(' ').map(h => '#' + h.toLowerCase());
+function seqColor(t, name) {
+  const st = (SEQ_PAL[name || S.seqPal] || SEQ_PAL.viridis).split(' ').map(h => '#' + h);
+  if (!isFinite(t)) t = 0;
+  t = clamp(S.seqRev ? 1 - t : t, 0, 1) * (st.length - 1);
+  const i = Math.min(st.length - 2, Math.floor(t));
+  return mix(st[i], st[i + 1], t - i);
+}
+
+/* ---------- Eingabe lesen: Markdown, CSV/TSV, Excel-Kopie ---------- */
+const SEP_RE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+function splitRow(line) {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
+  const out = []; let cell = '', code = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '\\' && s[i + 1] === '|') { cell += '\\|'; i++; continue; }
+    if (ch === '`') code = !code;
+    if (ch === '|' && !code) { out.push(cell.trim()); cell = ''; continue; }
+    cell += ch;
+  }
+  out.push(cell.trim());
+  return out;
+}
+function parseMdTables(text) {
+  const blocks = []; let blk = [];
+  for (const l of text.split(/\r?\n/)) {
+    if (l.includes('|')) blk.push(l);
+    else { if (blk.length) blocks.push(blk); blk = []; }
+  }
+  if (blk.length) blocks.push(blk);
+  const res = [];
+  for (const b of blocks) {
+    const rows = b.filter(l => !SEP_RE.test(l)).map(l => splitRow(l).map(strip));
+    if (rows.length) res.push({ rows });
+  }
+  return res;
+}
+// CSV mit Anführungszeichen und Zeilenumbrüchen in Zellen
+function parseCSV(text, d) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+    } else if (ch === '"' && !cell.trim()) { q = true; cell = ''; }
+    else if (ch === d) { row.push(cell.trim()); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell.trim()); rows.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell.trim() || row.length) { row.push(cell.trim()); rows.push(row); }
+  return rows.filter(r => r.some(c => c !== ''));
+}
+// Trennzeichen: das mit der häufigsten gleichbleibenden Feldanzahl pro Zeile
+function detectDelim(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 50);
+  let best = null;
+  for (const d of ['\t', ';', ',', '|']) {
+    const freq = new Map();
+    lines.forEach(l => { const c = (parseCSV(l, d)[0] || []).length; freq.set(c, (freq.get(c) || 0) + 1); });
+    const [mode, k] = [...freq].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0] || [0, 0];
+    if (mode < 2) continue;
+    const score = k / lines.length;
+    if (!best || score > best.score + 1e-9) best = { d, score };
+  }
+  return best ? best.d : null;
+}
+function parseInput(text) {
+  text = text.replace(/^﻿/, '');
+  if (!text.trim()) return [];
+  const d = detectDelim(text);
+  if (d === '|' || text.split(/\r?\n/).some(l => l.includes('|') && SEP_RE.test(l))) return parseMdTables(text);
+  const rows = parseCSV(text, d || '\u0000');
+  const w = Math.max(...rows.map(r => r.length));
+  while (rows.length > 2 && w > 1 && rows[0].length < 2) rows.shift();   // Titelzeilen vor der Tabelle
+  return rows.length ? [{ rows }] : [];
+}
+
+/* ---------- Zahlen und Datum erkennen ---------- */
+const NA_RE = /^(|na|n\/a|nan|null|none|-|–|—|#n\/a|#nv)$/i;
+const isNA = s => NA_RE.test(String(s).trim());
+const NUMISH = /^[-+]?(\d[\d.,]*|[.,]\d+)([eE][-+]?\d+)?$/;
+const cleanNum = s => String(s).trim().replace(/[−‒–]/g, '-').replace(/[\s   ']/g, '').replace(/%$/, '');
+// Welcher Dezimaltrenner passt zu diesem Wert? ',' / '.' / 'int' / null (mehrdeutig wie 1.234)
+function decVote(t) {
+  const c = t.includes(','), d = t.includes('.');
+  if (!c && !d) return 'int';
+  if (c && d) return t.lastIndexOf(',') > t.lastIndexOf('.') ? ',' : '.';
+  const sep = c ? ',' : '.', parts = t.replace(/^[-+]/, '').replace(/[eE].*$/, '').split(sep);
+  if (parts.length > 2) return sep === ',' ? '.' : ',';
+  if (parts[1].length !== 3 || parts[0] === '0' || parts[0] === '' || parts[0].length > 3) return sep;
+  return null;
+}
+function parseNum(s, dec) {
+  const t = cleanNum(s);
+  if (!NUMISH.test(t)) return null;
+  const th = dec === ',' ? '.' : ',';
+  let [ip, fp] = t.split(dec);
+  if (fp !== undefined && (fp.includes(th) || fp.includes(dec))) return null;
+  if (ip.includes(th) && !new RegExp(`^[-+]?\\d{1,3}(\\${th}\\d{3})+$`).test(ip)) return null;
+  const v = Number(ip.split(th).join('') + (fp !== undefined ? '.' + fp : ''));
+  return isFinite(v) ? v : null;
+}
+function slashOrder(vals) {
+  let a = false, b = false, any = false;
+  for (const s of vals) {
+    const m = /^(\d{1,2})\/(\d{1,2})\/\d{4}/.exec(s); if (!m) continue;
+    any = true; if (+m[1] > 12) a = true; if (+m[2] > 12) b = true;
+  }
+  return !any ? null : a && !b ? 'dm' : b && !a ? 'md' : null;   // MM/TT nur, wenn eindeutig
+}
+function parseDate(s, slash) {
+  s = String(s).trim();
+  let m, y, mo, d, h, mi, se;
+  if ((m = /^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s))) [, d, mo, y, h, mi, se] = m;
+  else if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d+)?))?)?(?:Z|[+-]\d{2}:?\d{2})?$/.exec(s))) [, y, mo, d, h, mi, se] = m;
+  else if ((m = /^(\d{4})-(\d{1,2})$/.exec(s))) { [, y, mo] = m; d = 1; }
+  else if (slash && (m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(s))) {
+    [mo, d] = slash === 'md' ? [m[1], m[2]] : [m[2], m[1]]; [, , , y, h, mi, se] = m;
+  } else return null;
+  y = +y; if (y < 100) y += y < 70 ? 2000 : 1900;
+  mo = +mo; d = +d; h = +(h || 0); mi = +(mi || 0); se = +(se || 0);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se >= 60) return null;
+  const t = Date.UTC(y, mo - 1, d, h, mi) + Math.round(se * 1000);
+  return new Date(t).getUTCDate() === d ? t : null;
+}
+// Eine Spalte typisieren: Zahl/Datum ab 80 % erkennbarer Werte, sonst Kategorie
+function makeCol(name, raw, votes, tblDec) {
+  const ov = P.types[name] || 'auto';
+  const dec = ov === 'num,' ? ',' : ov === 'num.' ? '.' : votes[','] > votes['.'] ? ',' : votes['.'] > votes[','] ? '.' : tblDec;
+  const ne = raw.filter(s => !isNA(s));
+  const nums = raw.map(s => isNA(s) ? null : parseNum(s, dec));
+  const slash = slashOrder(ne);
+  const dates = raw.map(s => isNA(s) ? null : parseDate(s, slash));
+  const nN = nums.filter(v => v != null).length, nD = dates.filter(v => v != null).length;
+  const auto = !ne.length ? 'cat' : nD >= 0.8 * ne.length && nD >= nN ? 'date' : nN >= 0.8 * ne.length ? 'num' : 'cat';
+  const type = ov === 'auto' ? auto : ov.startsWith('num') ? 'num' : ov;
+  const val = type === 'num' ? nums : type === 'date' ? dates : raw.map(s => isNA(s) ? null : s);
+  const good = type === 'num' ? nN : type === 'date' ? nD : ne.length;
+  return { name, type, auto, raw, val, dec, pct: type === 'num' && ne.some(s => /%\s*$/.test(s)), bad: ne.length - good };
+}
+function buildData(rows) {
+  const n = Math.max(1, ...rows.map(r => r.length));
+  const hdr = P.useHeader && rows.length > 1 ? rows[0] : null;
+  const body = hdr ? rows.slice(1) : rows;
+  const names = [];
+  for (let c = 0; c < n; c++) {
+    const nm = (hdr && String(hdr[c] ?? '').trim()) || `Spalte ${c + 1}`;
+    let k = nm, i = 2; while (names.includes(k)) k = `${nm} (${i++})`;
+    names.push(k);
+  }
+  const raws = names.map((_, c) => body.map(r => String(r[c] ?? '').trim()));
+  const all = { ',': 0, '.': 0 };
+  const votes = raws.map(raw => {
+    const v = { ',': 0, '.': 0 };
+    for (const s of raw) { const t = cleanNum(s); if (!NUMISH.test(t)) continue; const d = decVote(t); if (d in v) v[d]++; }
+    all[','] += v[',']; all['.'] += v['.'];
+    return v;
+  });
+  const tblDec = all[','] > all['.'] ? ',' : '.';
+  return { cols: names.map((nm, c) => makeCol(nm, raws[c], votes[c], tblDec)), n: body.length };
+}
+
+/* ---------- Statistik (reine Funktionen) ---------- */
+const sum = a => a.reduce((s, v) => s + v, 0);
+const mean = a => a.length ? sum(a) / a.length : NaN;
+function quantile(sorted, q) {   // lineare Interpolation wie numpy
+  if (!sorted.length) return NaN;
+  const p = (sorted.length - 1) * q, i = Math.floor(p), f = p - i;
+  return i + 1 < sorted.length ? sorted[i] + f * (sorted[i + 1] - sorted[i]) : sorted[i];
+}
+const sortNum = a => Float64Array.from(a).sort();
+const median = a => quantile(sortNum(a), 0.5);
+function sd(a) { if (a.length < 2) return NaN; const m = mean(a); return Math.sqrt(sum(a.map(v => (v - m) ** 2)) / (a.length - 1)); }
+function lgamma(x) {
+  const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x, t = x + 5.5; t -= (x + 0.5) * Math.log(t);
+  let s = 1.000000000190015; for (const k of c) s += k / ++y;
+  return -t + Math.log(2.5066282746310005 * s / x);
+}
+function betacf(a, b, x) {
+  let c = 1, d = 1 - (a + b) * x / (a + 1); if (Math.abs(d) < 1e-30) d = 1e-30; d = 1 / d; let h = d;
+  for (let m = 1; m <= 300; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((a - 1 + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < 1e-30) d = 1e-30; c = 1 + aa / c; if (Math.abs(c) < 1e-30) c = 1e-30; d = 1 / d; h *= d * c;
+    aa = -(a + m) * (a + b + m) * x / ((a + m2) * (a + 1 + m2));
+    d = 1 + aa * d; if (Math.abs(d) < 1e-30) d = 1e-30; c = 1 + aa / c; if (Math.abs(c) < 1e-30) c = 1e-30; d = 1 / d;
+    const del = d * c; h *= del; if (Math.abs(del - 1) < 3e-16) break;
+  }
+  return h;
+}
+function ibeta(x, a, b) {   // regularisierte unvollständige Betafunktion
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+}
+function tCdf(t, df) { const p = 0.5 * ibeta(df / (df + t * t), df / 2, 0.5); return t > 0 ? 1 - p : p; }
+function tInv(p, df) {   // Quantil der t-Verteilung per Bisektion
+  let lo = -1e4, hi = 1e4;
+  for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (tCdf(m, df) < p) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+const tCache = new Map();
+const tCrit = df => { if (!tCache.has(df)) tCache.set(df, tInv(0.975, df)); return tCache.get(df); };
+// Halbe Breite der Streuung um den Schätzwert
+function errHalf(vals, kind) {
+  const n = vals.length, s = sd(vals);
+  if (n < 2 || !isFinite(s)) return NaN;
+  return kind === 'sd' ? s : kind === 'se' ? s / Math.sqrt(n) : kind === 'ci' ? tCrit(n - 1) * s / Math.sqrt(n) : NaN;
+}
+const AGG = { mean, median, sum, count: a => a.length, min: minOf, max: maxOf };
+function boxStats(vals) {
+  const s = sortNum(vals), q1 = quantile(s, 0.25), med = quantile(s, 0.5), q3 = quantile(s, 0.75), iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
+  let wlo = q1, whi = q3; const out = [];
+  for (const v of s) { if (v < lo || v > hi) out.push(v); else { if (v < wlo) wlo = v; if (v > whi) whi = v; } }
+  return { q1, med, q3, wlo, whi, out, n: s.length, mean: mean(vals) };
+}
+// Kerndichteschätzung mit Gauß-Kern und Scott-Bandbreite (wie scipy.stats.gaussian_kde)
+function kde(vals, nGrid = 120, cut = 2) {
+  const n = vals.length, s = sd(vals);
+  let bw = s * n ** (-1 / 5);
+  if (!(bw > 0)) bw = Math.abs(vals[0] || 1) * 0.05 || 0.1;
+  const lo = minOf(vals) - cut * bw, hi = maxOf(vals) + cut * bw, k = 1 / (n * bw * Math.sqrt(2 * Math.PI));
+  const ys = [], ds = [];
+  for (let i = 0; i < nGrid; i++) {
+    const y = lo + (hi - lo) * i / (nGrid - 1); let d = 0;
+    for (const v of vals) { const z = (y - v) / bw; d += Math.exp(-0.5 * z * z); }
+    ys.push(y); ds.push(d * k);
+  }
+  return { ys, ds, max: maxOf(ds), bw };
+}
+// Klassengrenzen für Histogramme: Freedman–Diaconis (wie numpy 'fd'), Anzahl oder Breite
+function binEdges(vals, mode, nb, w) {
+  const s = sortNum(vals), lo = s[0], hi = s[s.length - 1];
+  if (!(hi > lo)) return [lo - 0.5, lo + 0.5];
+  if (mode === 'w' && w > 0) {
+    const e = []; let x = Math.floor(lo / w) * w;
+    while (e.length < 1001) { e.push(r12(x)); if (x > hi) break; x += w; }
+    if (e[e.length - 1] <= hi) e.push(r12(x));
+    return e;
+  }
+  if (mode !== 'n') {
+    const h = 2 * (quantile(s, 0.75) - quantile(s, 0.25)) / Math.cbrt(s.length);
+    nb = h > 0 ? Math.ceil((hi - lo) / h) : Math.ceil(Math.log2(s.length) + 1);
+  }
+  nb = clamp(Math.round(nb) || 1, 1, 1000);
+  return Array.from({ length: nb + 1 }, (_, i) => lo + (hi - lo) * i / nb);
+}
+const r12 = v => +v.toPrecision(12);
+function histCounts(vals, edges) {
+  const c = new Array(edges.length - 1).fill(0), last = edges.length - 1;
+  for (const v of vals) {
+    if (v < edges[0] || v > edges[last]) continue;
+    let a = 0, b = last;
+    while (b - a > 1) { const m = (a + b) >> 1; if (v < edges[m]) b = m; else a = m; }
+    c[Math.min(a, last - 1)]++;
+  }
+  return c;
+}
+function linReg(pts) {
+  const n = pts.length; if (n < 2) return null;
+  const mx = mean(pts.map(p => p[0])), my = mean(pts.map(p => p[1]));
+  let sxy = 0, sxx = 0, syy = 0;
+  for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
+  if (!sxx) return null;
+  const a = sxy / sxx, b = my - a * mx;
+  return { a, b, r2: syy ? sxy * sxy / (sxx * syy) : 1 };
+}
+
+/* ---------- Pipeline: Filter → lange Form → Gruppen → Aggregation → Reihen ---------- */
+const TYPE_INFO = {
+  line: { label: 'Linie', xy: true }, scatter: { label: 'Punkte', xy: true }, linept: { label: 'Linie + Punkte', xy: true },
+  bar: { label: 'Balken', cat: true }, area: { label: 'Fläche', xy: true }, hist: { label: 'Histogramm' },
+  box: { label: 'Boxplot', cat: true }, violin: { label: 'Violin', cat: true }, heatmap: { label: 'Heatmap', cat: true }
+};
+const colByName = n => D.cols.find(c => c.name === n) || null;
+const colLabel = n => n === VAR ? 'Variable' : n;
+const MON = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+function fmtDate(t, pat) {
+  const d = new Date(t), p2 = v => String(v).padStart(2, '0');
+  const map = { JJJJ: d.getUTCFullYear(), JJ: p2(d.getUTCFullYear() % 100), MMM: MON[d.getUTCMonth()], MM: p2(d.getUTCMonth() + 1),
+    TT: p2(d.getUTCDate()), HH: p2(d.getUTCHours()), mm: p2(d.getUTCMinutes()), ss: p2(d.getUTCSeconds()) };
+  return pat.replace(/JJJJ|JJ|MMM|MM|TT|HH|mm|ss/g, k => map[k]);
+}
+const dateDefault = t => fmtDate(t, (t % 86400000) ? 'TT.MM.JJJJ HH:mm' : 'TT.MM.JJJJ');
+// Text einer Zelle für Kategorien, Legende und Tooltip
+function cellLabel(col, r) {
+  const v = col.val[r];
+  if (v == null) return null;
+  return col.type === 'num' ? fmtNum(v, -1) : col.type === 'date' ? dateDefault(v) : String(v);
+}
+
+function testFilter(f, r) {
+  const x = f.c.val[r];
+  if (f.op === 'empty') return x == null;
+  if (f.op === 'notempty') return x != null;
+  if (x == null) return false;
+  if (f.op === 'has') return String(f.c.raw[r]).toLowerCase().includes(f.s.toLowerCase());
+  const d = f.v != null && f.c.type !== 'cat' ? x - f.v : String(f.c.raw[r]).localeCompare(f.s, 'de', { numeric: true, sensitivity: 'base' });
+  return { '=': d === 0, '!=': d !== 0, '<': d < 0, '<=': d <= 0, '>': d > 0, '>=': d >= 0 }[f.op];
+}
+function filteredRows() {
+  const fs = P.filters.map(f => {
+    const c = colByName(f.col);
+    if (!c || (f.val === '' && f.op !== 'empty' && f.op !== 'notempty')) return null;
+    const s = String(f.val).trim();
+    const v = c.type === 'num' ? (parseNum(s, c.dec) ?? parseNum(s, '.')) : c.type === 'date' ? parseDate(s, 'dm') : null;
+    return { c, op: f.op, s, v };
+  }).filter(Boolean);
+  const rows = [];
+  for (let r = 0; r < D.n; r++) if (fs.every(f => testFilter(f, r))) rows.push(r);
+  return rows;
+}
+
+// Wirksame Zuordnung: mehrere Y-Spalten werden zur Pseudo-Spalte „Variable“ (wie pd.melt)
+function spec() {
+  const t = P.type, countMode = t === 'bar' && P.bar.stat !== 'value';
+  const ys = countMode ? [] : P.ys.filter(n => { const c = colByName(n); return c && c.type !== 'cat'; });
+  const multi = ys.length > 1;
+  const ok = n => n === VAR ? multi : !!colByName(n);
+  let x = P.x === VAR ? (multi ? VAR : '') : colByName(P.x) ? P.x : '';
+  if (t === 'hist') x = '';
+  const m = { hue: ok(P.hue) ? P.hue : '', style: ok(P.style) ? P.style : '', size: ok(P.size) ? P.size : '', extra: '' };
+  if (['bar', 'area', 'hist', 'box', 'violin', 'heatmap'].includes(t)) m.size = '';
+  if (t === 'heatmap') m.style = '';
+  if (!x && multi && ['bar', 'box', 'violin'].includes(t)) x = VAR;
+  if (multi && x !== VAR && ![m.hue, m.style, m.size].includes(VAR)) {
+    if (!m.hue) m.hue = VAR; else if (!m.style && t !== 'heatmap') m.style = VAR; else m.extra = VAR;
+  }
+  const xc = x && x !== VAR ? colByName(x) : null;
+  const xCat = t !== 'hist' && (!!TYPE_INFO[t].cat || x === VAR || !xc || xc.type === 'cat');
+  return { t, x, xc, ys, m, multi, countMode, xCat };
+}
+
+// Ausprägungen einer Zuordnung (hue/style/size)
+function dimInfo(dim, name, recs, sp) {
+  const col = name === VAR ? null : colByName(name);
+  const info = { dim, name, label: colLabel(name), kind: 'cat', split: true, levels: [], idx: new Map(), min: 0, max: 1 };
+  if (col && col.type !== 'cat' && (dim === 'hue' || dim === 'size')) {
+    const vs = recs.map(rc => col.val[rc.r]).filter(v => v != null);
+    info.min = minOf(vs); info.max = maxOf(vs);
+    if (!(info.max > info.min)) info.max = info.min + 1;
+    info.isDate = col.type === 'date';
+    if (dim === 'hue' && P.hueBins > 0) {   // in Klassen einteilen
+      const nb = Math.round(P.hueBins), w = (info.max - info.min) / nb;
+      const fmt = v => info.isDate ? dateDefault(v) : fmtNum(r12(v), -1);
+      const labels = Array.from({ length: nb }, (_, i) => `${fmt(info.min + i * w)} – ${fmt(info.min + (i + 1) * w)}`);
+      info.get = rc => { const v = col.val[rc.r]; return v == null ? null : labels[clamp(Math.floor((v - info.min) / w), 0, nb - 1)]; };
+      info.levels = labels.filter(l => recs.some(rc => info.get(rc) === l));
+      info.levels.forEach((l, i) => info.idx.set(l, i));
+      return orderLevels(info);
+    }
+    info.kind = 'num';
+    info.num = rc => col.val[rc.r];
+    info.split = sp.t !== 'scatter';
+  }
+  info.get = name === VAR ? rc => rc.v : rc => cellLabel(col, rc.r);
+  const seen = new Map();
+  for (const rc of recs) { const l = info.get(rc); if (l != null && !seen.has(l)) seen.set(l, col && col.type !== 'cat' ? col.val[rc.r] : seen.size); }
+  info.levels = [...seen.keys()];
+  if (col && col.type !== 'cat') info.levels.sort((a, b) => seen.get(a) - seen.get(b));
+  if (name === VAR) info.levels = sp.ys.filter(y => seen.has(y));
+  info.levelVal = l => seen.get(l);
+  return orderLevels(info);
+}
+function orderLevels(info) {
+  const man = P.order[info.dim] || [];
+  if (info.kind === 'cat' && man.length) {
+    const pos = l => { const i = man.indexOf(l); return i < 0 ? 1e6 : i; };
+    info.levels = info.levels.map((l, i) => [l, i]).sort((a, b) => pos(a[0]) - pos(b[0]) || a[1] - b[1]).map(a => a[0]);
+  }
+  info.idx = new Map(info.levels.map((l, i) => [l, i]));
+  return info;
+}
+
+function pipeline() {
+  const sp = spec(), t = sp.t, out = { sp, series: [], cats: [], dims: {}, notes: [] };
+  const rows = filteredRows();
+  out.nRows = rows.length;
+  // lange Form: ein Datensatz je Zeile und Y-Spalte
+  const recs = [];
+  if (sp.countMode || (!sp.ys.length && t === 'hist')) { if (sp.countMode) for (const r of rows) recs.push({ r, v: '', y: 1 }); }
+  else for (const yn of sp.ys) { const yc = colByName(yn); for (const r of rows) recs.push({ r, v: yn, y: yc.val[r] }); }
+  if (!recs.length) return out;
+
+  // X-Werte
+  const xc = sp.xc;
+  if (sp.xCat) {
+    const lab = sp.x === VAR ? rc => rc.v : xc ? rc => cellLabel(xc, rc.r) : () => '';
+    const seen = new Map();
+    for (const rc of recs) { rc.xl = lab(rc); if (rc.xl != null && !seen.has(rc.xl)) seen.set(rc.xl, xc && xc.type !== 'cat' ? xc.val[rc.r] : seen.size); }
+    let cats = [...seen.keys()];
+    if (xc && xc.type !== 'cat') cats.sort((a, b) => seen.get(a) - seen.get(b));
+    out.catOrderBase = cats.slice();
+    out.cats = cats;
+  } else if (xc) for (const rc of recs) { rc.x = xc.val[rc.r]; rc.xl = cellLabel(xc, rc.r); }
+
+  // Gruppierung
+  const dims = {};
+  for (const d of ['hue', 'style', 'size', 'extra']) if (sp.m[d]) dims[d] = dimInfo(d, sp.m[d], recs, sp);
+  out.dims = dims;
+  const keyDims = Object.values(dims).filter(di => di.split);
+  const groups = new Map();
+  for (const rc of recs) {
+    const parts = [];
+    let skip = false;
+    for (const di of keyDims) { const l = di.get(rc); if (l == null) { skip = true; break; } parts.push(l); }
+    if (skip) continue;
+    const key = parts.length ? parts.join(' | ') : (sp.ys.length === 1 ? sp.ys[0] : sp.countMode ? (P.bar.stat === 'percent' ? 'Prozent' : 'Anzahl') : 'Werte');
+    if (!groups.has(key)) groups.set(key, { key, parts, lv: Object.fromEntries(keyDims.map((di, i) => [di.dim, parts[i]])), recs: [] });
+    groups.get(key).recs.push(rc);
+  }
+  const rank = g => keyDims.reduce((s, di) => s * 1000 + (di.idx.get(g.lv[di.dim]) ?? 999), 0);
+  const gl = [...groups.values()].sort((a, b) => rank(a) - rank(b));
+
+  // Kategorien ordnen (Balken, Box, Violin, Heatmap und kategoriale X-Achsen)
+  if (sp.xCat) {
+    const ord = TYPE_INFO[t].cat ? P.bar.order : 'data';
+    let cats = out.cats;
+    if (ord === 'alpha') cats = cats.slice().sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+    else if (ord === 'asc' || ord === 'desc') {
+      const tot = new Map(cats.map(c => [c, 0]));
+      for (const rc of recs) if (rc.y != null && tot.has(rc.xl)) tot.set(rc.xl, tot.get(rc.xl) + rc.y);
+      cats = cats.slice().sort((a, b) => (ord === 'asc' ? 1 : -1) * (tot.get(a) - tot.get(b)));
+    } else if (ord === 'manual' && P.order.x.length) {
+      const pos = c => { const i = P.order.x.indexOf(c); return i < 0 ? 1e6 : i; };
+      cats = cats.map((c, i) => [c, i]).sort((a, b) => pos(a[0]) - pos(b[0]) || a[1] - b[1]).map(a => a[0]);
+    }
+    out.cats = cats;
+  }
+  const catIdx = new Map(out.cats.map((c, i) => [c, i]));
+
+  // Aggregation je Reihe
+  let agg = P.agg;
+  if (sp.countMode) agg = 'count';
+  else if (['bar', 'heatmap'].includes(t) && agg === 'none') {
+    const dup = gl.some(g => { const s = new Set(); return g.recs.some(rc => rc.y != null && (s.has(rc.xl) || !s.add(rc.xl))); });
+    agg = 'mean';
+    if (dup) out.notes.push('mehrere Werte je Kategorie: Mittelwert verwendet');
+  }
+  const hueNum = dims.hue && dims.hue.kind === 'num' ? dims.hue : null, sizeNum = dims.size && dims.size.kind === 'num' ? dims.size : null;
+  const total = recs.length;
+  for (const g of gl) {
+    const s = { key: g.key, lv: g.lv, parts: g.parts, label: [...new Set(g.parts)].join(', ') || g.key, pts: [] };
+    if (t === 'hist') { s.vals = g.recs.map(rc => rc.y).filter(v => v != null); }
+    else if (t === 'box' || t === 'violin') {
+      const by = new Map();
+      for (const rc of g.recs) { if (rc.y == null || !catIdx.has(rc.xl)) continue; if (!by.has(rc.xl)) by.set(rc.xl, []); by.get(rc.xl).push(rc.y); }
+      for (const [c, vs] of by) {
+        const p = { x: catIdx.get(c), xl: c, ...boxStats(vs) };
+        if (t === 'violin') p.kde = vs.length > 1 ? kde(vs) : null;
+        s.pts.push(p);
+      }
+    } else if (agg === 'none') {
+      for (const rc of g.recs) {
+        const x = sp.xCat ? catIdx.get(rc.xl) : rc.x;
+        if (x == null) continue;
+        s.pts.push({ x, xl: rc.xl, y: rc.y, n: 1, hv: hueNum && hueNum.num(rc), sv: sizeNum && sizeNum.num(rc), r: rc.r });
+      }
+    } else {
+      const by = new Map();
+      for (const rc of g.recs) {
+        const k = sp.xCat ? rc.xl : rc.x;
+        if (k == null || (sp.xCat && !catIdx.has(k))) continue;
+        if (!by.has(k)) by.set(k, { x: sp.xCat ? catIdx.get(k) : k, xl: rc.xl, ys: [], hv: [], sv: [], cnt: 0 });
+        const b = by.get(k); b.cnt++;
+        if (rc.y != null) b.ys.push(rc.y);
+        if (hueNum) b.hv.push(hueNum.num(rc)); if (sizeNum) b.sv.push(sizeNum.num(rc));
+      }
+      for (const b of by.values()) {
+        let y = agg === 'count' ? b.cnt : b.ys.length ? AGG[agg](b.ys) : null;
+        if (sp.countMode && P.bar.stat === 'percent') y = 100 * b.cnt / total;
+        const e = P.err !== 'none' && !sp.countMode && agg !== 'count' && agg !== 'sum' ? errHalf(b.ys, P.err) : NaN;
+        s.pts.push({ x: b.x, xl: b.xl, y, n: sp.countMode ? b.cnt : b.ys.length, lo: isFinite(e) ? y - e : null, hi: isFinite(e) ? y + e : null,
+          hv: b.hv.length ? mean(b.hv.filter(v => v != null)) : null, sv: b.sv.length ? mean(b.sv.filter(v => v != null)) : null });
+      }
+    }
+    if (t !== 'hist' && (sp.xCat || P.sortX)) s.pts.sort((a, b) => a.x - b.x);
+    out.series.push(s);
+  }
+
+  // Histogramm: gemeinsame Klassen für alle Gruppen
+  if (t === 'hist') {
+    const all = out.series.filter(s => !isHidden(s)).flatMap(s => s.vals);
+    if (all.length) {
+      const edges = binEdges(all, P.hist.binMode, P.hist.bins, P.hist.width), n = all.length;
+      out.edges = edges;
+      for (const s of out.series) {
+        const c = histCounts(s.vals, edges);
+        s.pts = c.map((k, i) => {
+          const w = edges[i + 1] - edges[i];
+          const y = P.hist.stat === 'density' ? k / (n * w) : P.hist.stat === 'percent' ? 100 * k / n : k;
+          return { x0: edges[i], x1: edges[i + 1], x: (edges[i] + edges[i + 1]) / 2, y, n: k };
+        });
+      }
+    }
+  }
+  styleSeries(out);
+  return out;
+}
+
+// Ist eine Reihe ausgeblendet (selbst oder über eine ihrer Stufen)?
+function isHidden(s) {
+  if ((P.series[s.key] || {}).hidden) return true;
+  return Object.entries(s.lv || {}).some(([d, l]) => ((P.levels[d] || {})[l] || {}).hidden);
+}
+
+// Aussehen: Farbe aus hue, Strich/Marker/Schraffur aus style, Größe aus size, dann Overrides der Reihe
+function styleSeries(out) {
+  const { sp, dims } = out, t = sp.t, pal = palColors(S.palette);
+  const markers = t === 'scatter' || t === 'linept';
+  const sizeIsMarker = t === 'scatter' || t === 'linept';
+  out.series.forEach((s, i) => {
+    const L = { color: pal[0], dash: 'solid', marker: markers ? 'o' : 'none', lw: S.lineW, ms: S.markerSize, alpha: S.alpha, hatch: '', kind: t === 'bar' ? 'bar' : 'line', axis: 'y' };
+    const h = dims.hue;
+    if (h) {
+      if (h.kind === 'num') L.color = h.split ? seqColor((num(h, s.lv.hue) - h.min) / (h.max - h.min)) : seqColor(0.5);
+      else { const k = h.idx.get(s.lv.hue) ?? 0; L.color = ((P.levels.hue || {})[s.lv.hue] || {}).color || pal[k % pal.length]; }
+    }
+    if (!dims.style && S.autoDash) {
+      L.dash = DASH_ORDER[i % DASH_ORDER.length];
+      if (markers || t === 'line') L.marker = t === 'line' ? 'none' : MARKER_ORDER[i % MARKER_ORDER.length];
+      L.hatch = HATCH_ORDER[i % HATCH_ORDER.length];
+    }
+    const st = dims.style;
+    if (st) {
+      const k = st.idx.get(s.lv.style) ?? 0, o = (P.levels.style || {})[s.lv.style] || {};
+      L.dash = o.dash || DASH_ORDER[k % DASH_ORDER.length];
+      if (markers) L.marker = o.marker || MARKER_ORDER[k % MARKER_ORDER.length];
+      else if (o.marker) L.marker = o.marker;
+      L.hatch = o.hatch != null ? o.hatch : HATCH_ORDER[k % HATCH_ORDER.length];
+    }
+    const sz = dims.size;
+    if (sz && sz.split) {
+      const o = (P.levels.size || {})[s.lv.size] || {};
+      let f;
+      if (sz.kind === 'num') f = (num(sz, s.lv.size) - sz.min) / (sz.max - sz.min);
+      else f = sz.levels.length > 1 ? (sz.idx.get(s.lv.size) ?? 0) / (sz.levels.length - 1) : 0.5;
+      if (sizeIsMarker) L.ms = o.size || Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2));   // Fläche ∝ Wert
+      else L.lw = o.size || S.lwMin + f * (S.lwMax - S.lwMin);
+    }
+    const ov = P.series[s.key] || {};
+    for (const k of ['color', 'dash', 'marker', 'lw', 'ms', 'alpha', 'hatch', 'kind', 'axis']) if (ov[k] != null && ov[k] !== '') L[k] = ov[k];
+    if (t !== 'bar') L.kind = 'line';
+    if (!['line', 'scatter', 'linept', 'area', 'bar'].includes(t)) L.axis = 'y';
+    s.look = L;
+    s.legend = ov.label || s.label;
+    s.hidden = isHidden(s);
+  });
+}
+const num = (di, l) => { const v = di.levelVal ? di.levelVal(l) : NaN; return typeof v === 'number' ? v : NaN; };
+
+/* ---------- Schrift & Messung ---------- */
+function famCSS() { const f = (S.fontCustom || '').trim() || S.font; return f.includes(',') ? f : `"${f}", sans-serif`; }
+function fontObj(pt, b, i, c) {
+  let px = pt * PT, fam = famCSS();
+  if (c) { px *= 0.9; fam = 'Consolas, "Courier New", monospace'; }
+  return { css: `${i ? 'italic ' : ''}${b ? 'bold ' : ''}${px.toFixed(2)}px ${fam}`, px, fam, b: !!b, i: !!i };
+}
+const baseCache = new Map();
+function baselineOff(font) {
+  if (baseCache.has(font.css)) return baseCache.get(font.css);
+  mctx.font = font.css;
+  const m = mctx.measureText('Hg');
+  const v = (m.fontBoundingBoxAscent !== undefined) ? (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2
+    : (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  baseCache.set(font.css, v);
+  return v;
+}
+const tw = (s, font) => { mctx.font = font.css; return mctx.measureText(String(s)).width; };
+const lineH = font => font.px * 1.2;
+
+// Einfaches Inline-Markdown für Titel: **fett**, *kursiv*, `code`, <br>
+const ENT = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ', '&quot;': '"' };
+function parseInline(str) {
+  str = String(str).replace(/&(amp|lt|gt|nbsp|quot);/g, m => ENT[m]);
+  const alnum = /[\p{L}\p{N}]/u;
+  return str.split(/<br\s*\/?>|\n/i).map(line => {
+    const segs = []; let b = false, it = false, buf = '';
+    const push = () => { if (buf) { segs.push({ t: buf, b, i: it, c: false }); buf = ''; } };
+    for (let k = 0; k < line.length; k++) {
+      const ch = line[k], prev = line[k - 1] || ' ', next = line[k + 1] || ' ';
+      if (ch === '\\' && /[\\`*_|#\[\]]/.test(next)) { buf += next; k++; continue; }
+      if (ch === '`') { const e = line.indexOf('`', k + 1); if (e > k) { push(); segs.push({ t: line.slice(k + 1, e), b, i: it, c: true }); k = e; continue; } }
+      if ((ch === '*' || ch === '_') && next === ch) {
+        const after = line[k + 2] || ' ';
+        if (ch === '*' || (b ? !alnum.test(after) : !alnum.test(prev))) { push(); b = !b; k++; continue; }
+      }
+      if (ch === '*' && !(/\s/.test(prev) && /\s/.test(next))) { push(); it = !it; continue; }
+      if (ch === '_' && (it ? !alnum.test(next) : !alnum.test(prev))) { push(); it = !it; continue; }
+      buf += ch;
+    }
+    push();
+    return segs;
+  });
+}
+function tokenize(lines, pt, forceB, forceI) {
+  return lines.map(segs => {
+    const toks = [];
+    for (const sg of segs) {
+      const font = fontObj(pt, sg.b || forceB, sg.i || forceI, sg.c);
+      mctx.font = font.css;
+      for (const p of sg.t.split(/(\s+)/)) {
+        if (!p) continue;
+        const sp = /^\s+$/.test(p), t = sp ? ' ' : p;
+        toks.push({ t, font, sp, w: mctx.measureText(t).width });
+      }
+    }
+    return toks;
+  });
+}
+function wrapLines(tl, maxW) {
+  const out = [];
+  for (const toks of tl) {
+    let line = [], lw = 0;
+    const flush = () => { while (line.length && line[line.length - 1].sp) lw -= line.pop().w; out.push({ toks: line, w: lw }); line = []; lw = 0; };
+    for (const t of toks) {
+      if (!t.sp && line.length && lw + t.w > maxW + 0.01) flush();
+      if (t.sp && !line.length) continue;
+      line.push(t); lw += t.w;
+    }
+    flush();
+  }
+  return out;
+}
+// Textblock (ggf. umbrochen) mit Höhe; null bei leerem Text
+function textBlock(text, pt, b, i, maxW) {
+  if (!text || !String(text).trim()) return null;
+  const lines = wrapLines(tokenize(parseInline(text), pt, b, i), maxW);
+  const lh = pt * PT * 1.2;
+  return { lines, lh, h: lines.length * lh, w: maxOf(lines.map(l => l.w)) };
+}
+
+/* ---------- Zahlen formatieren ---------- */
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const supStr = n => String(n).split('').map(c => SUP[c] || c).join('');
+function fmtNum(v, dec = -1, sci = false) {
+  if (v == null || !isFinite(v)) return '';
+  if (sci && v !== 0) {
+    const e = Math.floor(Math.log10(Math.abs(v)) + 1e-12), m = v / 10 ** e;
+    return (Math.abs(m - 1) < 1e-9 ? '' : fmtNum(m, dec < 0 ? decOf(r12(Math.abs(m))) : dec) + ' × ') + '10' + supStr(e);
+  }
+  let s = dec >= 0 ? Math.abs(v).toFixed(dec) : String(+Math.abs(v).toPrecision(10));
+  if (s.includes('e')) return fmtNum(v, dec, true);
+  let [ip, fp] = s.split('.');
+  if (S.thousands && ip.length > 3) ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, S.decSep === ',' ? '.' : ',');
+  return (v < 0 && /[1-9]/.test(s) ? '−' : '') + ip + (fp ? S.decSep + fp : '');
+}
+const decOf = v => { const s = String(r12(v)); return s.includes('e-') ? +s.split('e-')[1] : s.includes('.') ? s.split('.')[1].length : 0; };
+function parseUser(str, kind) {
+  const s = String(str || '').trim(); if (!s) return null;
+  if (kind === 'date') return parseDate(s, 'dm');
+  return parseNum(s, ',') ?? parseNum(s, '.');
+}
+
+/* ---------- Achsen: Wertebereich und Ticks ---------- */
+// Wertebereich mit 5 % Puffer; „sticky“ Werte (z. B. Balkenbasis) bekommen keinen Puffer
+function domainOf(vals, o) {
+  let v = vals.filter(x => x != null && isFinite(x) && (!o.log || x > 0));
+  if (o.sticky != null && (!o.log || o.sticky > 0)) v.push(o.sticky);
+  let lo = v.length ? minOf(v) : 0, hi = v.length ? maxOf(v) : 1;
+  const T = o.log ? Math.log10 : x => x, U = o.log ? x => 10 ** x : x => x;
+  let a = T(lo), b = T(hi);
+  if (!(b > a)) { const d = o.log ? 0.5 : (Math.abs(a) * 0.05 || 0.5); a -= d; b += d; }
+  else {
+    const m = (b - a) * (o.margin ?? 0.05);
+    if (!(o.sticky != null && lo === o.sticky)) a -= m;
+    if (!(o.sticky != null && hi === o.sticky)) b += m;
+  }
+  let d0 = U(a), d1 = U(b);
+  if (o.min != null && (!o.log || o.min > 0)) d0 = o.min;
+  if (o.max != null && (!o.log || o.max > 0)) d1 = o.max;
+  if (!(d1 > d0)) d1 = d0 + (o.log ? d0 * 10 : 1);
+  return [d0, d1];
+}
+const STEPS = [1, 2, 2.5, 5, 10];
+function niceTicks(d0, d1, nb, step) {
+  if (!(step > 0) || (d1 - d0) / step > 500) {
+    const raw = (d1 - d0) / Math.max(1, nb), p = 10 ** Math.floor(Math.log10(raw));
+    step = STEPS.map(s => s * p).find(s => s >= raw * (1 - 1e-9)) || 10 * p;
+  }
+  const k0 = Math.ceil(d0 / step - 1e-9), out = [];
+  for (let k = k0; (k * step) <= d1 + step * 1e-9 && out.length < 600; k++) out.push(r12(k * step));
+  return { ticks: out, step };
+}
+const DAY = 86400000;
+const DATE_UNITS = [
+  [1000, 's'], [5000, 's'], [15000, 's'], [30000, 's'], [60000, 'min'], [300000, 'min'], [900000, 'min'], [1800000, 'min'],
+  [3600000, 'h'], [3 * 3600000, 'h'], [6 * 3600000, 'h'], [12 * 3600000, 'h'], [DAY, 'd'], [2 * DAY, 'd'], [7 * DAY, 'd'], [14 * DAY, 'd'],
+  [1, 'M'], [2, 'M'], [3, 'M'], [6, 'M'], [1, 'Y'], [2, 'Y'], [5, 'Y'], [10, 'Y'], [20, 'Y'], [50, 'Y'], [100, 'Y']
+];
+function dateTicks(d0, d1, nb) {
+  const span = d1 - d0;
+  let unit = DATE_UNITS[DATE_UNITS.length - 1];
+  for (const u of DATE_UNITS) {
+    const len = u[1] === 'M' ? u[0] * 30.44 * DAY : u[1] === 'Y' ? u[0] * 365.25 * DAY : u[0];
+    if (span / len <= nb) { unit = u; break; }
+  }
+  const [k, kind] = unit, out = [];
+  if (kind === 'M' || kind === 'Y') {
+    const s = new Date(d0); let y = s.getUTCFullYear(), m = kind === 'Y' ? 0 : s.getUTCMonth();
+    if (kind === 'Y') y = Math.floor(y / k) * k; else m = Math.floor(m / k) * k;
+    for (let i = 0; i < 2000; i++) {
+      const t = Date.UTC(y, m, 1);
+      if (t > d1) break;
+      if (t >= d0) out.push(t);
+      if (kind === 'Y') y += k; else { m += k; if (m >= 12) { y += Math.floor(m / 12); m %= 12; } }
+    }
+  } else {
+    let t = Math.ceil(d0 / k) * k;
+    if (k === 7 * DAY) t = Math.ceil((d0 - 4 * DAY) / k) * k + 4 * DAY;   // Wochen beginnen montags
+    for (; t <= d1 && out.length < 2000; t += k) out.push(t);
+  }
+  return { ticks: out, kind, k };
+}
+function dateLabel(t, kind, pat, first) {
+  if (pat && pat !== 'auto') return fmtDate(t, pat);
+  const d = new Date(t);
+  if (kind === 'Y') return fmtDate(t, 'JJJJ');
+  if (kind === 'M') return d.getUTCMonth() === 0 || first ? fmtDate(t, 'MMM JJJJ') : fmtDate(t, 'MMM');
+  if (kind === 'd') return fmtDate(t, 'TT.MM.');
+  if (kind === 'h' || kind === 'min') return (t % DAY === 0 || first) ? fmtDate(t, 'TT.MM. HH:mm') : fmtDate(t, 'HH:mm');
+  return fmtDate(t, 'HH:mm:ss');
+}
+const DATE_FMTS = [['auto', 'automatisch'], ['TT.MM.JJJJ', 'TT.MM.JJJJ'], ['TT.MM.', 'TT.MM.'], ['MM.JJJJ', 'MM.JJJJ'], ['MMM JJJJ', 'Mon JJJJ'],
+  ['MMM', 'Mon'], ['JJJJ', 'JJJJ'], ['JJJJ-MM-TT', 'JJJJ-MM-TT'], ['HH:mm', 'HH:MM'], ['TT.MM. HH:mm', 'TT.MM. HH:MM']];
+/* Achse: kind 'lin' | 'log' | 'date' | 'cat'; f(v) liefert 0…1 entlang der Achse */
+function makeAxis(o) {
+  const ax = { ...o, ticks: [], minor: [] };
+  const lenPt = o.len / PT, tickPt = o.tickPt;
+  const auto = Math.max(2, Math.min(9, Math.floor(lenPt / (tickPt * (o.vertical ? 2 : 3)))));
+  const nb = o.nTicks > 0 ? o.nTicks : auto;
+  if (o.kind === 'cat') {
+    ax.f = v => { const r = (v - o.d0) / (o.d1 - o.d0); return o.rev ? 1 - r : r; };
+    ax.ticks = o.cats.map((c, i) => ({ v: i, label: c }));
+    return ax;
+  }
+  if (o.kind === 'log') {
+    const l0 = Math.log10(o.d0), l1 = Math.log10(o.d1);
+    ax.f = v => v > 0 ? (Math.log10(v) - l0) / (l1 - l0) : -1;
+    const e0 = Math.floor(l0), e1 = Math.ceil(l1), dec = e1 - e0;
+    const every = Math.max(1, Math.ceil(dec / nb));
+    const inside = m => { let k = 0; for (let e = e0; e <= e1; e++) for (const x of m) { const v = x * 10 ** e; if (v >= o.d0 * (1 - 1e-9) && v <= o.d1 * (1 + 1e-9)) k++; } return k; };
+    const mult = dec <= 1 || inside([1]) < 3 ? (inside([1, 2, 5]) <= nb + 2 ? [1, 2, 5] : [1, 3]) : [1];
+    for (let e = e0; e <= e1; e++) {
+      for (const m of mult) {
+        const v = r12(m * 10 ** e);
+        if (v < o.d0 * (1 - 1e-9) || v > o.d1 * (1 + 1e-9)) continue;
+        if (m === 1 && (e - e0) % every) continue;
+        ax.ticks.push({ v, label: (e >= -3 && e <= 5) ? fmtNum(v, o.dec >= 0 ? o.dec : Math.max(0, -e)) : (m === 1 ? '10' + supStr(e) : fmtNum(v, -1, true)) });
+      }
+      if (o.minor) for (let m = 2; m <= 9; m++) { const v = m * 10 ** e; if (v >= o.d0 && v <= o.d1 && !mult.includes(m)) ax.minor.push(v); }
+    }
+    return ax;
+  }
+  ax.f = v => (v - o.d0) / (o.d1 - o.d0);
+  if (o.kind === 'date') {
+    const dt = dateTicks(o.d0, o.d1, nb);
+    ax.ticks = dt.ticks.map((v, i) => ({ v, label: dateLabel(v, dt.kind, o.dateFmt, i === 0) }));
+    return ax;
+  }
+  const { ticks, step } = niceTicks(o.d0, o.d1, nb, o.step);
+  const dec = o.dec >= 0 ? o.dec : decOf(step);
+  ax.ticks = ticks.map(v => ({ v, label: fmtNum(Math.abs(v) < step * 1e-9 ? 0 : v, dec, o.sci) }));
+  if (o.minor) {
+    const man = r12(step / 10 ** Math.floor(Math.log10(step))), nd = [1, 5, 10].includes(man) ? 5 : 4, ms = step / nd;
+    for (let k = Math.ceil(o.d0 / ms - 1e-9); k * ms <= o.d1 + 1e-9 * ms; k++) if (Math.abs(k % nd) > 1e-9) ax.minor.push(k * ms);
+  }
+  return ax;
+}
+
+/* ---------- SVG-Bausteine ---------- */
+const attrs = o => Object.entries(o).filter(([, v]) => v != null && v !== '' && v !== false)
+  .map(([k, v]) => ` ${k}="${typeof v === 'number' ? f2(v) : esc(v)}"`).join('');
+const el = (tag, o, inner) => `<${tag}${attrs(o)}${inner != null ? `>${inner}</${tag}>` : '/>'}`;
+const pathD = pts => pts.map((p, i) => (i ? 'L' : 'M') + f2(p[0]) + ' ' + f2(p[1])).join('');
+const dashArr = (dash, w) => { const d = DASH[dash]; return d ? d.map(v => f2(v * w)).join(' ') : null; };
+function svgText(x, y, str, font, color, anchor, extra) {
+  return `<text x="${f2(x)}" y="${f2(y)}" font-family="${esc(font.fam.replace(/"/g, "'"))}" font-size="${f2(font.px)}"` +
+    `${font.b ? ' font-weight="bold"' : ''}${font.i ? ' font-style="italic"' : ''} fill="${color}"` +
+    `${anchor && anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${extra || ''} xml:space="preserve">${esc(str)}</text>`;
+}
+// Mehrzeiliger Textblock; align bezieht sich auf die Breite w ab x0
+function svgBlock(blk, x0, w, y0, align, color) {
+  let s = '';
+  blk.lines.forEach((ln, k) => {
+    let lx = align === 'right' ? x0 + w - ln.w : align === 'center' ? x0 + (w - ln.w) / 2 : x0;
+    const cy = y0 + blk.lh * (k + 0.5);
+    for (const t of ln.toks) { if (!t.sp) s += svgText(lx, cy + baselineOff(t.font), t.t, t.font, color); lx += t.w; }
+  });
+  return s;
+}
+// Marker zentriert bei (x, y); size = Markergröße in px (wie matplotlib markersize)
+function markerSVG(m, x, y, size, fill, stroke, sw, extra) {
+  const r = size / 2, st = { fill, stroke: stroke || null, 'stroke-width': stroke ? sw : null };
+  const poly = pts => el('path', { d: pathD(pts.map(p => [x + p[0] * r, y + p[1] * r])) + 'Z', ...st }).replace('/>', (extra || '') + '/>');
+  switch (m) {
+    case 'o': return el('circle', { cx: x, cy: y, r, ...st }).replace('/>', (extra || '') + '/>');
+    case 's': return el('rect', { x: x - r * 0.886, y: y - r * 0.886, width: r * 1.772, height: r * 1.772, ...st }).replace('/>', (extra || '') + '/>');
+    case '^': return poly([[0, -1.1], [1, 0.75], [-1, 0.75]]);
+    case 'v': return poly([[0, 1.1], [1, -0.75], [-1, -0.75]]);
+    case 'D': return poly([[0, -1.15], [1, 0], [0, 1.15], [-1, 0]]);
+    case '*': { const p = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? 0.45 : 1.15; p.push([Math.cos(a) * q, Math.sin(a) * q]); } return poly(p); }
+    case 'x': case '+': {
+      const d = m === 'x' ? `M${f2(x - r * 0.8)} ${f2(y - r * 0.8)}L${f2(x + r * 0.8)} ${f2(y + r * 0.8)}M${f2(x - r * 0.8)} ${f2(y + r * 0.8)}L${f2(x + r * 0.8)} ${f2(y - r * 0.8)}`
+        : `M${f2(x - r)} ${f2(y)}L${f2(x + r)} ${f2(y)}M${f2(x)} ${f2(y - r)}L${f2(x)} ${f2(y + r)}`;
+      return el('path', { d, fill: 'none', stroke: fill, 'stroke-width': Math.max(sw || 0, size / 6) }).replace('/>', (extra || '') + '/>');
+    }
+    default: return '';
+  }
+}
+const HATCH_D = { '/': 'M0 8L8 0M-2 2L2 -2M6 10L10 6', '\\': 'M0 0L8 8M-2 6L2 10M6 -2L10 2', '-': 'M0 4L8 4', '|': 'M4 0L4 8' };
+
+/* ---------- Diagramm bauen: reine Funktion von Daten, P und S zu SVG ---------- */
+function buildPlot(res, preview) {
+  const cf = ctxF(), sp = res.sp, t = sp.t;
+  const W = Math.max(40, Math.round(toPx(S.figW, S.figUnit))), H = Math.max(30, Math.round(toPx(S.figH, S.figUnit)));
+  const lw = pt => pt * PT * cf;
+  const F = {
+    tick: fontObj(S.tickSize * cf), label: fontObj(S.labelSize * cf), legend: fontObj(S.legendSize * cf),
+    title: S.titleSize * cf, base: S.fontSize * cf, small: Math.max(S.tickSize * 0.9, 6) * cf
+  };
+  const tc = S.textColor, out = [], defs = [], hits = [], notes = [...res.notes];
+  let uid = 0; const nid = p => `${preview ? 'v' : 'e'}${p}${uid++}`;
+  const vis = res.series.filter(s => !s.hidden);
+  const horiz = t === 'bar' && P.bar.orient === 'h';
+  const isBarLike = t === 'bar';
+
+  /* --- 1. Marken in Datenkoordinaten (c = Kategorie/X, v = Wert) --- */
+  const marks = [], vVals = { y: [], y2: [] }, xVals = [];
+  let sticky = { y: null, y2: null };
+  const base = isFinite(+P.bar.base) ? +P.bar.base : 0;
+  const nCat = res.cats.length;
+  const sameHueX = sp.m.hue && sp.m.hue === sp.x;
+  if (t === 'bar') {
+    const bs = vis.filter(s => s.look.kind === 'bar'), mode = P.bar.mode;
+    const nS = mode === 'dodge' && !sameHueX ? Math.max(1, bs.length) : 1, bw = S.barWidth, slot = bw / nS;
+    const tot = new Map(), pos = new Map(), neg = new Map();
+    if (mode === 'stack100') for (const s of bs) for (const p of s.pts) if (p.y != null) tot.set(p.x, (tot.get(p.x) || 0) + Math.abs(p.y));
+    bs.forEach((s, k) => {
+      for (const p of s.pts) {
+        if (p.y == null) continue;
+        let v0, v1, val = p.y, lo = p.lo, hi = p.hi;
+        if (mode === 'dodge') { v0 = base; v1 = p.y; }
+        else {
+          if (mode === 'stack100') { const f = 100 / (tot.get(p.x) || 1); val = p.y * f; lo = lo != null ? lo * f : null; hi = hi != null ? hi * f : null; }
+          const acc = val >= 0 ? pos : neg, a = acc.get(p.x) ?? (mode === 'stack100' ? 0 : base);
+          v0 = a; v1 = a + val; acc.set(p.x, v1);
+          if (lo != null) { lo += a; hi += a; }
+        }
+        const c0 = p.x - bw / 2 + slot * (sameHueX || mode !== 'dodge' ? 0 : k) + slot * S.barGap / 2, c1 = c0 + slot * (1 - S.barGap);
+        marks.push({ m: 'bar', s, p, c0, c1, v0, v1, val, lo, hi, axis: s.look.axis });
+        vVals[s.look.axis].push(v0, v1); if (lo != null) vVals[s.look.axis].push(lo, hi);
+      }
+    });
+    if (P.bar.zero || mode !== 'dodge') { sticky.y = mode === 'stack100' ? 0 : base; if (bs.some(s => s.look.axis === 'y2')) sticky.y2 = sticky.y; }
+    else if (bs.length) notes.push('Achse beginnt nicht bei der Bezugslinie – Balkenlängen können täuschen');
+    for (const s of vis.filter(s => s.look.kind === 'line')) {
+      marks.push({ m: 'line', s, pts: s.pts.filter(p => p.y != null) });
+      for (const p of s.pts) vVals[s.look.axis].push(p.y, p.lo, p.hi);
+    }
+  } else if (t === 'hist') {
+    const mode = P.hist.multiple, acc = [];
+    vis.forEach((s, k) => s.pts.forEach((p, i) => {
+      let c0 = p.x0, c1 = p.x1, v0 = 0, v1 = p.y;
+      if (mode === 'stack') { v0 = acc[i] || 0; v1 = v0 + p.y; acc[i] = v1; }
+      else if (mode === 'dodge') { const w = (p.x1 - p.x0) / vis.length; c0 = p.x0 + k * w; c1 = c0 + w; }
+      if (p.y > 0) marks.push({ m: 'bar', s, p, c0, c1, v0, v1, val: p.y, axis: 'y', layer: mode === 'layer' && vis.length > 1 });
+      vVals.y.push(v1);
+    }));
+    if (res.edges) xVals.push(res.edges[0], res.edges[res.edges.length - 1]);
+    sticky.y = 0;
+  } else if (t === 'box' || t === 'violin') {
+    const nS = sameHueX ? 1 : Math.max(1, vis.length), slot = 0.8 / nS;
+    vis.forEach((s, k) => s.pts.forEach(p => {
+      const c = nS > 1 ? p.x - 0.4 + slot * (k + 0.5) : p.x;
+      marks.push({ m: t, s, p, c, w: nS > 1 ? slot * 0.9 : 0.8 });
+      vVals.y.push(p.wlo, p.whi);
+      if (t === 'box' && P.box.fliers) vVals.y.push(...p.out);
+      if (t === 'violin' && p.kde) vVals.y.push(p.kde.ys[0], p.kde.ys[p.kde.ys.length - 1]);
+    }));
+  } else if (t === 'heatmap') {
+    vis.forEach(s => s.pts.forEach(p => { if (p.y != null) vVals.y.push(p.y); }));
+  } else {
+    // Linie, Punkte, Fläche (ggf. gestapelt)
+    const stack = t === 'area' && P.bar.mode !== 'dodge';
+    const acc = new Map(), tot = new Map();
+    if (stack && P.bar.mode === 'stack100') for (const s of vis) for (const p of s.pts) if (p.y != null) tot.set(p.x, (tot.get(p.x) || 0) + Math.abs(p.y));
+    for (const s of vis) {
+      let pts = s.pts.map(p => ({ ...p }));
+      if (stack) for (const p of pts) {
+        if (p.y == null) continue;
+        const v = P.bar.mode === 'stack100' ? 100 * p.y / (tot.get(p.x) || 1) : p.y, a = acc.get(p.x) || 0;
+        p.y0 = a; p.y = a + v; p.lo = p.hi = null; acc.set(p.x, p.y);
+      }
+      marks.push({ m: 'line', s, pts, area: t === 'area' });
+      for (const p of pts) { vVals[s.look.axis].push(p.y); if (P.err !== 'none') vVals[s.look.axis].push(p.lo, p.hi); if (p.y0 != null) vVals[s.look.axis].push(p.y0); if (p.y != null) xVals.push(p.x); }
+    }
+    if (t === 'area') sticky.y = 0;
+  }
+  // Trendlinien
+  const trends = [];
+  if (P.trend && ['line', 'scatter', 'linept'].includes(t)) for (const s of vis) {
+    const pts = s.pts.filter(p => p.y != null && p.x != null).map(p => [p.x, p.y]);
+    const lr = linReg(pts);
+    if (lr) trends.push({ s, ...lr, x0: minOf(pts.map(p => p[0])), x1: maxOf(pts.map(p => p[0])) });
+  }
+
+  /* --- 2. Achsen festlegen --- */
+  const useY2 = vis.some(s => s.look.axis === 'y2') && t !== 'heatmap';
+  const ysName = sp.ys.length === 1 ? sp.ys[0] : 'Wert';
+  const valTitle = sp.countMode ? (P.bar.stat === 'percent' ? 'Prozent' : 'Anzahl') : t === 'hist' ? { count: 'Anzahl', density: 'Dichte', percent: 'Prozent' }[P.hist.stat]
+    : (t === 'bar' || t === 'area') && P.bar.mode === 'stack100' ? 'Anteil (%)' : ysName;
+  const catTitle = sp.x && sp.x !== VAR ? sp.x : '';
+  let roles;   // physische Achsen: bottom (x), left (y), right (y2)
+  const xKind = sp.xc && sp.xc.type === 'date' ? 'date' : 'lin';
+  const catAxis = (rev) => ({ kind: 'cat', cats: res.cats, d0: -0.5, d1: nCat - 0.5, rev });
+  const valAxis = (vals, pre, stk) => {
+    const log = S[pre + 'Scale'] === 'log';
+    const margin = t === 'bar' && S.valueLabels === 'above' ? 0.12 : 0.05;   // Platz für Werte über den Balken
+    const [d0, d1] = domainOf(vals, { log, sticky: stk, margin, min: parseUser(S[pre + 'Min']), max: parseUser(S[pre + 'Max']) });
+    return { kind: log ? 'log' : 'lin', d0, d1, dec: S[pre + 'Dec'], sci: !!S[pre + 'Sci'], step: parseUser(S[pre + 'Step']), nTicks: S[pre + 'Ticks'] || 0 };
+  };
+  if (t === 'heatmap') {
+    const hl = res.dims.hue ? vis.map(s => s.legend) : vis.map(s => s.legend);
+    roles = { x: { kind: 'cat', cats: hl, d0: -0.5, d1: hl.length - 0.5 }, y: { ...catAxis(true) },
+      xTitle: res.dims.hue && sp.m.hue !== VAR ? colLabel(sp.m.hue) : '', yTitle: catTitle };
+  } else if (horiz) {
+    roles = { x: valAxis(vVals.y, 'x', sticky.y), y: catAxis(true), xTitle: valTitle, yTitle: catTitle };
+  } else if (TYPE_INFO[t].cat || sp.xCat) {
+    const ca = catAxis(false);
+    if (!TYPE_INFO[t].cat) { const m = nCat > 1 ? 0.05 * (nCat - 1) : 0.5; ca.d0 = -m; ca.d1 = nCat - 1 + m; }
+    roles = { x: ca, y: valAxis(vVals.y, 'y', sticky.y), xTitle: catTitle, yTitle: valTitle };
+  } else {
+    const log = S.xScale === 'log' && xKind !== 'date';
+    const [d0, d1] = domainOf(xVals, { log, min: parseUser(S.xMin, xKind), max: parseUser(S.xMax, xKind) });
+    roles = { x: { kind: xKind === 'date' ? 'date' : log ? 'log' : 'lin', d0, d1, dec: S.xDec, sci: S.xSci, step: xKind === 'date' ? null : parseUser(S.xStep), nTicks: S.xTicks, dateFmt: S.xDate },
+      y: valAxis(vVals.y, 'y', sticky.y), xTitle: t === 'hist' ? ysName : catTitle, yTitle: valTitle };
+  }
+  if (roles.y.kind !== 'cat') roles.y.dateFmt = S.yDate;
+  if (useY2) { roles.y2 = valAxis(vVals.y2, 'y2', sticky.y2); roles.y2Title = vis.filter(s => s.look.axis === 'y2').map(s => s.legend).join(', '); }
+  const titleOf = (k, auto) => S[k] === '' ? auto : S[k].trim() === '' ? '' : S[k];
+  const axTitle = { x: titleOf('xTitle', roles.xTitle), y: titleOf('yTitle', roles.yTitle), y2: useY2 ? titleOf('y2Title', roles.y2Title) : '' };
+
+  /* --- 3. Legende und Farbleiste --- */
+  const leg = S.legendPos !== 'none' && t !== 'heatmap' ? legendModel(res, preview) : null;
+  const hueNum = res.dims.hue && res.dims.hue.kind === 'num' ? res.dims.hue : null;
+  let cbar = null;
+  if (t === 'heatmap' && vVals.y.length) { const [a, b] = [minOf(vVals.y), maxOf(vVals.y)]; cbar = { min: a, max: b > a ? b : a + 1, title: ysName, date: false }; }
+  else if (hueNum) cbar = { min: hueNum.min, max: hueNum.max, title: hueNum.label, date: !!hueNum.isDate };
+
+  /* --- 4. Layout: Ränder aus Textmaßen --- */
+  const pad = F.base * PT * 0.5, gap = F.base * PT * 0.4;
+  const tBlk = textBlock(S.title, F.title, S.titleBold, false, W - 2 * pad);
+  const sBlk = textBlock(S.subtitle, F.base, false, false, W - 2 * pad);
+  const nBlk = textBlock(S.note, F.small, false, false, W - 2 * pad);
+  let top = pad + (tBlk ? tBlk.h + gap : 0) + (sBlk ? sBlk.h + gap : 0);
+  let bottom = H - pad - (nBlk ? nBlk.h + gap : 0);
+  const tickOut = S.tickDir === 'out' ? lw(S.tickLen) : 0, tickPad = lw(3.5), labelPad = lw(4);
+  const lblFont = fontObj(S.labelSize * cf);
+  const xTB = axTitle.x ? textBlock(axTitle.x, S.labelSize * cf, false, false, W) : null;
+  const yTB = axTitle.y ? textBlock(axTitle.y, S.labelSize * cf, false, false, H) : null;
+  const y2TB = axTitle.y2 ? textBlock(axTitle.y2, S.labelSize * cf, false, false, H) : null;
+  const legBox = leg ? legendLayout(leg, F.legend, cf) : null;
+  const outR = legBox && S.legendPos === 'outR', outB = legBox && S.legendPos === 'outB';
+  let cbW = 0;
+  if (cbar) {
+    const tmp = makeAxis({ kind: cbar.date ? 'date' : 'lin', d0: cbar.min, d1: cbar.max, len: H / 2, tickPt: S.tickSize * cf, vertical: true, dec: -1 });
+    cbW = lw(10) + lw(3.5) + tickPad + maxOf(tmp.ticks.map(k => tw(k.label, F.tick))) + (cbar.title ? labelPad + lineH(lblFont) : 0);
+  }
+  let rightRes = (outR ? legBox.w + gap * 2 : 0) + (cbar ? cbW + gap * 2 : 0);
+  let bottomRes = outB ? legBox.h + gap : 0;
+  const manual = S.marginMode === 'manual';
+  let rect = { x0: pad + 3 * F.base * PT, x1: W - pad - rightRes - F.base * PT, y0: top + F.tick.px * 0.6, y1: bottom - bottomRes - 3 * F.base * PT };
+  let AX = {};
+  const rot = { x: 0 };
+  for (let it = 0; it < 3; it++) {
+    const pw = Math.max(20, rect.x1 - rect.x0), ph = Math.max(20, rect.y1 - rect.y0);
+    AX.x = makeAxis({ ...roles.x, len: pw, tickPt: S.tickSize * cf, vertical: false, minor: S.minor || S.grid === 'both' });
+    AX.y = makeAxis({ ...roles.y, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor || S.grid === 'both' });
+    if (useY2) AX.y2 = makeAxis({ ...roles.y2, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor });
+    if (manual) { rect = { x0: S.mL * PT, x1: W - S.mR * PT, y0: S.mT * PT, y1: H - S.mB * PT }; continue; }
+    // X-Beschriftung: drehen, wenn sie sich überlappt
+    const xw = AX.x.ticks.map(k => tw(k.label, F.tick)), fh = F.tick.px * 1.15;
+    let r = S.xRot === 'auto' ? 0 : +S.xRot;
+    if (S.xRot === 'auto' && AX.x.ticks.length > 1) {
+      const sp1 = pw / Math.max(1, (AX.x.kind === 'cat' ? nCat : AX.x.ticks.length));
+      if (maxOf(xw) + F.tick.px * 0.6 > (AX.x.kind === 'cat' ? sp1 : pw * Math.abs(AX.x.f(AX.x.ticks[1].v) - AX.x.f(AX.x.ticks[0].v)))) r = 45;
+    }
+    rot.x = r;
+    const xLabH = r === 0 ? fh : r === 90 ? maxOf(xw) : maxOf(xw) * Math.SQRT1_2 + fh * Math.SQRT1_2;
+    const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
+    const y2LabW = useY2 && AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
+    let left = pad + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
+    let right = W - pad - rightRes - (useY2 ? y2LabW + tickOut + tickPad + (y2TB ? y2TB.h + labelPad : 0) : 0);
+    // überstehende X-Beschriftungen am Rand
+    if (r === 0 && xw.length) {
+      const fx0 = AX.x.f(AX.x.ticks[0].v), fx1 = AX.x.f(AX.x.ticks[AX.x.ticks.length - 1].v);
+      left = Math.max(left, pad + xw[0] / 2 - fx0 * pw);
+      right = Math.min(right, W - pad - rightRes - xw[xw.length - 1] / 2 + (1 - fx1) * pw);
+    } else if (r === 45 && xw.length) left = Math.max(left, pad + xw[0] * Math.SQRT1_2 - AX.x.f(AX.x.ticks[0].v) * pw);
+    const bot = bottom - bottomRes - (xLabH + tickOut + tickPad + (xTB ? xTB.h + labelPad : 0));
+    rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + 20, bot) };
+  }
+  const pw = rect.x1 - rect.x0, ph = rect.y1 - rect.y0;
+  const X = v => rect.x0 + AX.x.f(v) * pw;
+  const Yf = (ax, v) => rect.y1 - ax.f(v) * ph;
+  const Y = v => Yf(AX.y, v), Y2 = v => Yf(AX.y2 || AX.y, v);
+  const C = horiz ? (c => Y(c)) : (c => X(c));
+  const V = (v, axis) => horiz ? X(v) : axis === 'y2' ? Y2(v) : Y(v);
+  const ptCV = (c, v, axis) => horiz ? [V(v, axis), C(c)] : [C(c), V(v, axis)];
+  const catPx = Math.abs(C(1) - C(0)) || pw;
+  const clipId = nid('clip');
+  defs.push(`<clipPath id="${clipId}"><rect x="${f2(rect.x0)}" y="${f2(rect.y0)}" width="${f2(pw)}" height="${f2(ph)}"/></clipPath>`);
+
+  /* --- 5. Zeichnen --- */
+  if (!S.transparent) out.push(el('rect', { x: 0, y: 0, width: W, height: H, fill: S.bg }));
+  if (!S.transparent || S.plotBg !== S.bg) out.push(el('rect', { x: rect.x0, y: rect.y0, width: pw, height: ph, fill: S.plotBg }));
+
+  // Gitter
+  if (S.grid !== 'none' && t !== 'heatmap') {
+    const g = [], gw = lw(S.gridW), gd = S.gridStyle === 'solid' ? null : dashArr(S.gridStyle, gw);
+    const line = (a, b, w) => g.push(el('path', { d: pathD([a, b]), stroke: S.gridColor, 'stroke-width': w, 'stroke-dasharray': gd, fill: 'none' }));
+    if (S.grid === 'both') {
+      if (S.gridX) for (const v of AX.x.minor) line([X(v), rect.y0], [X(v), rect.y1], gw * 0.5);
+      if (S.gridY) for (const v of AX.y.minor) line([rect.x0, Y(v)], [rect.x1, Y(v)], gw * 0.5);
+    }
+    if (S.gridX && !(AX.x.kind === 'cat' && t !== 'line' && t !== 'linept' && t !== 'scatter' && t !== 'area')) for (const k of AX.x.ticks) line([X(k.v), rect.y0], [X(k.v), rect.y1], gw);
+    if (S.gridY && AX.y.kind !== 'cat') for (const k of AX.y.ticks) line([rect.x0, Y(k.v)], [rect.x1, Y(k.v)], gw);
+    out.push(`<g clip-path="url(#${clipId})">${g.join('')}</g>`);
+  }
+
+  const body = [];
+  const pats = new Map();
+  const hatchFill = (h, color) => {
+    const key = h + color;
+    if (!pats.has(key)) {
+      const id = nid('h'), sw = f2(Math.max(0.6, cf)), sz = 8;
+      let inner = '';
+      if (h === 'x') inner = `<path d="${HATCH_D['/']}${HATCH_D['\\']}" stroke="${color}" stroke-width="${sw}"/>`;
+      else if (h === '+') inner = `<path d="${HATCH_D['-']}${HATCH_D['|']}" stroke="${color}" stroke-width="${sw}"/>`;
+      else if (h === '.') inner = `<circle cx="2" cy="2" r="1" fill="${color}"/><circle cx="6" cy="6" r="1" fill="${color}"/>`;
+      else inner = `<path d="${HATCH_D[h] || ''}" stroke="${color}" stroke-width="${sw}"/>`;
+      defs.push(`<pattern id="${id}" patternUnits="userSpaceOnUse" width="${sz}" height="${sz}">${inner}</pattern>`);
+      pats.set(key, id);
+    }
+    return `url(#${pats.get(key)})`;
+  };
+  const errCol = s => S.errColorMode === 'series' ? darker(s.look.color, 0.2) : S.errColor;
+  const tipBase = s => (s.legend && (vis.length > 1 || res.dims.hue) ? s.legend + '\n' : '');
+  const fmtV = (v, axis) => fmtNum(v, (axis === 'y2' ? S.y2Dec : horiz ? S.xDec : S.yDec) >= 0 ? (axis === 'y2' ? S.y2Dec : horiz ? S.xDec : S.yDec) : Math.min(4, Math.max(0, 3 - Math.floor(Math.log10(Math.abs(v) || 1)))));
+  const xLabelOf = p => p.xl != null ? p.xl : AX.x.kind === 'date' ? dateDefault(p.x) : fmtNum(p.x, -1);
+  const xName = axTitle.x || catTitle || 'x', yName = valTitle;
+
+  // Balken (inkl. Histogramm)
+  const barMarks = marks.filter(mk => mk.m === 'bar');
+  for (const mk of barMarks) {
+    const L = mk.s.look, c0 = C(mk.c0), c1 = C(mk.c1), a = V(mk.v0, mk.axis), b = V(mk.v1, mk.axis);
+    const r = horiz ? { x: Math.min(a, b), y: Math.min(c0, c1), width: Math.abs(b - a), height: Math.abs(c1 - c0) }
+      : { x: Math.min(c0, c1), y: Math.min(a, b), width: Math.abs(c1 - c0), height: Math.abs(b - a) };
+    const fillA = mk.layer ? 0.5 * S.barAlpha : S.barAlpha;
+    const stroke = t === 'hist' && S.barEdge === 'none' ? (S.plotBg) : S.barEdge === 'none' ? null : S.barEdge === 'darker' ? darker(L.color) : S.barEdgeColor;
+    const sw = t === 'hist' && S.barEdge === 'none' ? lw(0.5) : lw(S.barEdgeW);
+    body.push(el('rect', { ...r, fill: L.color, 'fill-opacity': fillA < 1 ? fillA : null, stroke, 'stroke-width': stroke ? sw : null }));
+    if (L.hatch) body.push(el('rect', { ...r, fill: hatchFill(L.hatch, L.color === '#000000' || lum(L.color) < 0.05 ? '#ffffff' : darker(L.color, 0.55)) }));
+    if (preview) hits.push({ rect: [r.x, r.y, r.width, r.height], tip: tipBase(mk.s) + (t === 'hist'
+      ? `${fmtNum(mk.p.x0, -1)} – ${fmtNum(mk.p.x1, -1)}\n${valTitle}: ${fmtNum(r12(mk.p.y), -1)}` + (P.hist.stat !== 'count' ? ` (n = ${mk.p.n})` : '')
+      : `${catTitle || 'Kategorie'}: ${mk.p.xl}\n${yName}: ${fmtNum(mk.p.y, -1)}` + (mk.p.n > 1 ? `\nn = ${mk.p.n}` : '') + (mk.p.lo != null ? `\nStreuung: ${fmtNum(r12(mk.p.lo), -1)} … ${fmtNum(r12(mk.p.hi), -1)}` : '')) });
+  }
+  // Fehlerbalken der Balken
+  for (const mk of barMarks) {
+    if (mk.lo == null || t === 'hist') continue;
+    const cm = (mk.c0 + mk.c1) / 2, half = (mk.c1 - mk.c0) / 2 * S.errCap;
+    const [x1, y1] = ptCV(cm, mk.lo, mk.axis), [x2, y2] = ptCV(cm, mk.hi, mk.axis);
+    const col = errCol(mk.s), w = lw(S.errW);
+    let d = pathD([[x1, y1], [x2, y2]]);
+    if (half > 0) for (const v of [mk.lo, mk.hi]) { const [p, q] = [ptCV(cm - half, v, mk.axis), ptCV(cm + half, v, mk.axis)]; d += pathD([p, q]); }
+    body.push(el('path', { d, stroke: col, 'stroke-width': w, fill: 'none' }));
+  }
+
+  // Box und Violin
+  for (const mk of marks.filter(mk => mk.m === 'box' || mk.m === 'violin')) {
+    const L = mk.s.look, p = mk.p, cx = C(mk.c), half = catPx * mk.w / 2, ec = darker(L.color, 0.55), w = lw(Math.max(0.75, S.lineW * 0.8));
+    if (mk.m === 'box') {
+      body.push(el('rect', { x: cx - half, y: Y(p.q3), width: 2 * half, height: Math.max(0.5, Y(p.q1) - Y(p.q3)), fill: L.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: ec, 'stroke-width': w }));
+      if (L.hatch) body.push(el('rect', { x: cx - half, y: Y(p.q3), width: 2 * half, height: Math.max(0.5, Y(p.q1) - Y(p.q3)), fill: hatchFill(L.hatch, ec) }));
+      const cap = half * 0.5;
+      body.push(el('path', { d: pathD([[cx, Y(p.q3)], [cx, Y(p.whi)]]) + pathD([[cx - cap, Y(p.whi)], [cx + cap, Y(p.whi)]]) + pathD([[cx, Y(p.q1)], [cx, Y(p.wlo)]]) + pathD([[cx - cap, Y(p.wlo)], [cx + cap, Y(p.wlo)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
+      body.push(el('path', { d: pathD([[cx - half, Y(p.med)], [cx + half, Y(p.med)]]), stroke: ec, 'stroke-width': w * 1.4, fill: 'none' }));
+      if (P.box.fliers) for (const v of p.out) body.push(markerSVG('D', cx, Y(v), lw(4.5), ec, null, 0));
+    } else if (p.kde) {
+      const g = mk.g = marks.filter(m => m.m === 'violin');
+      const gmax = maxOf(g.map(m => m.p.kde ? m.p.kde.max : 0)), scale = P.box.norm === 'width' ? p.kde.max : gmax;
+      const right = p.kde.ys.map((y, i) => [cx + half * p.kde.ds[i] / scale, Y(y)]);
+      const left = p.kde.ys.map((y, i) => [cx - half * p.kde.ds[i] / scale, Y(y)]).reverse();
+      body.push(el('path', { d: pathD([...right, ...left]) + 'Z', fill: L.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: ec, 'stroke-width': w }));
+      if (P.box.inner === 'box') {
+        body.push(el('path', { d: pathD([[cx, Y(p.wlo)], [cx, Y(p.whi)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
+        body.push(el('path', { d: pathD([[cx, Y(p.q1)], [cx, Y(p.q3)]]), stroke: ec, 'stroke-width': Math.max(w * 3, half * 0.12), fill: 'none' }));
+        body.push(el('circle', { cx, cy: Y(p.med), r: Math.max(w * 1.2, half * 0.05), fill: '#ffffff' }));
+      } else if (P.box.inner === 'quart') {
+        const dens = y => { let i = p.kde.ys.findIndex(v => v >= y); if (i < 0) i = p.kde.ys.length - 1; return half * p.kde.ds[i] / scale; };
+        for (const [q, dd] of [[p.q1, '3 2'], [p.med, null], [p.q3, '3 2']]) body.push(el('path', { d: pathD([[cx - dens(q), Y(q)], [cx + dens(q), Y(q)]]), stroke: ec, 'stroke-width': w, 'stroke-dasharray': dd ? dd.split(' ').map(v => f2(v * w)).join(' ') : null, fill: 'none' }));
+      }
+    } else body.push(el('path', { d: pathD([[cx - half, Y(p.med)], [cx + half, Y(p.med)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
+    if (preview) hits.push({ rect: [cx - half, Y(p.whi), 2 * half, Y(p.wlo) - Y(p.whi)], tip: tipBase(mk.s) + `${catTitle || 'Kategorie'}: ${p.xl}\nn = ${p.n}\nMedian: ${fmtNum(r12(p.med), -1)}\nQuartile: ${fmtNum(r12(p.q1), -1)} … ${fmtNum(r12(p.q3), -1)}\nMittelwert: ${fmtNum(r12(p.mean), -1)}` });
+  }
+
+  // Heatmap
+  if (t === 'heatmap' && cbar) {
+    const cols = vis.length, cw = pw / Math.max(1, cols), chh = ph / Math.max(1, nCat);
+    const dec = P.hm.dec >= 0 ? P.hm.dec : null;
+    vis.forEach((s, ci) => s.pts.forEach(p => {
+      if (p.y == null) return;
+      const col = seqColor((p.y - cbar.min) / (cbar.max - cbar.min));
+      const x = rect.x0 + ci * cw, y = rect.y0 + p.x * chh;
+      body.push(el('rect', { x, y, width: cw + 0.3, height: chh + 0.3, fill: col }));
+      if (P.hm.annot) {
+        const f = fontObj(S.tickSize * cf), lab = fmtNum(p.y, dec ?? Math.max(0, Math.min(3, 2 - Math.floor(Math.log10(Math.abs(cbar.max - cbar.min) || 1)))));
+        if (tw(lab, f) < cw * 0.95) body.push(svgText(x + cw / 2, y + chh / 2 + baselineOff(f), lab, f, lum(col) > 0.36 ? '#000000' : '#ffffff', 'middle'));
+      }
+      if (preview) hits.push({ rect: [x, y, cw, chh], tip: `${p.xl} · ${s.legend}\n${valTitle}: ${fmtNum(r12(p.y), -1)}` + (p.n > 1 ? `\nn = ${p.n}` : '') });
+    }));
+  }
+
+  // Linien, Flächen, Bänder, Fehlerbalken, Marker
+  const lineMarks = marks.filter(mk => mk.m === 'line');
+  const decimated = [];
+  for (const mk of lineMarks) {
+    const L = mk.s.look, axis = L.axis, connect = P.connectGaps;
+    const valid = mk.pts.filter(p => p.y != null && isFinite(V(p.y, axis)) && (AX.x.kind !== 'log' || p.x > 0));
+    const segs = []; let cur = [];
+    for (const p of mk.pts) {
+      const ok = p.y != null && valid.includes(p);
+      if (ok) cur.push(p); else if (!connect && cur.length) { segs.push(cur); cur = []; }
+    }
+    if (cur.length) segs.push(cur);
+    // Band (Konfidenzintervall o. Ä.)
+    if (P.errStyle === 'band' && P.err !== 'none' && t !== 'scatter' && t !== 'bar') for (const sg of segs) {
+      const b = sg.filter(p => p.lo != null);
+      if (b.length > 1) body.push(el('path', { d: pathD([...b.map(p => ptCV(p.x, p.hi, axis)), ...b.map(p => ptCV(p.x, p.lo, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': S.bandAlpha, stroke: 'none' }));
+    }
+    // Fläche
+    if (mk.area) for (const sg of segs) {
+      if (sg.length < 2) continue;
+      body.push(el('path', { d: pathD([...sg.map(p => ptCV(p.x, p.y, axis)), ...sg.map(p => ptCV(p.x, p.y0 != null ? p.y0 : 0, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': S.areaAlpha, stroke: 'none' }));
+    }
+    // Linie
+    if (t !== 'scatter' && L.lw > 0) for (const sg of segs) {
+      let px = sg.map(p => ptCV(p.x, p.y, axis));
+      if (px.length > 4 * pw && !horiz) { px = decimate(px); decimated.push(mk.s.legend); }
+      if (px.length < 2) continue;
+      const w = lw(L.lw);
+      body.push(el('path', { d: pathD(px), fill: 'none', stroke: L.color, 'stroke-width': w, 'stroke-opacity': L.alpha < 1 ? L.alpha : null,
+        'stroke-dasharray': dashArr(L.dash, w), 'stroke-linejoin': 'round', 'stroke-linecap': L.dash === 'solid' ? 'round' : 'butt' }));
+    }
+    // Fehlerbalken an Punkten
+    if ((P.errStyle === 'bars' || t === 'scatter' || t === 'bar') && P.err !== 'none') {
+      const col = darker(L.color, 0.15), w = lw(Math.max(0.75, L.lw * 0.8)), cap = lw(S.errCap * 8);
+      let d = '';
+      for (const p of valid) if (p.lo != null) {
+        const [x1, y1] = ptCV(p.x, p.lo, axis), [x2, y2] = ptCV(p.x, p.hi, axis);
+        d += pathD([[x1, y1], [x2, y2]]);
+        if (cap > 0) d += horiz ? pathD([[x1, y1 - cap], [x1, y1 + cap]]) + pathD([[x2, y2 - cap], [x2, y2 + cap]]) : pathD([[x1 - cap, y1], [x1 + cap, y1]]) + pathD([[x2 - cap, y2], [x2 + cap, y2]]);
+      }
+      if (d) body.push(el('path', { d, stroke: col, 'stroke-width': w, fill: 'none' }));
+    }
+    // Marker
+    const hn = hueNum && !hueNum.split ? hueNum : null, sn = res.dims.size && res.dims.size.kind === 'num' && !res.dims.size.split ? res.dims.size : null;
+    if (L.marker !== 'none') {
+      const many = valid.length > 5000;
+      for (const p of valid) {
+        const [x, y] = ptCV(p.x, p.y, axis);
+        let col = L.color, ms = L.ms;
+        if (hn && p.hv != null) col = seqColor((p.hv - hn.min) / (hn.max - hn.min));
+        if (sn && p.sv != null) { const f = (p.sv - sn.min) / (sn.max - sn.min); ms = Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)); }
+        const edge = S.markerEdge === 'white' ? '#ffffff' : S.markerEdge === 'darker' ? darker(col) : null;
+        if (many && (x < rect.x0 - 5 || x > rect.x1 + 5)) continue;
+        body.push(markerSVG(L.marker, x, y, lw(ms), col, edge, lw(0.75), L.alpha < 1 ? ` fill-opacity="${L.alpha}"` : ''));
+      }
+    }
+    if (preview) for (const p of valid) {
+      const [x, y] = ptCV(p.x, p.y, axis);
+      hits.push({ x, y, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 || 0)), -1)}` +
+        (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo), -1)} … ${fmtNum(r12(p.hi), -1)}` : '') });
+    }
+  }
+  if (decimated.length) notes.push(`Linien vereinfacht (zu viele Punkte für die Breite): ${[...new Set(decimated)].join(', ')}`);
+
+  // Trendlinien
+  const eqLines = [];
+  for (const tr of trends) {
+    const w = lw(Math.max(1, tr.s.look.lw * 0.8)), axis = tr.s.look.axis;
+    const n = AX.x.kind === 'log' ? 40 : 2, pts = [];
+    for (let i = 0; i < n; i++) { const x = tr.x0 + (tr.x1 - tr.x0) * i / (n - 1); pts.push(ptCV(x, tr.a * x + tr.b, axis)); }
+    body.push(el('path', { d: pathD(pts), stroke: darker(tr.s.look.color, 0.15), 'stroke-width': w, 'stroke-dasharray': dashArr('dashed', w), fill: 'none' }));
+    if (P.trendEq) {
+      const xs = AX.x.kind === 'date' ? ' (x in Tagen)' : '', a = AX.x.kind === 'date' ? tr.a * DAY : tr.a;
+      const sig = v => fmtNum(r12(+v.toPrecision(4)), -1);
+      eqLines.push({ color: tr.s.look.color, text: `${trends.length > 1 ? tr.s.legend + ': ' : ''}y = ${sig(a)}·x ${tr.b < 0 ? '−' : '+'} ${sig(Math.abs(tr.b))}${xs}, R² = ${fmtNum(tr.r2, 3)}` });
+    }
+  }
+
+  // Werte an den Balken
+  if (S.valueLabels !== 'none' && t === 'bar') {
+    const f = fontObj(S.tickSize * cf), dec = S.valueDec >= 0 ? S.valueDec : null;
+    for (const mk of barMarks) {
+      const v = mk.val, lab = fmtNum(v, dec ?? (Math.abs(v) >= 100 ? 0 : decOf(r12(+v.toPrecision(3))))) + (P.bar.mode === 'stack100' ? ' %' : '');
+      const cm = (mk.c0 + mk.c1) / 2, neg = mk.v1 < mk.v0, padPx = lw(2);
+      const [ex, ey] = ptCV(cm, mk.v1, mk.axis), [mx, my] = ptCV(cm, (mk.v0 + mk.v1) / 2, mk.axis);
+      const inside = S.valueLabels !== 'above', col = inside ? (lum(mk.s.look.color) > 0.36 ? '#000000' : '#ffffff') : tc;
+      const len = Math.abs(horiz ? V(mk.v1, mk.axis) - V(mk.v0, mk.axis) : V(mk.v0, mk.axis) - V(mk.v1, mk.axis));
+      const twl = tw(lab, f), th = f.px;
+      if (inside && (horiz ? twl + 2 * padPx > len : th + 2 * padPx > len)) continue;
+      let x, y, anchor = 'middle';
+      if (S.valueLabels === 'center') { x = mx; y = my; }
+      else if (horiz) { const dir = (neg ? -1 : 1) * (S.valueLabels === 'above' ? 1 : -1); x = ex + dir * padPx; y = ey; anchor = dir > 0 ? 'start' : 'end'; }
+      else { const dir = (neg ? 1 : -1) * (S.valueLabels === 'above' ? 1 : -1); x = ex; y = ey + dir * (padPx + th / 2); }
+      body.push(svgText(x, y + baselineOff(f), lab, f, col, anchor));
+    }
+  }
+  out.push(`<g clip-path="url(#${clipId})">${body.join('')}</g>`);
+
+  // Bezugslinie bei Balken
+  if (t === 'bar' && P.bar.mode !== 'stack100') {
+    const b = V(base, 'y');
+    if (b >= (horiz ? rect.x0 : rect.y0) - 0.5 && b <= (horiz ? rect.x1 : rect.y1) + 0.5 && (base !== AX.y.d0 || horiz))
+      out.push(el('path', { d: horiz ? pathD([[b, rect.y0], [b, rect.y1]]) : pathD([[rect.x0, b], [rect.x1, b]]), stroke: S.spineColor, 'stroke-width': lw(S.spineW), fill: 'none' }));
+  }
+
+  /* --- Achsenlinien, Ticks, Beschriftungen --- */
+  const sw = lw(S.spineW), sc = S.spineColor, showSp = S.spines !== 'none' && t !== 'heatmap';
+  const sp4 = { l: showSp, b: showSp, r: S.spines === 'all' && t !== 'heatmap' || useY2, t: S.spines === 'all' && t !== 'heatmap' };
+  const sd = [];
+  if (sp4.l) sd.push(pathD([[rect.x0, rect.y0 - sw / 2], [rect.x0, rect.y1 + sw / 2]]));
+  if (sp4.r) sd.push(pathD([[rect.x1, rect.y0 - sw / 2], [rect.x1, rect.y1 + sw / 2]]));
+  if (sp4.b) sd.push(pathD([[rect.x0 - sw / 2, rect.y1], [rect.x1 + sw / 2, rect.y1]]));
+  if (sp4.t) sd.push(pathD([[rect.x0 - sw / 2, rect.y0], [rect.x1 + sw / 2, rect.y0]]));
+  if (sd.length) out.push(el('path', { d: sd.join(''), stroke: sc, 'stroke-width': sw, fill: 'none', 'stroke-linecap': 'square' }));
+  const tl = lw(S.tickLen), tdir = S.tickDir === 'in' ? -1 : 1, tdraw = S.tickDir !== 'none' && t !== 'heatmap';
+  const tk = [];
+  const tickColor = S.spines === 'none' ? tc : sc;
+  // X
+  const xLabY = rect.y1 + tickOut + tickPad;
+  for (const k of AX.x.ticks) {
+    const x = X(k.v); if (x < rect.x0 - 1 || x > rect.x1 + 1) continue;
+    if (tdraw) tk.push(pathD([[x, rect.y1], [x, rect.y1 + tdir * tl]]));
+    const r = rot.x;
+    if (r === 0) out.push(svgText(x, xLabY + F.tick.px * 0.5 + baselineOff(F.tick), k.label, F.tick, tc, 'middle'));
+    else out.push(svgText(x, xLabY + F.tick.px * 0.5 + baselineOff(F.tick), k.label, F.tick, tc, 'end', ` transform="rotate(${-r} ${f2(x)} ${f2(xLabY + F.tick.px * 0.35)})"`));
+  }
+  if (tdraw && S.minor) for (const v of AX.x.minor) { const x = X(v); if (x >= rect.x0 && x <= rect.x1) tk.push(pathD([[x, rect.y1], [x, rect.y1 + tdir * tl * 0.55]])); }
+  // Y links
+  for (const k of AX.y.ticks) {
+    const y = Y(k.v); if (y < rect.y0 - 1 || y > rect.y1 + 1) continue;
+    if (tdraw) tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl, y]]));
+    out.push(svgText(rect.x0 - tickOut - tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'end'));
+  }
+  if (tdraw && S.minor) for (const v of AX.y.minor) { const y = Y(v); if (y >= rect.y0 && y <= rect.y1) tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl * 0.55, y]])); }
+  // Y rechts
+  if (useY2) {
+    for (const k of AX.y2.ticks) {
+      const y = Y2(k.v); if (y < rect.y0 - 1 || y > rect.y1 + 1) continue;
+      if (tdraw) tk.push(pathD([[rect.x1, y], [rect.x1 + tdir * tl, y]]));
+      out.push(svgText(rect.x1 + tickOut + tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'start'));
+    }
+  }
+  if (tk.length) out.push(el('path', { d: tk.join(''), stroke: tickColor, 'stroke-width': sw, fill: 'none' }));
+
+  // Achsentitel
+  const editAttr = k => preview ? ` data-edit="${k}"` : '';
+  if (xTB) {
+    const xLabH = rot.x === 0 ? F.tick.px * 1.15 : rot.x === 90 ? maxOf(AX.x.ticks.map(k => tw(k.label, F.tick))) : maxOf(AX.x.ticks.map(k => tw(k.label, F.tick))) * Math.SQRT1_2 + F.tick.px * 0.8;
+    const y0 = manual ? rect.y1 + tickOut + tickPad + xLabH + labelPad : rect.y1 + tickOut + tickPad + xLabH + labelPad;
+    out.push(`<g${editAttr('xTitle')}>${svgBlock(xTB, rect.x0, pw, y0, 'center', tc)}</g>`);
+  }
+  const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
+  if (yTB) {
+    const cx = rect.x0 - tickOut - tickPad - yLabW - labelPad - yTB.h;
+    out.push(`<g${editAttr('yTitle')} transform="translate(${f2(cx)} ${f2(rect.y1)}) rotate(-90)">${svgBlock(yTB, 0, ph, 0, 'center', tc)}</g>`);
+  }
+  if (useY2 && y2TB) {
+    const y2LabW = AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
+    const cx = rect.x1 + tickOut + tickPad + y2LabW + labelPad + y2TB.h;
+    out.push(`<g${editAttr('y2Title')} transform="translate(${f2(cx)} ${f2(rect.y0)}) rotate(90)">${svgBlock(y2TB, 0, ph, 0, 'center', tc)}</g>`);
+  }
+
+  // Farbleiste
+  if (cbar) {
+    const bw = lw(10), x0 = rect.x1 + (useY2 ? 0 : 0) + gap * 2 + (outR ? 0 : 0), gid = nid('g');
+    const stops = Array.from({ length: 11 }, (_, i) => `<stop offset="${i / 10}" stop-color="${seqColor(1 - i / 10)}"/>`).join('');
+    defs.push(`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">${stops}</linearGradient>`);
+    out.push(el('rect', { x: x0, y: rect.y0, width: bw, height: ph, fill: `url(#${gid})` }));
+    const cax = makeAxis({ kind: cbar.date ? 'date' : 'lin', d0: cbar.min, d1: cbar.max, len: ph, tickPt: S.tickSize * cf, vertical: true, dec: -1 });
+    const cd = []; let mw = 0;
+    for (const k of cax.ticks) {
+      const y = rect.y1 - cax.f(k.v) * ph;
+      cd.push(pathD([[x0 + bw, y], [x0 + bw + lw(3.5), y]]));
+      out.push(svgText(x0 + bw + lw(3.5) + tickPad, y + baselineOff(F.tick), k.label, F.tick, tc));
+      mw = Math.max(mw, tw(k.label, F.tick));
+    }
+    out.push(el('path', { d: cd.join(''), stroke: tc, 'stroke-width': sw, fill: 'none' }));
+    if (cbar.title) {
+      const blk = textBlock(cbar.title, S.labelSize * cf, false, false, ph);
+      if (blk) out.push(`<g transform="translate(${f2(x0 + bw + lw(3.5) + tickPad + mw + labelPad + blk.h)} ${f2(rect.y0)}) rotate(90)">${svgBlock(blk, 0, ph, 0, 'center', tc)}</g>`);
+    }
+  }
+
+  // Gleichungen der Trendlinien
+  if (eqLines.length) {
+    const f = fontObj(S.legendSize * cf), lh = f.px * 1.3, w = maxOf(eqLines.map(e => tw(e.text, f))) + f.px;
+    const leftSide = !(S.legendPos === 'ul' || (S.legendPos === 'best' && legBox && legBox.corner === 'ul'));
+    const x = leftSide ? rect.x0 + f.px * 0.5 : rect.x1 - w - f.px * 0.5, y = rect.y0 + f.px * 0.5;
+    out.push(el('rect', { x, y, width: w, height: lh * eqLines.length + f.px * 0.4, fill: S.plotBg, 'fill-opacity': 0.8, rx: f.px * 0.2 }));
+    eqLines.forEach((e, i) => out.push(svgText(x + f.px * 0.5, y + f.px * 0.2 + lh * (i + 0.5) + baselineOff(f), e.text, f, darker(e.color, 0.2))));
+  }
+
+  // Legende
+  if (legBox) {
+    let lx, ly;
+    if (outR) { lx = W - pad - legBox.w; ly = rect.y0; if (cbar) lx -= 0; }
+    else if (outB) { lx = rect.x0 + (pw - legBox.w) / 2; ly = H - pad - (nBlk ? nBlk.h + gap : 0) - legBox.h; }
+    else {
+      const m = F.legend.px * 0.5;
+      const corners = { ur: [rect.x1 - legBox.w - m, rect.y0 + m], ul: [rect.x0 + m, rect.y0 + m], ll: [rect.x0 + m, rect.y1 - legBox.h - m], lr: [rect.x1 - legBox.w - m, rect.y1 - legBox.h - m] };
+      let pos = S.legendPos;
+      if (pos === 'best') {
+        const pts = [];
+        for (const mk of lineMarks) for (const p of mk.pts) if (p.y != null) pts.push(ptCV(p.x, p.y, mk.s.look.axis));
+        // Balken als Raster von Stützpunkten, damit die Legende keine Balkenfläche verdeckt
+        for (const mk of barMarks) for (let i = 0; i <= 4; i++) for (let j = 0; j <= 8; j++)
+          pts.push(ptCV(mk.c0 + (mk.c1 - mk.c0) * i / 4, mk.v0 + (mk.v1 - mk.v0) * j / 8, mk.axis));
+        for (const mk of marks.filter(mk => mk.m === 'box' || mk.m === 'violin')) { pts.push([C(mk.c), Y(mk.p.whi)], [C(mk.c), Y(mk.p.med)]); }
+        let best = 'ur', bc = Infinity;
+        for (const k of ['ur', 'ul', 'll', 'lr']) {
+          const [x, y] = corners[k];
+          let c = 0; for (const [px, py] of pts) if (px >= x - 2 && px <= x + legBox.w + 2 && py >= y - 2 && py <= y + legBox.h + 2) c++;
+          if (eqLines.length && k === 'ul') c += 1e6;
+          if (c < bc) { bc = c; best = k; }
+        }
+        pos = best;
+      }
+      legBox.corner = pos;
+      [lx, ly] = corners[pos] || corners.ur;
+    }
+    out.push(drawLegend(leg, legBox, lx, ly, F.legend, cf, preview));
+  }
+
+  // Titel, Untertitel, Fußnote
+  let y = pad;
+  const tx0 = S.titleAlign === 'center' ? rect.x0 : pad, tw0 = S.titleAlign === 'center' ? pw : W - 2 * pad;
+  if (tBlk) { out.push(`<g${editAttr('title')}>${svgBlock(tBlk, tBlk.w > tw0 ? pad : tx0, tBlk.w > tw0 ? W - 2 * pad : tw0, y, S.titleAlign, tc)}</g>`); y += tBlk.h + gap; }
+  if (sBlk) { out.push(`<g${editAttr('subtitle')}>${svgBlock(sBlk, sBlk.w > tw0 ? pad : tx0, sBlk.w > tw0 ? W - 2 * pad : tw0, y, S.titleAlign, mix(tc, S.bg, 0.25))}</g>`); }
+  if (nBlk) out.push(`<g${editAttr('note')}>${svgBlock(nBlk, pad, W - 2 * pad, H - pad - nBlk.h, 'left', mix(tc, S.bg, 0.2))}</g>`);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W * 0.75)}pt" height="${f2(H * 0.75)}pt" viewBox="0 0 ${W} ${H}">` +
+    (defs.length ? `<defs>${defs.join('')}</defs>` : '') + out.join('') + '</svg>';
+  return { svg, W, H, hits, rect, notes };
+}
+
+// Viele Punkte: je Pixelspalte nur erster, kleinster, größter und letzter Punkt
+function decimate(px) {
+  const out = []; let col = null, grp = [];
+  const flush = () => {
+    if (!grp.length) return;
+    let lo = grp[0], hi = grp[0];
+    for (const p of grp) { if (p[1] < lo[1]) lo = p; if (p[1] > hi[1]) hi = p; }
+    const keep = [grp[0], lo, hi, grp[grp.length - 1]].filter((p, i, a) => a.indexOf(p) === i).sort((a, b) => grp.indexOf(a) - grp.indexOf(b));
+    out.push(...keep); grp = [];
+  };
+  for (const p of px) { const c = Math.floor(p[0]); if (c !== col) { flush(); col = c; } grp.push(p); }
+  flush();
+  return out;
+}
+
+/* ---------- Legende ---------- */
+function legendModel(res, preview) {
+  const { sp, dims, series } = res, t = sp.t;
+  const patch = ['bar', 'area', 'hist', 'box', 'violin'].includes(t);
+  const markers = t === 'scatter' || t === 'linept';
+  const handle = (L, over) => ({ patch: patch && !(t === 'bar' && L.kind === 'line'), line: !patch && t !== 'scatter' || L.kind === 'line' && t === 'bar', color: L.color, dash: L.dash,
+    marker: L.marker, lw: L.lw, ms: L.ms, hatch: L.hatch, alpha: L.alpha, ...over });
+  const list = preview ? series : series.filter(s => !s.hidden);
+  const sections = [];
+  const userTitle = S.legendTitle === '' ? null : S.legendTitle.trim();
+  const mode = S.legendMode;
+  const splitDims = ['hue', 'style', 'size', 'extra'].filter(d => dims[d] && dims[d].split);
+  const neutral = '#555555';
+  const sizeNumSection = () => {
+    const sz = dims.size;
+    if (!sz || sz.kind !== 'num' || sz.split) return null;
+    const vals = niceTicks(sz.min, sz.max, 4).ticks.filter(v => v >= sz.min && v <= sz.max);
+    return { title: sz.label, items: vals.map(v => {
+      const f = (v - sz.min) / (sz.max - sz.min);
+      return { label: fmtNum(v, -1), h: { marker: 'o', ms: Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)), color: neutral } };
+    }) };
+  };
+  if (mode === 'combined' || !splitDims.length) {
+    if (list.length < 2 && !(dims.size && dims.size.kind === 'num' && !dims.size.split)) return null;
+    const ttl = userTitle ?? [...new Set(splitDims.filter(d => sp.m[d] !== VAR).map(d => dims[d].label))].join(', ');
+    if (list.length >= 2) sections.push({ title: ttl, items: list.map(s => ({ label: s.legend, h: handle(s.look), sk: s.key, hidden: s.hidden })) });
+    const ss = sizeNumSection(); if (ss) sections.push(ss);
+    return { sections };
+  }
+  for (const d of splitDims) {
+    if (mode === 'hue' && d !== 'hue') continue;
+    const di = dims[d];
+    const items = di.levels.map(l => {
+      const s = list.find(x => x.lv[d] === l); if (!s) return null;
+      const L = s.look;
+      let h;
+      if (d === 'hue') h = handle(L, { dash: 'solid', marker: markers ? 'o' : 'none', hatch: '', ms: S.markerSize, lw: S.lineW });
+      else if (d === 'style') h = handle(L, { color: neutral });
+      else if (d === 'size') h = handle(L, { color: neutral, dash: 'solid' });
+      else h = handle(L, { color: dims.hue ? neutral : L.color });
+      const lab = d === 'hue' && list.length === di.levels.length ? s.legend : l;
+      return { label: lab, h, lv: d + '\uE000' + l, hidden: ((P.levels[d] || {})[l] || {}).hidden };
+    }).filter(Boolean);
+    sections.push({ title: di.name === VAR ? '' : di.label, items });
+  }
+  const ss = sizeNumSection(); if (ss && mode !== 'hue') sections.push(ss);
+  if (sections.length === 1 && userTitle != null) sections[0].title = userTitle;
+  else if (userTitle) sections.unshift({ title: userTitle, items: [] });
+  return sections.some(s => s.items.length) ? { sections } : null;
+}
+function legendLayout(leg, font, cf) {
+  const fpx = font.px, hl = 2 * fpx, tp = 0.8 * fpx, ls = 0.5 * fpx, bp = 0.4 * fpx, cs = 2 * fpx;
+  const rows = [];
+  for (const s of leg.sections) {
+    if (s.title) rows.push({ title: s.title, w: tw(s.title, font) });
+    for (const it of s.items) rows.push({ it, w: (it.h ? hl + tp : 0) + tw(it.label, font), hpx: Math.max(fpx, (it.h && it.h.marker !== 'none' ? it.h.ms * PT * cf : 0)) });
+  }
+  let nc = S.legendCols > 0 ? Math.round(S.legendCols) : 1;
+  if (S.legendCols === 0 && S.legendPos === 'outB') nc = rows.length;
+  nc = Math.max(1, Math.min(nc, rows.length));
+  const build = nc => {
+    const per = Math.ceil(rows.length / nc), cols = [];
+    for (let c = 0; c < nc; c++) cols.push(rows.slice(c * per, (c + 1) * per));
+    const rowH = r => (r.hpx || fpx) * 1.0;
+    const colW = cols.map(c => maxOf(c.map(r => r.w).concat([0])));
+    const colH = cols.map(c => sum(c.map(rowH)) + Math.max(0, c.length - 1) * ls);
+    return { cols, colW, w: 2 * bp + sum(colW) + (nc - 1) * cs + 0.4 * fpx, h: 2 * bp + maxOf(colH) + 0.2 * fpx, nc };
+  };
+  let L = build(nc);
+  if (S.legendCols === 0 && S.legendPos === 'outB') {
+    const maxW = toPx(S.figW, S.figUnit) * 0.92;
+    while (L.w > maxW && nc > 1) L = build(--nc);
+  }
+  return { ...L, fpx, hl, tp, ls, bp, cs };
+}
+function drawLegend(leg, B, x0, y0, font, cf, preview) {
+  const s = [], lwp = pt => pt * PT * cf;
+  if (S.legendFrame) s.push(el('rect', { x: x0, y: y0, width: B.w, height: B.h, rx: B.fpx * 0.2, fill: S.transparent && S.legendPos.startsWith('out') ? 'none' : S.plotBg, 'fill-opacity': 0.8, stroke: '#cccccc', 'stroke-width': lwp(0.8) }));
+  let cx = x0 + B.bp + 0.2 * B.fpx;
+  B.cols.forEach((col, ci) => {
+    let cy = y0 + B.bp + 0.1 * B.fpx;
+    for (const r of col) {
+      const h = r.hpx || B.fpx, mid = cy + h / 2;
+      if (r.title != null) s.push(svgText(cx, mid + baselineOff(font), r.title, font, S.textColor));
+      else {
+        const it = r.it, hd = it.h, g = [];
+        if (hd) {
+          const hx0 = cx, hx1 = cx + B.hl;
+          if (hd.patch) {
+            const ph = B.fpx * 0.7;
+            g.push(el('rect', { x: hx0, y: mid - ph / 2, width: B.hl, height: ph, fill: hd.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: S.barEdge === 'none' ? null : S.barEdge === 'darker' ? darker(hd.color) : S.barEdgeColor, 'stroke-width': S.barEdge === 'none' ? null : lwp(S.barEdgeW) }));
+            if (hd.hatch) g.push(el('rect', { x: hx0, y: mid - ph / 2, width: B.hl, height: ph, fill: 'none', stroke: 'none' }), legendHatch(hd, hx0, mid - ph / 2, B.hl, ph, cf));
+          } else {
+            if (hd.line && hd.lw > 0) { const w = lwp(hd.lw); g.push(el('path', { d: pathD([[hx0, mid], [hx1, mid]]), stroke: hd.color, 'stroke-width': w, 'stroke-dasharray': dashArr(hd.dash, w), fill: 'none' })); }
+            if (hd.marker && hd.marker !== 'none') g.push(markerSVG(hd.marker, (hx0 + hx1) / 2, mid, lwp(hd.ms), hd.color, S.markerEdge === 'white' ? '#ffffff' : S.markerEdge === 'darker' ? darker(hd.color) : null, lwp(0.75)));
+          }
+        }
+        g.push(svgText(cx + (hd ? B.hl + B.tp : 0), mid + baselineOff(font), it.label, font, S.textColor));
+        const a = it.sk != null ? ` data-sk="${esc(it.sk)}"` : it.lv != null ? ` data-lv="${esc(it.lv)}"` : '';
+        s.push(`<g${preview ? a : ''}${preview && it.hidden ? ' opacity="0.3"' : ''}>${preview ? el('rect', { x: cx - 2, y: cy - 1, width: r.w + 4, height: h + 2, fill: 'transparent' }) : ''}${g.join('')}</g>`);
+      }
+      cy += h + B.ls;
+    }
+    cx += B.colW[ci] + B.cs;
+  });
+  return `<g>${s.join('')}</g>`;
+}
+// Schraffur in der Legende als einfache Linien (ohne Pattern-Definition)
+function legendHatch(hd, x, y, w, h, cf) {
+  const c = darker(hd.color, 0.55), sw = f2(Math.max(0.6, cf)), d = [];
+  const step = 4;
+  if (hd.hatch === '/' || hd.hatch === 'x') for (let i = -h; i < w; i += step) d.push(pathD([[x + i, y + h], [x + i + h, y]]));
+  if (hd.hatch === '\\' || hd.hatch === 'x') for (let i = -h; i < w; i += step) d.push(pathD([[x + i, y], [x + i + h, y + h]]));
+  if (hd.hatch === '-' || hd.hatch === '+') for (let j = 2; j < h; j += step) d.push(pathD([[x, y + j], [x + w, y + j]]));
+  if (hd.hatch === '|' || hd.hatch === '+') for (let i = 2; i < w; i += step) d.push(pathD([[x + i, y], [x + i, y + h]]));
+  if (hd.hatch === '.') return Array.from({ length: Math.floor(w / step) * Math.floor(h / step) }, (_, k) => el('circle', { cx: x + 2 + (k % Math.floor(w / step)) * step, cy: y + 2 + Math.floor(k / Math.floor(w / step)) * step, r: 0.8, fill: c })).join('');
+  return `<g clip-path="none"><svg x="${f2(x)}" y="${f2(y)}" width="${f2(w)}" height="${f2(h)}" viewBox="${f2(x)} ${f2(y)} ${f2(w)} ${f2(h)}" overflow="hidden">${el('path', { d: d.join(''), stroke: c, 'stroke-width': sw, fill: 'none' })}</svg></g>`;
+}
+
+/* ---------- Beispieldaten (fest erzeugt, damit sie bei jedem Start gleich sind) ---------- */
+function rng(seed) {
+  let a = seed >>> 0;
+  const u = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  return { u, n: (m = 0, s = 1) => m + s * Math.sqrt(-2 * Math.log(u() || 1e-12)) * Math.cos(2 * Math.PI * u()) };
+}
+const deNum = (v, d) => v.toFixed(d).replace('.', ',');
+const SAMPLES = {
+  'Messreihe (CSV, Dezimalkomma)': {
+    text: () => { const r = rng(7), L = ['Zeit [s];Sensor A;Sensor B;Sensor C'];
+      for (let i = 0; i < 50; i++) { const t = i * 0.2; L.push([deNum(t, 1), deNum(20 + 5 * (1 - Math.exp(-t / 2)) + r.n(0, 0.15), 3), deNum(20 + 3 * Math.sin(t) + r.n(0, 0.15), 3), deNum(18 + 0.8 * t + r.n(0, 0.3), 3)].join(';')); }
+      return L.join('\n'); },
+    p: { type: 'line', x: 'Zeit [s]', ys: ['Sensor A', 'Sensor B', 'Sensor C'], hue: '', style: '', size: '', agg: 'mean', err: 'none' }
+  },
+  'Gruppen (lange Form, Wiederholungen)': {
+    text: () => { const r = rng(11), L = ['Zeit,Wert,Gruppe,Bedingung'];
+      for (const [g, k, b] of [['A', 0.6, 10], ['B', 0.9, 12], ['C', 0.3, 9]]) for (const [c, f] of [['Kontrolle', 1], ['Behandlung', 1.35]])
+        for (let z = 0; z <= 10; z += 2) for (let i = 0; i < 6; i++) L.push(`${z},${(b + k * f * z + r.n(0, 1.2)).toFixed(2)},${g},${c}`);
+      return L.join('\n'); },
+    p: { type: 'line', x: 'Zeit', ys: ['Wert'], hue: 'Gruppe', style: 'Bedingung', size: '', agg: 'mean', err: 'ci', errStyle: 'band' }
+  },
+  'Umsatz (Markdown)': {
+    text: () => '| Monat | Hardware | Software | Service | Sonstiges |\n|:--|--:|--:|--:|--:|\n| Jan | 120 | 80 | 45 | 15 |\n| Feb | 135 | 72 | 50 | -8 |\n| Mär | 128 | 90 | 48 | 12 |\n| Apr | 150 | 95 | 60 | 20 |\n| Mai | 160 | 88 | 52 | 18 |\n| Jun | 172 | 101 | 66 | 25 |',
+    p: { type: 'bar', x: 'Monat', ys: ['Hardware', 'Software', 'Service', 'Sonstiges'], hue: '', style: '', size: '', agg: 'none', err: 'none', bar: { mode: 'stack' } }
+  },
+  'Verteilung (zwei Gruppen)': {
+    text: () => { const r = rng(5), L = ['Gruppe\tMesswert'];
+      for (let i = 0; i < 110; i++) L.push(`Werk Nord\t${deNum(r.n(50, 8), 2)}`);
+      for (let i = 0; i < 90; i++) L.push(`Werk Süd\t${deNum(i < 70 ? r.n(58, 5) : r.n(72, 3), 2)}`);
+      return L.join('\n'); },
+    p: { type: 'hist', x: '', ys: ['Messwert'], hue: 'Gruppe', style: '', size: '', agg: 'none', err: 'none' }
+  }
+};
+const DEFAULT_SAMPLE = 'Messreihe (CSV, Dezimalkomma)';
+
+/* ---------- Daten-Eingabe ---------- */
+function parseSrc() {
+  tables = parseInput($('#src').value);
+  if (tIdx >= tables.length) tIdx = 0;
+  const sel = $('#tblSel');
+  sel.hidden = tables.length <= 1;
+  sel.innerHTML = tables.map((t, i) => `<option value="${i}">Tabelle ${i + 1} (${Math.max(...t.rows.map(r => r.length))} Sp.)</option>`).join('');
+  sel.value = tIdx;
+  rebuildData();
+}
+function rebuildData() {
+  D = tables.length ? buildData(tables[tIdx].rows) : { cols: [], n: 0 };
+  fixSelection();
+  buildDataPanel();
+  buildColumnSelects();
+  syncUI();
+}
+// Ungültige Spalten-Zuordnungen nach neuen Daten sinnvoll ersetzen
+function fixSelection() {
+  const names = D.cols.map(c => c.name);
+  if (!names.length) return;
+  const valid = n => n === VAR || names.includes(n);
+  if (P.x && !valid(P.x)) P.x = '';
+  P.ys = P.ys.filter(n => names.includes(n));
+  if (!P.x && P.type !== 'hist') P.x = names[0];
+  if (!P.ys.length) {
+    const nums = D.cols.filter(c => c.type === 'num' && c.name !== P.x).map(c => c.name);
+    P.ys = nums.slice(0, 8);
+  }
+  for (const k of ['hue', 'style', 'size']) if (P[k] && !valid(P[k])) P[k] = '';
+  P.filters = P.filters.filter(f => names.includes(f.col));
+}
+const TYPE_NAMES = { num: 'Zahl', date: 'Datum', cat: 'Text' };
+function buildDataPanel() {
+  const cols = D.cols;
+  if (!cols.length) { $('#preview').innerHTML = ''; $('#dataInfo').textContent = 'Keine Tabelle gefunden.'; buildFilters(); return; }
+  const n = Math.min(8, D.n);
+  let h = '<table><tr>' + cols.map(c => {
+    const ov = P.types[c.name] || 'auto';
+    return `<th title="${esc(c.name)}">${esc(c.name.length > 18 ? c.name.slice(0, 17) + '…' : c.name)}<select data-type="${esc(c.name)}">` +
+      `<option value="auto"${ov === 'auto' ? ' selected' : ''}>auto: ${TYPE_NAMES[c.auto]}</option>` +
+      [['num,', 'Zahl (1,5)'], ['num.', 'Zahl (1.5)'], ['date', 'Datum'], ['cat', 'Text']].map(([v, l]) => `<option value="${v}"${ov === v ? ' selected' : ''}>${l}</option>`).join('') +
+      '</select></th>';
+  }).join('') + '</tr>';
+  for (let r = 0; r < n; r++) h += '<tr>' + cols.map(c => {
+    const v = c.val[r];
+    const txt = v == null ? (c.raw[r] ? c.raw[r] : '–') : c.type === 'num' ? fmtNum(v, -1) : c.type === 'date' ? dateDefault(v) : v;
+    return `<td class="${c.type === 'num' ? 'num' : ''}${v == null ? ' na' : ''}">${esc(String(txt).slice(0, 40))}</td>`;
+  }).join('') + '</tr>';
+  if (D.n > n) h += `<tr><td colspan="${cols.length}" class="na">… ${D.n - n} weitere Zeilen</td></tr>`;
+  $('#preview').innerHTML = h + '</table>';
+  $$('#preview [data-type]').forEach(sel => sel.onchange = () => {
+    if (sel.value === 'auto') delete P.types[sel.dataset.type]; else P.types[sel.dataset.type] = sel.value;
+    rebuildData(); render();
+  });
+  const info = [`${D.n} Zeilen × ${cols.length} Spalten`];
+  const pct = cols.filter(c => c.pct).map(c => c.name);
+  if (pct.length) info.push(`Prozentangaben als Zahlen gelesen (%-Zeichen entfernt): ${pct.join(', ')}`);
+  const bad = cols.filter(c => c.bad > 0).map(c => `${c.name} (${c.bad})`);
+  if (bad.length) info.push(`nicht lesbare Werte, als fehlend behandelt: ${bad.join(', ')}`);
+  $('#dataInfo').textContent = info.join(' · ');
+  buildFilters();
+}
+const OPS = [['=', '='], ['!=', '≠'], ['<', '<'], ['<=', '≤'], ['>', '>'], ['>=', '≥'], ['has', 'enthält'], ['empty', 'ist leer'], ['notempty', 'nicht leer']];
+function buildFilters() {
+  const box = $('#filters'); box.innerHTML = '';
+  P.filters.forEach((f, i) => {
+    const d = document.createElement('div'); d.className = 'flt';
+    d.innerHTML = `<select>${D.cols.map(c => `<option${c.name === f.col ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` +
+      `<select>${OPS.map(([v, l]) => `<option value="${v}"${v === f.op ? ' selected' : ''}>${l}</option>`).join('')}</select>` +
+      `<input value="${esc(f.val)}" placeholder="Wert"><button title="Filter entfernen">✕</button>`;
+    const [cs, os, inp, del] = d.children;
+    cs.onchange = () => { f.col = cs.value; render(); };
+    os.onchange = () => { f.op = os.value; render(); };
+    inp.oninput = () => { f.val = inp.value; render(); };
+    del.onclick = () => { P.filters.splice(i, 1); buildFilters(); render(); };
+    box.appendChild(d);
+  });
+}
+$('#btnAddFilter').onclick = () => { if (!D.cols.length) return; P.filters.push({ col: D.cols[0].name, op: '=', val: '' }); buildFilters(); };
+
+// Spaltenauswahl für X, Y, hue/style/size
+function buildColumnSelects() {
+  const cols = D.cols, multi = P.ys.filter(n => colByName(n)).length > 1;
+  const opt = (v, l, dis) => `<option value="${esc(v)}"${dis ? ' disabled' : ''}>${esc(l)}</option>`;
+  const colOpts = cols.map(c => opt(c.name, `${c.name}  (${TYPE_NAMES[c.type]})`)).join('');
+  $('[data-p="x"]').innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : '');
+  $$('.grpSel').forEach(s => s.innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : ''));
+  const box = $('#ys'); box.innerHTML = '';
+  for (const c of cols) {
+    const lab = document.createElement('label'); lab.title = c.name + (c.type === 'cat' ? ' (Text – nicht als Wert nutzbar)' : '');
+    lab.innerHTML = `<input type="checkbox" ${P.ys.includes(c.name) ? 'checked' : ''} ${c.type === 'cat' ? 'disabled' : ''}> ${esc(c.name)}`;
+    if (c.type === 'cat') lab.classList.add('dis');
+    lab.querySelector('input').onchange = e => {
+      if (e.target.checked) { const order = cols.map(x => x.name); P.ys = order.filter(n => n === c.name || P.ys.includes(n)); }
+      else P.ys = P.ys.filter(n => n !== c.name);
+      buildColumnSelects(); syncUI(); render();
+    };
+    box.appendChild(lab);
+  }
+  updateVisibility();
+}
+function updateVisibility() {
+  const t = P.type, xy = !!TYPE_INFO[t].xy, cat = !!TYPE_INFO[t].cat;
+  const show = (s, on) => { const e = $(s); if (e) e.hidden = !on; };
+  show('#barBox', t === 'bar' || t === 'area');
+  $$('#barBox .row').forEach((r, i) => r.hidden = t === 'area' && i !== 1);
+  show('#histBox', t === 'hist');
+  show('#boxBox', t === 'box' || t === 'violin');
+  show('#hmBox', t === 'heatmap');
+  show('#statBox', !['hist', 'box', 'violin'].includes(t) && !(t === 'bar' && P.bar.stat !== 'value'));
+  show('#rowLineOpts', xy);
+  show('#rowTrend', ['line', 'scatter', 'linept'].includes(t));
+  show('#rowBins', P.hist.binMode === 'n');
+  show('#rowBinW', P.hist.binMode === 'w');
+  show('#rowMargins', S.marginMode === 'manual');
+  const hc = colByName(P.hue);
+  show('#rowHueBins', !!hc && hc.type !== 'cat');
+  $('#rowSize').classList.toggle('dis', ['bar', 'area', 'hist', 'box', 'violin', 'heatmap'].includes(t));
+  $('#lblX').textContent = t === 'hist' ? 'X-Achse (nicht verwendet)' : t === 'heatmap' ? 'Zeilen (X)' : cat ? 'Kategorien (X)' : 'X-Achse';
+  $('#lblYs').textContent = t === 'hist' ? 'Werte (Y-Spalten)' : t === 'bar' && P.bar.stat !== 'value' ? 'Y-Werte (bei Häufigkeiten nicht nötig)' : t === 'heatmap' ? 'Zellwerte (Y-Spalten)' : 'Y-Werte (mehrere Spalten ergeben mehrere Reihen)';
+  $$('#types button').forEach(b => b.classList.toggle('on', typeActive(b.dataset.t)));
+}
+
+/* ---------- Diagrammtypen ---------- */
+const ICONS = {
+  line: '<polyline points="2,16 9,8 16,12 28,3"/>',
+  scatter: '<g fill="currentColor" stroke="none"><circle cx="5" cy="14" r="2"/><circle cx="11" cy="9" r="2"/><circle cx="17" cy="12" r="2"/><circle cx="24" cy="5" r="2"/></g>',
+  linept: '<polyline points="3,15 10,8 17,11 26,4"/><g fill="currentColor" stroke="none"><circle cx="3" cy="15" r="2"/><circle cx="10" cy="8" r="2"/><circle cx="17" cy="11" r="2"/><circle cx="26" cy="4" r="2"/></g>',
+  bar: '<g fill="currentColor" stroke="none"><rect x="4" y="9" width="5" height="9"/><rect x="12" y="4" width="5" height="14"/><rect x="20" y="11" width="5" height="7"/></g>',
+  barh: '<g fill="currentColor" stroke="none"><rect x="3" y="2" width="16" height="4"/><rect x="3" y="8" width="24" height="4"/><rect x="3" y="14" width="10" height="4"/></g>',
+  stack: '<g stroke="none"><rect x="4" y="10" width="6" height="8" fill="currentColor"/><rect x="4" y="5" width="6" height="5" fill="currentColor" opacity=".45"/><rect x="13" y="8" width="6" height="10" fill="currentColor"/><rect x="13" y="2" width="6" height="6" fill="currentColor" opacity=".45"/><rect x="22" y="12" width="6" height="6" fill="currentColor"/><rect x="22" y="7" width="6" height="5" fill="currentColor" opacity=".45"/></g>',
+  area: '<path d="M2 18 L2 12 L9 7 L16 10 L28 3 L28 18 Z" fill="currentColor" opacity=".35" stroke="none"/><polyline points="2,12 9,7 16,10 28,3"/>',
+  hist: '<g fill="currentColor" stroke="none"><rect x="3" y="13" width="4" height="5"/><rect x="7" y="8" width="4" height="10"/><rect x="11" y="3" width="4" height="15"/><rect x="15" y="6" width="4" height="12"/><rect x="19" y="11" width="4" height="7"/><rect x="23" y="15" width="4" height="3"/></g>',
+  box: '<path d="M10 2 v4 M10 14 v4 M7 2 h6 M7 18 h6"/><rect x="6" y="6" width="8" height="8"/><path d="M6 10 h8"/><path d="M22 4 v3 M22 13 v4 M19 4 h6 M19 17 h6"/><rect x="18" y="7" width="8" height="6"/><path d="M18 9 h8"/>',
+  violin: '<path d="M10 2 C6 7 5 9 8 12 C10 14 7 16 10 18 C13 16 10 14 12 12 C15 9 14 7 10 2 Z"/><path d="M21 3 C16 9 17 12 21 17 C25 12 26 9 21 3 Z"/>',
+  heatmap: '<g stroke="none" fill="currentColor"><rect x="3" y="2" width="7" height="5" opacity=".9"/><rect x="11" y="2" width="7" height="5" opacity=".4"/><rect x="19" y="2" width="7" height="5" opacity=".7"/><rect x="3" y="8" width="7" height="5" opacity=".3"/><rect x="11" y="8" width="7" height="5" opacity="1"/><rect x="19" y="8" width="7" height="5" opacity=".5"/><rect x="3" y="14" width="7" height="5" opacity=".6"/><rect x="11" y="14" width="7" height="5" opacity=".2"/><rect x="19" y="14" width="7" height="5" opacity=".85"/></g>'
+};
+const TYPE_BTNS = [
+  ['line', 'Linie'], ['scatter', 'Punkte'], ['linept', 'Linie + Punkte'], ['area', 'Fläche'],
+  ['bar', 'Balken'], ['barh', 'Balken horizontal'], ['stack', 'Gestapelt'], ['hist', 'Histogramm'],
+  ['box', 'Boxplot'], ['violin', 'Violin'], ['heatmap', 'Heatmap']
+];
+function typeActive(k) {
+  if (k === 'barh') return P.type === 'bar' && P.bar.orient === 'h';
+  if (k === 'stack') return P.type === 'bar' && P.bar.mode !== 'dodge' && P.bar.orient === 'v';
+  if (k === 'bar') return P.type === 'bar' && P.bar.orient === 'v' && P.bar.mode === 'dodge';
+  return P.type === k;
+}
+TYPE_BTNS.forEach(([k, label]) => {
+  const b = document.createElement('button'); b.dataset.t = k; b.title = label;
+  b.innerHTML = `<svg viewBox="0 0 30 20">${ICONS[k]}</svg><span>${label}</span>`;
+  b.onclick = () => {
+    if (k === 'barh') { P.type = 'bar'; P.bar.orient = 'h'; }
+    else if (k === 'stack') { P.type = 'bar'; P.bar.orient = 'v'; if (P.bar.mode === 'dodge') P.bar.mode = 'stack'; }
+    else if (k === 'bar') { P.type = 'bar'; P.bar.orient = 'v'; P.bar.mode = 'dodge'; }
+    else P.type = k;
+    if (P.type === 'bar' && P.agg === 'none' && P.err !== 'none') P.agg = 'mean';
+    buildColumnSelects(); syncUI(); render();
+  };
+  $('#types').appendChild(b);
+});
+
+/* ---------- Reihen-Panel ---------- */
+let seriesSig = '';
+const opts = (o, cur) => Object.entries(o).map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
+function updateSeriesPanel(res) {
+  const sp = res.sp, t = sp.t;
+  const sig = JSON.stringify([t, P.bar.stat, P.bar.order, res.series.map(s => s.key), Object.values(res.dims).map(d => [d.dim, d.kind, d.split, d.levels]),
+    P.bar.order === 'manual' ? res.cats : 0, res.series.map(s => s.look.kind)]);
+  if (sig === seriesSig) { refreshSeriesInputs(res); return; }
+  seriesSig = sig;
+  const box = $('#series'); box.innerHTML = '';
+  if (!res.series.length) { box.innerHTML = '<p class="hint">Keine Reihen – bitte X- und Y-Spalten wählen.</p>'; return; }
+  if (t === 'heatmap') { box.innerHTML = '<p class="hint">Bei der Heatmap kommen die Farben aus der fortlaufenden Palette (Abschnitt Farben).</p>'; return; }
+  const markers = t === 'scatter' || t === 'linept', lineT = ['line', 'linept', 'area'].includes(t), patch = ['bar', 'hist', 'box', 'violin'].includes(t);
+  // Stufen je Zuordnung
+  for (const d of ['hue', 'style', 'size', 'extra']) {
+    const di = res.dims[d];
+    if (!di || di.kind === 'num' || !di.levels.length) continue;
+    if (d === 'hue' && Object.keys(res.dims).length === 1 && di.levels.length === res.series.length && di.split) continue;   // = Reihen
+    const title = { hue: 'Farbe', style: 'Stil', size: 'Größe', extra: 'Reihenfolge' }[d] + ' je Stufe: ' + di.label;
+    const sec = document.createElement('div');
+    sec.innerHTML = `<div class="sub">${esc(title)}</div>`;
+    const list = document.createElement('div');
+    for (const l of di.levels) {
+      const row = document.createElement('div'); row.className = 'row lv'; row.dataset.lv = l;
+      const id = d + '\uE000' + l;
+      let ctl = '';
+      if (d === 'hue') ctl = `<input type="color" data-l="${esc(id)}" data-prop="color">`;
+      if (d === 'style') {
+        if (!patch || t === 'bar') ctl += lineT || markers || t === 'bar' ? `<select data-l="${esc(id)}" data-prop="dash">${opts(DASH_LABEL)}</select>` : '';
+        if (markers || lineT) ctl += `<select data-l="${esc(id)}" data-prop="marker">${opts(MARKER_LABEL)}</select>`;
+        if (patch) ctl += `<select data-l="${esc(id)}" data-prop="hatch" title="Schraffur">${opts(HATCH_LABEL)}</select>`;
+      }
+      if (d === 'size') ctl = `<input type="number" step="0.25" min="0" data-l="${esc(id)}" data-prop="size" title="${markers ? 'Markergröße' : 'Linienbreite'} (pt)">`;
+      row.innerHTML = `<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span><span class="nm" style="flex:1" title="${esc(l)}">${esc(l)}</span>${ctl}`;
+      list.appendChild(row);
+    }
+    makeSortable(list, order => { P.order[d] = order; render(); });
+    sec.appendChild(list); box.appendChild(sec);
+  }
+  // Kategorien manuell ordnen
+  if (sp.xCat && TYPE_INFO[t].cat && P.bar.order === 'manual' && res.cats.length > 1) {
+    const sec = document.createElement('div'); sec.innerHTML = '<div class="sub">Reihenfolge der Kategorien</div>';
+    const list = document.createElement('div');
+    for (const c of res.cats) { const row = document.createElement('div'); row.className = 'row lv'; row.dataset.lv = c; row.innerHTML = `<span class="handle" draggable="true">⠿</span><span class="nm" style="flex:1">${esc(c || '(leer)')}</span>`; list.appendChild(row); }
+    makeSortable(list, order => { P.order.x = order; render(); });
+    sec.appendChild(list); box.appendChild(sec);
+  }
+  // Reihen
+  const sec = document.createElement('div');
+  sec.innerHTML = `<div class="sub">Reihen (${res.series.length})</div>`;
+  const hueSeries = res.dims.hue && Object.keys(res.dims).length === 1 && res.dims.hue.split && res.dims.hue.kind === 'cat' && res.dims.hue.levels.length === res.series.length;
+  const list = document.createElement('div');
+  res.series.slice(0, 60).forEach(s => {
+    const k = esc(s.key), row = document.createElement('div');
+    row.className = 'lv'; row.dataset.lv = s.lv.hue != null ? s.lv.hue : s.key;
+    row.style.cssText = 'border-top:1px solid var(--border);padding:4px 0';
+    const isLine = t !== 'bar' || s.look.kind === 'line';
+    let c2 = '';
+    if (lineT || markers || (t === 'bar' && s.look.kind === 'line')) {
+      if (t !== 'scatter') c2 += `<select data-s="${k}" data-prop="dash" title="Linienstil">${opts(DASH_LABEL)}</select><input type="number" step="0.25" min="0" data-s="${k}" data-prop="lw" title="Linienbreite (pt)">`;
+      if (t !== 'area') c2 += `<select data-s="${k}" data-prop="marker" title="Marker">${opts(MARKER_LABEL)}</select><input type="number" step="0.5" min="0" data-s="${k}" data-prop="ms" title="Markergröße (pt)">`;
+      if (t !== 'area') c2 += `<input type="number" step="0.05" min="0" max="1" data-s="${k}" data-prop="alpha" title="Deckkraft">`;
+    }
+    if (patch && !(t === 'bar' && s.look.kind === 'line') && t !== 'violin') c2 += `<select data-s="${k}" data-prop="hatch" title="Schraffur">${opts(HATCH_LABEL)}</select>`;
+    if (t === 'bar') c2 += `<select data-s="${k}" data-prop="kind" title="Darstellung">${opts({ bar: 'Balken', line: 'Linie' })}</select>`;
+    if (['line', 'scatter', 'linept', 'area'].includes(t) || t === 'bar') c2 += `<select data-s="${k}" data-prop="axis" title="Y-Achse">${opts({ y: 'Achse links', y2: 'Achse rechts' })}</select>`;
+    row.innerHTML = `<div class="row" style="margin:2px 0">${hueSeries ? '<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span>' : ''}` +
+      `<input type="checkbox" data-s="${k}" data-prop="visible" title="sichtbar">` +
+      `<input data-s="${k}" data-prop="label" placeholder="${esc(s.label)}" style="flex:1;min-width:60px" title="Name in der Legende">` +
+      `<input type="color" data-s="${k}" data-prop="color" title="Farbe"></div>` +
+      (c2 ? `<div class="row" style="margin:2px 0 2px 22px;flex-wrap:wrap">${c2}</div>` : '');
+    if (!isLine) row.querySelectorAll('[data-prop="dash"],[data-prop="lw"],[data-prop="marker"],[data-prop="ms"]').forEach(e => e.remove());
+    list.appendChild(row);
+  });
+  if (res.series.length > 60) list.insertAdjacentHTML('beforeend', `<p class="hint">… ${res.series.length - 60} weitere Reihen</p>`);
+  if (hueSeries) makeSortable(list, order => { P.order.hue = order; render(); });
+  sec.appendChild(list); box.appendChild(sec);
+  box.querySelectorAll('[data-s],[data-l]').forEach(inp => {
+    const ev = inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input';
+    inp.addEventListener(ev, () => onSeriesInput(inp));
+  });
+  refreshSeriesInputs(res);
+}
+function onSeriesInput(inp) {
+  const prop = inp.dataset.prop;
+  let v = inp.type === 'checkbox' ? inp.checked : inp.type === 'number' ? parseFloat(inp.value) : inp.value;
+  if (typeof v === 'number' && isNaN(v)) v = null;
+  if (inp.dataset.s != null) {
+    const o = P.series[inp.dataset.s] = P.series[inp.dataset.s] || {};
+    if (prop === 'visible') { o.hidden = !v; } else if (v === '' || v == null) delete o[prop]; else o[prop] = v;
+    if (prop === 'kind' || prop === 'axis') seriesSig = '';
+  } else {
+    const [d, l] = inp.dataset.l.split('\uE000');
+    const lv = P.levels[d] = P.levels[d] || {}, o = lv[l] = lv[l] || {};
+    if (v === '' || v == null) delete o[prop]; else o[prop] = v;
+  }
+  render();
+}
+function refreshSeriesInputs(res) {
+  const bySk = new Map(res.series.map(s => [s.key, s]));
+  $$('#series [data-s]').forEach(inp => {
+    if (document.activeElement === inp) return;
+    const s = bySk.get(inp.dataset.s); if (!s) return;
+    const p = inp.dataset.prop, ov = P.series[s.key] || {};
+    if (p === 'visible') inp.checked = !ov.hidden;
+    else if (p === 'label') inp.value = ov.label || '';
+    else inp.value = s.look[p] != null ? (typeof s.look[p] === 'number' ? r2(s.look[p]) : s.look[p]) : '';
+  });
+  $$('#series [data-l]').forEach(inp => {
+    if (document.activeElement === inp) return;
+    const [d, l] = inp.dataset.l.split('\uE000'), p = inp.dataset.prop;
+    const s = res.series.find(x => x.lv[d] === l); if (!s) return;
+    inp.value = p === 'size' ? r2(res.sp.t === 'scatter' || res.sp.t === 'linept' ? s.look.ms : s.look.lw) : s.look[p] != null ? s.look[p] : '';
+  });
+}
+// Ziehen zum Umsortieren (HTML5 Drag & Drop über den Griff ⠿)
+function makeSortable(list, done) {
+  let dragEl = null;
+  list.addEventListener('dragstart', e => {
+    const row = e.target.closest('.lv'); if (!row || !e.target.classList.contains('handle')) return;
+    dragEl = row; row.classList.add('drag'); e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', row.dataset.lv); e.dataTransfer.setDragImage(row, 10, 10); } catch { }
+  });
+  list.addEventListener('dragover', e => {
+    if (!dragEl) return; e.preventDefault();
+    const row = e.target.closest('.lv'); if (!row || row === dragEl || row.parentNode !== list) return;
+    const r = row.getBoundingClientRect();
+    list.insertBefore(dragEl, e.clientY < r.top + r.height / 2 ? row : row.nextSibling);
+  });
+  list.addEventListener('drop', e => { if (dragEl) e.preventDefault(); });
+  list.addEventListener('dragend', () => {
+    if (!dragEl) return;
+    dragEl.classList.remove('drag'); dragEl = null;
+    seriesSig = '';
+    done([...list.children].filter(c => c.classList.contains('lv')).map(c => c.dataset.lv));
+  });
+}
+$('#btnResetSeries').onclick = () => { P.series = {}; P.levels = { hue: {}, style: {}, size: {}, extra: {} }; P.order = { hue: [], style: [], size: [], extra: [], x: [] }; seriesSig = ''; render(); };
+
+/* ---------- Rendern ---------- */
+let rafPending = false;
+function render() {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => { rafPending = false; renderNow(); });
+}
+function renderNow() {
+  baseCache.clear();
+  updateVisibility();
+  let res, plot;
+  try { res = pipeline(); plot = buildPlot(res, true); }
+  catch (err) { console.error(err); $('#status').textContent = 'Fehler beim Zeichnen: ' + err.message; return; }
+  R = { res, plot };
+  updateSeriesPanel(res);
+  const wrap = $('#wrap'), view = $('#view');
+  if ($('#fit').checked) {
+    zoom = clamp(Math.min((view.clientWidth - 60) / plot.W, (view.clientHeight - 60) / plot.H), 0.25, 4);
+    $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %';
+  }
+  wrap.innerHTML = plot.svg;
+  const svg = wrap.firstChild;
+  svg.style.width = (plot.W * zoom) + 'px'; svg.style.height = (plot.H * zoom) + 'px';
+  wrap.classList.toggle('checker', S.transparent);
+  const u = S.figUnit === 'in' ? 'Zoll' : S.figUnit, sc = (+S.dpi || 300) / 96;
+  const st = [`${r2(S.figW)} × ${r2(S.figH)} ${u}`, `PNG ${Math.round(plot.W * sc)} × ${Math.round(plot.H * sc)} px bei ${S.dpi} dpi`,
+    `${res.nRows ?? 0} von ${D.n} Zeilen`, `${res.series.length} ${res.series.length === 1 ? 'Reihe' : 'Reihen'}`];
+  if (!D.cols.length) st.unshift('Keine Tabelle gefunden');
+  else if (!res.series.length) st.unshift('Keine Werte zum Zeichnen – Y-Spalte wählen');
+  $('#status').innerHTML = esc(st.join(' · ')) + (plot.notes.length ? ' · <b>' + esc(plot.notes.join(' · ')) + '</b>' : '');
+  if ($('#pyPrevBox').open) $('#pyPrev').value = pythonCode();
+  saveSoon();
+}
+window.addEventListener('resize', () => { if ($('#fit').checked) render(); });
+$('#fit').onchange = () => { saveUI(); render(); };
+$('#zoom').oninput = e => { $('#fit').checked = false; zoom = e.target.value / 100; $('#zoomLbl').textContent = e.target.value + ' %'; saveUI(); render(); };
+
+/* ---------- Vorschau: Tooltips, Legende anklicken, Titel bearbeiten ---------- */
+const tip = $('#tip');
+function figPos(e) { const svg = $('#wrap svg'); if (!svg) return null; const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom }; }
+$('#wrap').addEventListener('pointermove', e => {
+  if (!R || !$('#tips').checked || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
+  const p = figPos(e); if (!p) return;
+  let best = null, bd = 10 / zoom + 3;
+  for (const h of R.plot.hits) {
+    if (h.rect) { const [x, y, w, hh] = h.rect; if (p.x >= x && p.x <= x + w && p.y >= Math.min(y, y + hh) && p.y <= Math.max(y, y + hh)) { if (!best || best.rect) best = h; } }
+    else { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = h; } }
+  }
+  if (!best) { tip.style.display = 'none'; return; }
+  tip.textContent = best.tip; tip.style.display = 'block';
+  const tx = e.clientX + 14, ty = e.clientY + 14, tr = tip.getBoundingClientRect();
+  tip.style.left = Math.min(tx, innerWidth - tr.width - 8) + 'px'; tip.style.top = Math.min(ty, innerHeight - tr.height - 8) + 'px';
+});
+$('#wrap').addEventListener('pointerleave', () => tip.style.display = 'none');
+$('#wrap').addEventListener('click', e => {
+  const sk = e.target.closest('[data-sk]'), lv = e.target.closest('[data-lv]');
+  if (sk) { const o = P.series[sk.dataset.sk] = P.series[sk.dataset.sk] || {}; o.hidden = !o.hidden; render(); }
+  else if (lv) { const [d, l] = lv.dataset.lv.split('\uE000'); const L = P.levels[d] = P.levels[d] || {}; L[l] = L[l] || {}; L[l].hidden = !L[l].hidden; render(); }
+});
+$('#wrap').addEventListener('dblclick', e => {
+  const g = e.target.closest('[data-edit]'); if (!g) return;
+  const k = g.dataset.edit, r = g.getBoundingClientRect(), auto = g.textContent;
+  const inp = document.createElement('input'); inp.id = 'editBox';
+  inp.value = S[k] && S[k].trim() ? S[k] : auto;
+  inp.style.left = Math.max(4, r.left - 4) + 'px'; inp.style.top = (r.top + r.height / 2 - 14) + 'px'; inp.style.width = Math.max(160, r.width + 40) + 'px';
+  document.body.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const fin = ok => {
+    if (done) return; done = true;
+    if (ok && inp.value !== auto) { S[k] = inp.value.trim() ? inp.value : ' '; syncUI(); render(); }
+    inp.remove();
+  };
+  inp.onkeydown = ev => { if (ev.key === 'Enter') fin(true); if (ev.key === 'Escape') fin(false); };
+  inp.onblur = () => fin(true);
+});
+
+/* ---------- UI-Bindung ---------- */
+function syncUI() {
+  $$('[data-k]').forEach(el => { const v = S[el.dataset.k]; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; });
+  $$('[data-p]').forEach(el => { const v = getPath(P, el.dataset.p); if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? ''; });
+  swatches();
+}
+function swatches() {
+  $('#palSw').innerHTML = palColors(S.palette).map(c => `<span style="background:${c}"></span>`).join('');
+  $('#seqSw').innerHTML = Array.from({ length: 24 }, (_, i) => `<span style="background:${seqColor(i / 23)}"></span>`).join('');
+}
+$$('[data-k]').forEach(el => {
+  const h = () => {
+    const k = el.dataset.k;
+    let v = el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.dataset.num) ? parseFloat(el.value) : el.value;
+    if (typeof v === 'number' && isNaN(v)) return;
+    if (k === 'figUnit') {
+      S.figW = r2(fromPx(toPx(S.figW, S.figUnit), v)); S.figH = r2(fromPx(toPx(S.figH, S.figUnit), v));
+      S.figUnit = v; syncUI();
+    } else if ((k === 'figW' || k === 'figH') && $('#lockAspect').checked && S.figW > 0 && S.figH > 0 && v > 0) {
+      const ratio = S.figH / S.figW;
+      if (k === 'figW') { S.figW = v; S.figH = r2(v * ratio); } else { S.figH = v; S.figW = r2(v / ratio); }
+      syncUI();
+    } else S[k] = v;
+    if (['palette', 'seqPal', 'seqRev'].includes(k)) swatches();
+    render();
+  };
+  el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', h);
+});
+$$('[data-p]').forEach(el => {
+  const h = () => {
+    const k = el.dataset.p;
+    let v = el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.dataset.num) ? parseFloat(el.value) : el.value;
+    if (typeof v === 'number' && isNaN(v)) return;
+    setPath(P, k, v);
+    if (k === 'useHeader') { rebuildData(); }
+    if (['x', 'hue', 'style', 'size', 'bar.stat', 'bar.mode', 'bar.orient', 'hist.binMode'].includes(k)) buildColumnSelects();
+    if (k === 'bar.order' || k === 'hue' || k === 'style' || k === 'size') seriesSig = '';
+    syncUI(); render();
+  };
+  el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', h);
+});
+
+// Auswahllisten füllen
+$('[data-k="palette"]').innerHTML = Object.keys(CAT_PAL).map(k => `<option value="${k}">${esc(PAL_LABEL[k] || k)}</option>`).join('');
+$('[data-k="seqPal"]').innerHTML = Object.keys(SEQ_PAL).map(k => `<option value="${k}">${esc(SEQ_LABEL[k] || k)}</option>`).join('');
+$$('.dateFmt').forEach(s => s.innerHTML = DATE_FMTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''));
+$('#sampleSel').innerHTML += Object.keys(SAMPLES).map(k => `<option>${esc(k)}</option>`).join('');
+$('#sampleSel').onchange = e => {
+  const smp = SAMPLES[e.target.value]; e.target.value = ''; if (!smp) return;
+  $('#src').value = smp.text(); wb = null; $('#sheetSel').hidden = true;
+  const keepBar = { ...P.bar };
+  P = { ...P, ...smp.p, bar: { ...keepBar, ...(smp.p.bar || {}) }, filters: [], types: {}, series: {} };
+  if (!smp.p.bar) P.bar.mode = 'dodge';
+  tIdx = 0; seriesSig = ''; parseSrc(); syncUI(); render();
+};
+SIZES.forEach(([label, w, h]) => {
+  const b = document.createElement('button'); b.textContent = label;
+  b.onclick = () => { S.figW = r2(fromPx(toPx(w, 'cm'), S.figUnit)); S.figH = r2(fromPx(toPx(h, 'cm'), S.figUnit)); syncUI(); render(); };
+  $('#sizeBtns').appendChild(b);
+});
+
+/* ---------- Dateien öffnen (Text, CSV, Excel) ---------- */
+let srcTimer = null;
+$('#src').addEventListener('input', () => { clearTimeout(srcTimer); srcTimer = setTimeout(() => { wb = null; $('#sheetSel').hidden = true; parseSrc(); render(); }, 200); });
+$('#tblSel').addEventListener('change', e => { tIdx = +e.target.value; seriesSig = ''; rebuildData(); render(); });
+$('#btnOpen').onclick = () => $('#file').click();
+$('#file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+function loadFile(f) {
+  if (/\.xlsx?$/i.test(f.name)) { loadXlsx(f); return; }
+  f.text().then(t => { wb = null; $('#sheetSel').hidden = true; $('#src').value = t; tIdx = 0; parseSrc(); render(); toast(`${f.name} geladen`); });
+}
+let xlsxP = null;
+function loadSheetJS() {
+  if (window.XLSX) return Promise.resolve();
+  return xlsxP || (xlsxP = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'vendor/xlsx.full.min.js';
+    s.onload = () => res(); s.onerror = () => { xlsxP = null; s.remove(); rej(new Error('SheetJS nicht gefunden')); };
+    document.head.appendChild(s);
+  }));
+}
+async function loadXlsx(f) {
+  try { await loadSheetJS(); }
+  catch { toast('Excel-Unterstützung konnte nicht geladen werden (vendor/xlsx.full.min.js fehlt)'); return; }
+  try { wb = XLSX.read(await f.arrayBuffer(), { cellNF: true, cellDates: false }); }
+  catch (err) { console.error(err); toast('Die Excel-Datei konnte nicht gelesen werden'); return; }
+  const sel = $('#sheetSel');
+  sel.innerHTML = wb.SheetNames.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
+  sel.hidden = wb.SheetNames.length <= 1; sel.value = 0;
+  showSheet(0);
+  toast(`${f.name} geladen`);
+}
+// Tabellenblatt als Tabulator-Text ins Eingabefeld; Excel-Datumswerte als ISO-Datum
+function showSheet(i) {
+  const ws = wb.Sheets[wb.SheetNames[i]]; if (!ws || !ws['!ref']) { $('#src').value = ''; parseSrc(); render(); return; }
+  const rg = XLSX.utils.decode_range(ws['!ref']), d1904 = !!(wb.Workbook && wb.Workbook.WBProps && wb.Workbook.WBProps.date1904);
+  const iso = serial => {
+    const t = Math.round((serial - 25569 + (d1904 ? 1462 : 0)) * 86400) * 1000, d = new Date(t), p = v => String(v).padStart(2, '0');
+    const day = `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+    return t % DAY ? `${day} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}` : day;
+  };
+  const lines = [];
+  for (let r = rg.s.r; r <= rg.e.r; r++) {
+    const row = [];
+    for (let c = rg.s.c; c <= rg.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      let v = '';
+      if (cell) {
+        if (cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) v = iso(cell.v);
+        else if (cell.t === 'n') v = String(cell.v);
+        else if (cell.t === 'd') v = iso(cell.v.getTime() / DAY + 25569);
+        else if (cell.t === 'b') v = cell.v ? 'WAHR' : 'FALSCH';
+        else v = cell.w != null && cell.t !== 's' ? cell.w : String(cell.v ?? '');
+      }
+      row.push(v.replace(/[\t\r\n]+/g, ' '));
+    }
+    lines.push(row);
+  }
+  while (lines.length && lines[lines.length - 1].every(v => !v)) lines.pop();
+  $('#src').value = lines.map(r => r.join('\t')).join('\n');
+  tIdx = 0; seriesSig = ''; parseSrc(); render();
+}
+$('#sheetSel').addEventListener('change', e => { if (wb) showSheet(+e.target.value); });
+['dragover', 'drop'].forEach(ev => document.addEventListener(ev, e => {
+  if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+  e.preventDefault();
+  if (ev === 'drop' && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+}));
+
+/* ---------- Vorlagen ---------- */
+const presetBox = $('#presetBtns');
+Object.keys(STYLES).forEach(name => {
+  const b = document.createElement('button'); b.textContent = name;
+  b.onclick = () => { Object.assign(S, STYLES[name]); syncUI(); render(); toast(`Stil „${name}“`); };
+  presetBox.appendChild(b);
+});
+function styleOnly() { const o = { ...S }; NON_STYLE.forEach(k => delete o[k]); return o; }
+function getUserPresets() { try { return JSON.parse(localStorage.getItem(STORE + '.presets')) || {}; } catch { return {}; } }
+function setUserPresets(p) { try { localStorage.setItem(STORE + '.presets', JSON.stringify(p)); } catch { toast('Speichern im Browser nicht möglich'); } }
+function refreshUserPresets() {
+  const p = getUserPresets(), names = Object.keys(p);
+  $('#userPresets').innerHTML = names.length ? names.map(n => `<option>${esc(n)}</option>`).join('') : '<option value="">(keine eigenen Vorlagen)</option>';
+}
+$('#btnSavePreset').onclick = () => {
+  const name = $('#presetName').value.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
+  const p = getUserPresets(); p[name] = styleOnly(); setUserPresets(p); refreshUserPresets();
+  $('#userPresets').value = name; $('#presetName').value = ''; toast(`Vorlage „${name}“ gespeichert`);
+};
+/* Stile nur mit geprüften Werten übernehmen: bekannte Einstellungen, richtiger Typ, gültige Auswahlwerte */
+const HEX_RE = /^#[0-9a-f]{6}$/i, FONT_RE = /^[\p{L}\p{N} ,'"._-]{0,100}$/u;
+const selectOptions = k => { const el = document.querySelector(`select[data-k="${k}"]`); return el ? [...el.options].map(o => o.value) : null; };
+function sanitizeStyle(o) {
+  const out = {};
+  if (!o || typeof o !== 'object') return out;
+  for (const k of Object.keys(DEF)) {
+    if (NON_STYLE.includes(k) || !(k in o)) continue;
+    const d = DEF[k], v = o[k], opts = k === 'font' ? null : selectOptions(k);
+    if (typeof d === 'boolean') { if (typeof v === 'boolean') out[k] = v; }
+    else if (typeof d === 'number') { if (typeof v === 'number' && isFinite(v) && v >= -1 && v <= 10000 && (!opts || opts.includes(String(v)))) out[k] = v; }
+    else if (typeof v !== 'string') continue;
+    else if (HEX_RE.test(d)) { if (HEX_RE.test(v)) out[k] = v; }
+    else if (opts) { if (opts.includes(v)) out[k] = v; }
+    else if (FONT_RE.test(v)) out[k] = v;
+  }
+  return out;
+}
+function applyStyle(o) { Object.assign(S, sanitizeStyle(o)); syncUI(); render(); }
+$('#btnLoadPreset').onclick = () => { const p = getUserPresets()[$('#userPresets').value]; if (p) applyStyle(p); };
+$('#btnDelPreset').onclick = () => { const n = $('#userPresets').value; const p = getUserPresets(); if (n && p[n] && confirm(`Vorlage „${n}“ löschen?`)) { delete p[n]; setUserPresets(p); refreshUserPresets(); } };
+$('#btnExportStyle').onclick = async () => {
+  const name = $('#presetName').value.trim() || safeName() + '-stil';
+  download(new Blob([JSON.stringify(styleOnly(), null, 2)], { type: 'application/json' }), name.replace(/[\\/:*?"<>|]/g, '_') + '.json');
+  if (dirOK) { try { if (await writeToDir(name)) toast(`Exportiert, Kopie in „${dirHandle.name}“ abgelegt`); } catch { toast('Kopie im Stil-Ordner fehlgeschlagen'); } }
+};
+$('#btnImportStyle').onclick = () => $('#styleFile').click();
+$('#styleFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try { applyStyle(JSON.parse(t)); toast('Stil importiert'); } catch { toast('Ungültige JSON-Datei'); } });
+  e.target.value = '';
+};
+
+/* ---------- Stil-Ordner (File System Access API, nur Edge/Chrome) ---------- */
+const idb = (() => {
+  let p;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open('plotDesigner', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  return {
+    async get(k) { const d = await open(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+    async set(k, v) { const d = await open(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => rej(t.error); }); }
+  };
+})();
+let dirHandle = null, dirOK = false;
+function updateDirUI() {
+  $('#dirName').textContent = dirHandle ? '📁 ' + dirHandle.name + (dirOK ? '' : ' (Freigabe nötig)') : 'kein Ordner gewählt';
+  $('#btnDirGrant').hidden = !dirHandle || dirOK;
+  ['#btnDirLoad', '#btnDirRefresh', '#btnDirSave', '#dirStyles'].forEach(s => $(s).disabled = !dirOK);
+}
+async function listDir() {
+  const names = [];
+  try { for await (const [name, h] of dirHandle.entries()) if (h.kind === 'file' && /\.json$/i.test(name)) names.push(name); }
+  catch { dirOK = false; updateDirUI(); toast('Stil-Ordner ist nicht lesbar'); return; }
+  names.sort((a, b) => a.localeCompare(b, 'de'));
+  const sel = $('#dirStyles'), prev = sel.value;
+  sel.innerHTML = names.length ? names.map(n => `<option value="${esc(n)}">${esc(n.replace(/\.json$/i, ''))}</option>`).join('') : '<option value="">(keine Stile im Ordner)</option>';
+  if (names.includes(prev)) sel.value = prev;
+}
+async function writeToDir(name) {
+  const file = name.replace(/[\\/:*?"<>|]/g, '_').trim() + '.json';
+  let exists = true;
+  try { await dirHandle.getFileHandle(file); } catch { exists = false; }
+  if (exists && !confirm(`„${file}“ gibt es im Stil-Ordner schon. Überschreiben?`)) return false;
+  const w = await (await dirHandle.getFileHandle(file, { create: true })).createWritable();
+  await w.write(JSON.stringify(styleOnly(), null, 2)); await w.close();
+  await listDir(); $('#dirStyles').value = file;
+  return true;
+}
+async function dirInit() {
+  if (!('showDirectoryPicker' in window)) { $('#folderBox').hidden = true; $('#folderNo').hidden = false; return; }
+  try { dirHandle = (await idb.get('styleDir')) || null; } catch { dirHandle = null; }
+  if (dirHandle) { try { dirOK = (await dirHandle.queryPermission({ mode: 'readwrite' })) === 'granted'; } catch { dirOK = false; } }
+  updateDirUI();
+  if (dirOK) listDir();
+}
+$('#btnDirPick').onclick = async () => {
+  try {
+    dirHandle = await window.showDirectoryPicker({ id: 'diagrammStile', mode: 'readwrite' });
+    dirOK = true;
+    try { await idb.set('styleDir', dirHandle); } catch { }
+    updateDirUI(); listDir();
+  } catch (e) { if (e.name !== 'AbortError') toast('Ordner konnte nicht geöffnet werden'); }
+};
+$('#btnDirGrant').onclick = async () => {
+  try { dirOK = (await dirHandle.requestPermission({ mode: 'readwrite' })) === 'granted'; } catch { dirOK = false; }
+  updateDirUI(); if (dirOK) listDir();
+};
+$('#btnDirRefresh').onclick = listDir;
+$('#btnDirLoad').onclick = async () => {
+  const n = $('#dirStyles').value; if (!n) return;
+  try { applyStyle(JSON.parse(await (await (await dirHandle.getFileHandle(n)).getFile()).text())); toast(`Stil „${n.replace(/\.json$/i, '')}“ geladen`); }
+  catch { toast('Stil konnte nicht gelesen werden'); }
+};
+$('#dirStyles').addEventListener('dblclick', () => $('#btnDirLoad').click());
+$('#btnDirSave').onclick = async () => {
+  const name = $('#presetName').value.trim();
+  if (!name) { toast('Bitte oben einen Namen für den Stil eingeben'); $('#presetName').focus(); return; }
+  try { if (await writeToDir(name)) toast(`Stil in „${dirHandle.name}“ gespeichert`); }
+  catch { toast('Speichern im Stil-Ordner fehlgeschlagen'); }
+};
+$('#btnReset').onclick = () => {
+  if (!confirm('Alle Einstellungen und Diagramm-Zuordnungen zurücksetzen?')) return;
+  S = { ...DEF }; P = freshP(); seriesSig = '';
+  parseSrc(); syncUI(); render();
+};
+
+/* ---------- Bild-Export: PNG, SVG, PDF, Word ---------- */
+function exportPlot() { renderNow(); return buildPlot(R.res, false); }
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xffffffff; for (const b of bytes) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function setPngDpi(png, dpi) {
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21), dv = new DataView(chunk.buffer);
+  dv.setUint32(0, 9); chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
+  dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+  dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const out = new Uint8Array(png.length + 21);
+  out.set(png.subarray(0, 33)); out.set(chunk, 33); out.set(png.subarray(33), 54); // nach IHDR einfügen
+  return out;
+}
+async function pngBlob(pl) {
+  pl = pl || exportPlot();
+  const dpi = +S.dpi || 300, sc = dpi / 96;
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(pl.svg);
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = Math.round(pl.W * sc); c.height = Math.round(pl.H * sc);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  return new Blob([setPngDpi(buf, dpi)], { type: 'image/png' });
+}
+function svgFile(pl) { return '<?xml version="1.0" encoding="UTF-8"?>\n' + (pl || exportPlot()).svg; }
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function savePng() { try { download(await pngBlob(), safeName() + '.png'); } catch (err) { console.error(err); toast('PNG konnte nicht erzeugt werden'); } }
+async function copyPng() {
+  try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob() })]); toast('Bild in die Zwischenablage kopiert'); }
+  catch (err) { toast('Kopieren nicht möglich – bitte „PNG speichern“ verwenden'); console.error(err); }
+}
+// Für Word: HTML mit Bild in Originalgröße (Word übernimmt width/height), dazu PNG und – wenn möglich – SVG
+async function copyForWord() {
+  try {
+    const pl = exportPlot(), png = await pngBlob(pl);
+    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(png); });
+    const html = `<img src="${b64}" width="${pl.W}" height="${pl.H}" style="width:${f2(pl.W * 0.75)}pt;height:${f2(pl.H * 0.75)}pt" alt="${esc(S.title || 'Diagramm')}">`;
+    const items = { 'text/html': new Blob([html], { type: 'text/html' }), 'image/png': png };
+    if (window.ClipboardItem && ClipboardItem.supports && ClipboardItem.supports('image/svg+xml')) items['image/svg+xml'] = new Blob([pl.svg], { type: 'image/svg+xml' });
+    await navigator.clipboard.write([new ClipboardItem(items)]);
+    toast('Kopiert – in Word mit Strg+V einfügen');
+  } catch (err) { console.error(err); toast('Kopieren nicht möglich – bitte „PNG speichern“ oder „SVG speichern“ verwenden'); }
+}
+function saveSvg() { download(new Blob([svgFile()], { type: 'image/svg+xml' }), safeName() + '.svg'); }
+function printPdf() {
+  const pl = exportPlot();
+  const wmm = f2(pl.W * 25.4 / 96), hmm = f2(pl.H * 25.4 / 96);
+  const w = window.open('', '_blank');
+  if (!w) { toast('Popup wurde blockiert – bitte Popups erlauben'); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(safeName())}</title><style>@page{size:${wmm}mm ${hmm}mm;margin:0}html,body{margin:0;padding:0}svg{display:block;width:${wmm}mm;height:${hmm}mm}</style></head><body>${pl.svg}</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 400);
+}
+$('#btnPng').onclick = $('#hPng').onclick = $('#tPng').onclick = savePng;
+$('#btnCopy').onclick = $('#hCopy').onclick = copyPng;
+$('#btnWord').onclick = $('#hWord').onclick = copyForWord;
+$('#btnSvg').onclick = $('#tSvg').onclick = saveSvg;
+$('#btnPdf').onclick = $('#tPdf').onclick = printPdf;
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); toast(ok ? msg : 'Kopieren nicht möglich');
+  }
+}
+
+/* ---------- Python-Code (pandas + matplotlib + seaborn) ---------- */
+const py = s => JSON.stringify(String(s));
+const pyNum = v => v == null || !isFinite(v) ? 'None' : String(r12(v));
+function pythonCode() {
+  const res = R ? R.res : pipeline(), sp = res.sp, t = sp.t, m = sp.m;
+  const rows = filteredRows(), cf = ctxF();
+  const used = [...new Set([sp.x !== VAR && sp.x, ...sp.ys, ...['hue', 'style', 'size'].map(k => m[k] !== VAR && m[k])].filter(Boolean))];
+  const L = ['# Erzeugt mit dem Diagramm-Designer (PlotTransformer)', 'import numpy as np', 'import pandas as pd', 'import matplotlib.pyplot as plt', 'import seaborn as sns', 'from matplotlib.ticker import FuncFormatter', ''];
+  if (rows.length > 5000) {
+    L.push(`# ${rows.length} Zeilen: Daten bitte als CSV speichern (Spalten: ${used.join(', ')})`, `df = pd.read_csv("daten.csv", sep=";", decimal=",")`);
+  } else {
+    L.push('df = pd.DataFrame({');
+    for (const n of used) {
+      const c = colByName(n);
+      const vals = rows.map(r => c.type === 'num' ? pyNum(c.val[r]) : c.type === 'date' ? (c.val[r] == null ? 'None' : py(new Date(c.val[r]).toISOString().slice(0, 19))) : (c.val[r] == null ? 'None' : py(c.val[r])));
+      L.push(`    ${py(n)}: [${vals.join(', ')}],`);
+    }
+    L.push('})');
+    for (const n of used) if (colByName(n).type === 'date') L.push(`df[${py(n)}] = pd.to_datetime(df[${py(n)}])`);
+  }
+  let Y = sp.ys[0];
+  const nm = k => k === VAR ? 'Variable' : k;
+  if (sp.multi) {
+    Y = 'Wert';
+    const ids = used.filter(n => !sp.ys.includes(n));
+    L.push('', '# Mehrere Y-Spalten in die lange Form bringen', `df = df.melt(id_vars=[${ids.map(py).join(', ')}], value_vars=[${sp.ys.map(py).join(', ')}], var_name="Variable", value_name="Wert")`);
+  }
+  // Stil
+  const pal = ['tab10', 'tab20', 'deep', 'muted', 'pastel', 'bright', 'dark', 'colorblind', 'Set1', 'Set2', 'Dark2', 'Paired'].includes(S.palette) ? py(S.palette) : `[${palColors(S.palette).map(py).join(', ')}]`;
+  const rc = { 'font.size': S.fontSize, 'axes.titlesize': S.titleSize, 'axes.labelsize': S.labelSize, 'xtick.labelsize': S.tickSize, 'ytick.labelsize': S.tickSize, 'legend.fontsize': S.legendSize, 'lines.linewidth': S.lineW, 'lines.markersize': S.markerSize };
+  const rcStr = '{' + Object.entries(rc).map(([k, v]) => `${py(k)}: ${pyNum(v * (['lines.linewidth', 'lines.markersize'].includes(k) ? 1 : 1))}`).join(', ') + '}';
+  const font = ((S.fontCustom || '').trim() || S.font).split(',')[0].replace(/["']/g, '').trim();
+  L.push('');
+  if (['whitegrid', 'darkgrid', 'ticks'].includes(S.baseStyle)) L.push(`sns.set_theme(style=${py(S.baseStyle)}, context=${py(S.context)}, palette=${pal}, font=${py(font)}, rc=${rcStr})`);
+  else {
+    L.push(`plt.style.use(${py({ ggplot: 'ggplot', fivethirtyeight: 'fivethirtyeight', bmh: 'bmh', grayscale: 'grayscale' }[S.baseStyle] || 'default')})`);
+    L.push(`sns.set_palette(${pal})`, `plt.rcParams.update(${rcStr.replace('{', `{"font.family": ${py(font)}, `)})`);
+    if (cf !== 1) L.push(`sns.set_context(${py(S.context)}, rc=${rcStr})`);
+  }
+  const win = toPx(S.figW, S.figUnit) / 96, hin = toPx(S.figH, S.figUnit) / 96;
+  L.push(`fig, ax = plt.subplots(figsize=(${r2(win)}, ${r2(hin)}), layout="constrained")`, '');
+  const X = sp.x ? nm(sp.x) : null, H = m.hue ? nm(m.hue) : null, St = m.style ? nm(m.style) : null, Sz = m.size ? nm(m.size) : null;
+  const kw = o => Object.entries(o).filter(([, v]) => v != null).map(([k, v]) => `${k}=${v}`).join(', ');
+  const est = P.agg === 'none' ? 'None' : py(P.agg);
+  const eb = P.err === 'none' || P.agg === 'none' ? 'None' : P.err === 'ci' ? '("ci", 95)' : py(P.err);
+  const hueOrder = res.dims.hue && res.dims.hue.kind === 'cat' ? `[${res.dims.hue.levels.map(py).join(', ')}]` : null;
+  const order = sp.xCat && TYPE_INFO[t].cat ? `[${res.cats.map(py).join(', ')}]` : null;
+  const common = { data: 'df', hue: H && py(H), hue_order: hueOrder };
+  const horiz = t === 'bar' && P.bar.orient === 'h';
+  if (t === 'line' || t === 'linept') L.push(`sns.lineplot(${kw({ ...common, x: py(X), y: py(Y), style: St && py(St), size: Sz && py(Sz), estimator: est, errorbar: eb, err_style: py(P.errStyle), sort: P.sortX ? 'True' : 'False', markers: t === 'linept' && St ? 'True' : null, marker: t === 'linept' && !St ? '"o"' : null, ax: 'ax' })})`);
+  else if (t === 'scatter') L.push(`sns.scatterplot(${kw({ ...common, x: py(X), y: py(Y), style: St && py(St), size: Sz && py(Sz), sizes: Sz ? `(${r2(S.sizeMin ** 2)}, ${r2(S.sizeMax ** 2)})` : null, ax: 'ax' })})`);
+  else if (t === 'bar' && sp.countMode) L.push(`sns.countplot(${kw({ ...common, [horiz ? 'y' : 'x']: X ? py(X) : null, order, stat: py(P.bar.stat), ax: 'ax' })})`);
+  else if (t === 'bar' && P.bar.mode !== 'dodge') {
+    L.push(`tab = df.pivot_table(index=${py(X)}, columns=${H ? py(H) : 'None'}, values=${py(Y)}, aggfunc=${py(P.agg === 'none' ? 'mean' : P.agg)}, sort=False)`);
+    if (order) L.push(`tab = tab.reindex(${order})`);
+    if (P.bar.mode === 'stack100') L.push('tab = tab.div(tab.abs().sum(axis=1), axis=0) * 100');
+    L.push(`tab.plot.${horiz ? 'barh' : 'bar'}(stacked=True, width=${S.barWidth}, ax=ax, rot=0)`);
+  } else if (t === 'bar') L.push(`sns.barplot(${kw({ ...common, x: py(horiz ? Y : X), y: py(horiz ? X : Y), order, estimator: P.agg === 'none' ? '"mean"' : est, errorbar: P.err === 'none' ? 'None' : P.err === 'ci' ? '("ci", 95)' : py(P.err), orient: py(horiz ? 'h' : 'v'), capsize: S.errCap || null, width: S.barWidth, ax: 'ax' })})`);
+  else if (t === 'area') {
+    L.push(`tab = df.pivot_table(index=${py(X)}, columns=${H ? py(H) : 'None'}, values=${py(Y)}, aggfunc=${py(P.agg === 'none' ? 'mean' : P.agg)})`);
+    if (P.bar.mode === 'stack100') L.push('tab = tab.div(tab.abs().sum(axis=1), axis=0) * 100');
+    L.push(`tab.plot.area(stacked=${P.bar.mode !== 'dodge' ? 'True' : 'False'}, alpha=${S.areaAlpha}, ax=ax)`);
+  } else if (t === 'hist') L.push(`sns.histplot(${kw({ ...common, x: py(Y), bins: P.hist.binMode === 'n' ? P.hist.bins : P.hist.binMode === 'fd' ? '"fd"' : null, binwidth: P.hist.binMode === 'w' ? P.hist.width : null, stat: py(P.hist.stat), multiple: py(P.hist.multiple), common_norm: 'True', ax: 'ax' })})`);
+  else if (t === 'box') L.push(`sns.boxplot(${kw({ ...common, x: X ? py(X) : null, y: py(Y), order, showfliers: P.box.fliers ? 'True' : 'False', ax: 'ax' })})`);
+  else if (t === 'violin') L.push(`sns.violinplot(${kw({ ...common, x: X ? py(X) : null, y: py(Y), order, inner: P.box.inner === 'none' ? 'None' : py(P.box.inner), density_norm: py(P.box.norm), cut: 2, ax: 'ax' })})`);
+  else if (t === 'heatmap') {
+    L.push(`tab = df.pivot_table(index=${py(X)}, columns=${H ? py(H) : 'None'}, values=${py(Y)}, aggfunc=${py(P.agg === 'none' ? 'mean' : P.agg)}, sort=False)`);
+    if (order) L.push(`tab = tab.reindex(${order})`);
+    L.push(`sns.heatmap(tab, annot=${P.hm.annot ? 'True' : 'False'}, fmt=${py(P.hm.dec >= 0 ? `.${P.hm.dec}f` : '.3g')}, cmap=${py(S.seqPal + (S.seqRev ? '_r' : ''))}, ax=ax)`);
+  }
+  if (P.trend && ['line', 'scatter', 'linept'].includes(t)) {
+    L.push('', '# Lineare Trendlinie je Gruppe', `for name, g in (df.groupby(${py(H)}) if ${H ? 'True' : 'False'} else [("", df)]):`,
+      `    g = g.dropna(subset=[${py(X)}, ${py(Y)}])`, `    a, b = np.polyfit(g[${py(X)}], g[${py(Y)}], 1)`,
+      `    xs = np.array([g[${py(X)}].min(), g[${py(X)}].max()])`, '    ax.plot(xs, a * xs + b, "--", lw=1.2)');
+  }
+  // Achsen
+  L.push('');
+  const res2 = R ? R.plot : null;
+  const tt = k => S[k] && S[k].trim() ? S[k] : null;
+  const sets = { title: tt('title') && py(S.title.replace(/\*\*|\*|`/g, '')), xlabel: tt('xTitle') && py(S.xTitle), ylabel: tt('yTitle') && py(S.yTitle) };
+  if (S.xTitle === ' ') sets.xlabel = '""'; if (S.yTitle === ' ') sets.ylabel = '""';
+  if (S.xScale === 'log' && !sp.xCat) sets.xscale = '"log"';
+  if (S.yScale === 'log') sets.yscale = '"log"';
+  const lim = (a, b) => (parseUser(a) != null || parseUser(b) != null) ? `(${pyNum(parseUser(a))}, ${pyNum(parseUser(b))})` : null;
+  if (!sp.xCat) sets.xlim = lim(S.xMin, S.xMax);
+  sets.ylim = lim(S.yMin, S.yMax);
+  const sk = kw(sets); if (sk) L.push(`ax.set(${sk})`);
+  if (S.spines === 'lb') L.push('sns.despine(ax=ax)');
+  if (S.decSep === ',') {
+    L.push('komma = FuncFormatter(lambda v, p: f"{v:g}".replace(".", ","))');
+    if (!sp.xCat || horiz) L.push('ax.xaxis.set_major_formatter(komma)');
+    if (!horiz) L.push('ax.yaxis.set_major_formatter(komma)');
+  }
+  const loc = { best: 'best', ur: 'upper right', ul: 'upper left', lr: 'lower right', ll: 'lower left' }[S.legendPos];
+  if (S.legendPos === 'none') L.push('if ax.get_legend(): ax.get_legend().remove()');
+  else if (S.legendPos === 'outR') L.push('if ax.get_legend(): sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5), frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
+  else if (S.legendPos === 'outB') L.push('if ax.get_legend(): sns.move_legend(ax, "upper center", bbox_to_anchor=(0.5, -0.15), ncol=4, frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
+  else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, frameon=${S.legendFrame ? 'True' : 'False'})`);
+  L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent ? ', transparent=True' : ''})`, 'plt.show()', '');
+  void res2;
+  return L.join('\n');
+}
+$('#btnPyCopy').onclick = () => copyText(pythonCode(), 'Python-Code kopiert');
+$('#btnPySave').onclick = () => download(new Blob([pythonCode()], { type: 'text/x-python' }), safeName() + '.py');
+$('#pyPrevBox').addEventListener('toggle', render);
+
+/* ---------- Speichern im Browser ---------- */
+let saveTimer = null;
+function saveSoon() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE, JSON.stringify({ S, P, src: $('#src').value, tIdx })); } catch { }
+  }, 400);
+}
+function saveUI() { try { localStorage.setItem(STORE + '.ui', JSON.stringify({ fit: $('#fit').checked, zoom, tips: $('#tips').checked, lock: $('#lockAspect').checked })); } catch { } }
+// Gespeicherten Plot-Zustand gegen die Standardwerte prüfen
+function sanitizeP(o) {
+  const p = freshP();
+  if (!o || typeof o !== 'object') return p;
+  for (const k of Object.keys(p)) {
+    const d = p[k], v = o[k];
+    if (v == null) continue;
+    if (Array.isArray(d)) { if (Array.isArray(v)) p[k] = k === 'filters' ? v.filter(f => f && typeof f.col === 'string').map(f => ({ col: f.col, op: OPS.some(x => x[0] === f.op) ? f.op : '=', val: String(f.val ?? '') })) : v.filter(x => typeof x === 'string'); }
+    else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
+    else if (typeof v === typeof d) p[k] = v;
+  }
+  if (!TYPE_INFO[p.type]) p.type = 'line';
+  for (const k of ['hue', 'style', 'size', 'extra', 'x']) if (!Array.isArray(p.order[k])) p.order[k] = [];
+  for (const k of ['hue', 'style', 'size', 'extra']) if (!p.levels[k] || typeof p.levels[k] !== 'object') p.levels[k] = {};
+  return p;
+}
+function restore() {
+  let st = null; try { st = JSON.parse(localStorage.getItem(STORE)); } catch { }
+  if (st && typeof st.src === 'string') $('#src').value = st.src;
+  else { const smp = SAMPLES[DEFAULT_SAMPLE]; $('#src').value = smp.text(); P = { ...freshP(), ...smp.p }; }
+  if (st && st.S) {
+    S = { ...DEF, ...sanitizeStyle(st.S) };
+    NON_STYLE.forEach(k => { if (typeof st.S[k] === typeof DEF[k]) S[k] = st.S[k]; });
+  }
+  if (st && st.P) P = sanitizeP(st.P);
+  tIdx = (st && st.tIdx) || 0;
+  let ui = null; try { ui = JSON.parse(localStorage.getItem(STORE + '.ui')); } catch { }
+  if (ui) { $('#fit').checked = ui.fit !== false; $('#tips').checked = ui.tips !== false; $('#lockAspect').checked = !!ui.lock; if (ui.zoom) { zoom = ui.zoom; $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %'; } }
+  parseSrc();
+}
+$('#tips').onchange = saveUI;
+$('#lockAspect').onchange = saveUI;
+
+/* ---------- Seitenleiste verbreitern ---------- */
+(() => {
+  const aside = $('aside'), sp = $('#splitter'), KEY = STORE + '.asideW';
+  const setW = w => { aside.style.width = Math.max(260, Math.min(window.innerWidth * 0.75, w)) + 'px'; };
+  try { const w = +localStorage.getItem(KEY); if (w) setW(w); } catch { }
+  let start = null;
+  sp.addEventListener('pointerdown', e => {
+    sp.setPointerCapture(e.pointerId);
+    start = { x: e.clientX, w: aside.getBoundingClientRect().width };
+    sp.classList.add('active'); document.body.classList.add('resizing');
+  });
+  sp.addEventListener('pointermove', e => { if (start) setW(start.w + e.clientX - start.x); });
+  const end = () => {
+    if (!start) return;
+    start = null; sp.classList.remove('active'); document.body.classList.remove('resizing');
+    try { localStorage.setItem(KEY, Math.round(aside.getBoundingClientRect().width)); } catch { }
+    render();
+  };
+  sp.addEventListener('pointerup', end);
+  sp.addEventListener('pointercancel', end);
+  sp.addEventListener('dblclick', () => { aside.style.width = ''; try { localStorage.removeItem(KEY); } catch { } render(); });
+})();
+
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
+
+restore();
+syncUI();
+refreshUserPresets();
+dirInit();
+renderNow();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+/* ---------- Installierte App (Edge/Chrome) ---------- */
+// Offline-Cache; Service Worker laufen nur über http(s), nicht bei file://.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
+// Im Explorer per „Öffnen mit“ an die installierte App übergebene Dateien laden (Excel über SheetJS).
+if ('launchQueue' in window) launchQueue.setConsumer(async p => { if (p.files && p.files[0]) loadFile(await p.files[0].getFile()); });
+</script>
+</body>
+</html>
