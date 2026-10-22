@@ -1,12 +1,12 @@
 <p align="center"><img src="icons/icon.svg" width="96" alt=""></p>
 
-# PlotTransformer – Diagramm-Designer
+# GraphDesigner – Diagramm-Designer
 
 Tabelle einfügen → Diagramm gestalten → als PNG, SVG, PDF oder für Word exportieren.
 
 Der Diagramm-Designer ist eine einzelne HTML-Datei ohne Build-Schritt. Er läuft komplett im Browser; die Daten verlassen den Rechner nicht. Die Diagramme werden mit einem eigenen SVG-Renderer gezeichnet, deshalb stimmen Abbildungsgröße (cm) und Schriftgrößen (pt) im Dokument genau.
 
-**➜ Online nutzen:** [tizian91.github.io/PlotTransformer](https://tizian91.github.io/PlotTransformer/)
+**➜ Online nutzen:** [tizian91.github.io/GraphDesigner](https://tizian91.github.io/GraphDesigner/)
 
 Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](https://github.com/Tizian91/TableTransformer).
 
