@@ -333,6 +333,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Grundschrift / Titel (pt)</span><input type="number" step="0.5" min="3" data-k="fontSize"><input type="number" step="0.5" min="3" data-k="titleSize"></div>
     <div class="row"><span>Achsentitel / Ticks (pt)</span><input type="number" step="0.5" min="3" data-k="labelSize"><input type="number" step="0.5" min="3" data-k="tickSize"></div>
     <div class="row"><span>Legende (pt)</span><input type="number" step="0.5" min="3" data-k="legendSize"></div>
+    <div class="row"><span>Fett</span><label><input type="checkbox" data-k="labelBold"> Achsentitel</label><label><input type="checkbox" data-k="tickBold"> Ticks</label><label><input type="checkbox" data-k="legendBold"> Legende</label></div>
     <div class="row"><span>Ränder</span><select data-k="marginMode"><option value="auto">automatisch</option><option value="manual">manuell (pt)</option></select></div>
     <div class="row" id="rowMargins"><span>L / R / O / U</span><input type="number" min="0" data-k="mL" style="width:48px"><input type="number" min="0" data-k="mR" style="width:48px"><input type="number" min="0" data-k="mT" style="width:48px"><input type="number" min="0" data-k="mB" style="width:48px"></div>
     <div class="row"><span>Export-Auflösung</span><select data-k="dpi" data-num="1"><option value="150">150 dpi</option><option value="300">300 dpi</option><option value="600">600 dpi</option></select></div>
@@ -437,7 +438,7 @@ const DEF = {
   xScale: 'linear', xTicks: 0, xDec: -1, xSci: false, xDate: 'auto', xRot: 'auto',
   yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
   y2Scale: 'linear', y2Dec: -1,
-  titleAlign: 'center', titleBold: false,
+  titleAlign: 'center', titleBold: false, labelBold: false, tickBold: false, legendBold: false,
   legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true,
   title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
   xMin: '', xMax: '', yMin: '', yMax: '', y2Min: '', y2Max: '', xStep: '', yStep: '', fileName: 'diagramm'
@@ -1412,7 +1413,7 @@ function buildPlot(res, preview) {
   const W = Math.max(40, Math.round(toPx(S.figW, S.figUnit))), H = Math.max(30, Math.round(toPx(S.figH, S.figUnit)));
   const lw = pt => pt * PT * cf;
   const F = {
-    tick: fontObj(S.tickSize * cf), label: fontObj(S.labelSize * cf), legend: fontObj(S.legendSize * cf),
+    tick: fontObj(S.tickSize * cf, S.tickBold), label: fontObj(S.labelSize * cf, S.labelBold), legend: fontObj(S.legendSize * cf, S.legendBold),
     title: S.titleSize * cf, base: S.fontSize * cf, small: Math.max(S.tickSize * 0.9, 6) * cf
   };
   const tc = S.textColor, out = [], defs = [], hits = [], notes = [...res.notes];
@@ -1552,10 +1553,10 @@ function buildPlot(res, preview) {
   let top = pad + (tBlk ? tBlk.h + gap : 0) + (sBlk ? sBlk.h + gap : 0);
   let bottom = H - pad - (nBlk ? nBlk.h + gap : 0);
   const tickOut = S.tickDir === 'out' ? lw(S.tickLen) : 0, tickPad = lw(3.5), labelPad = lw(4);
-  const lblFont = fontObj(S.labelSize * cf);
-  const xTB = axTitle.x ? textBlock(axTitle.x, S.labelSize * cf, false, false, W) : null;
-  const yTB = axTitle.y ? textBlock(axTitle.y, S.labelSize * cf, false, false, H) : null;
-  const y2TB = axTitle.y2 ? textBlock(axTitle.y2, S.labelSize * cf, false, false, H) : null;
+  const lblFont = fontObj(S.labelSize * cf, S.labelBold);
+  const xTB = axTitle.x ? textBlock(axTitle.x, S.labelSize * cf, S.labelBold, false, W) : null;
+  const yTB = axTitle.y ? textBlock(axTitle.y, S.labelSize * cf, S.labelBold, false, H) : null;
+  const y2TB = axTitle.y2 ? textBlock(axTitle.y2, S.labelSize * cf, S.labelBold, false, H) : null;
   const legBox = leg ? legendLayout(leg, F.legend, cf) : null;
   const outR = legBox && S.legendPos === 'outR', outB = legBox && S.legendPos === 'outB';
   let cbW = 0;
@@ -1711,7 +1712,7 @@ function buildPlot(res, preview) {
       const x = rect.x0 + ci * cw, y = rect.y0 + p.x * chh;
       body.push(el('rect', { x, y, width: cw + 0.3, height: chh + 0.3, fill: col }));
       if (P.hm.annot) {
-        const f = fontObj(S.tickSize * cf), lab = fmtNum(p.y, dec ?? Math.max(0, Math.min(3, 2 - Math.floor(Math.log10(Math.abs(cbar.max - cbar.min) || 1)))));
+        const f = fontObj(S.tickSize * cf, S.tickBold), lab = fmtNum(p.y, dec ?? Math.max(0, Math.min(3, 2 - Math.floor(Math.log10(Math.abs(cbar.max - cbar.min) || 1)))));
         if (tw(lab, f) < cw * 0.95) body.push(svgText(x + cw / 2, y + chh / 2 + baselineOff(f), lab, f, lum(col) > 0.36 ? '#000000' : '#ffffff', 'middle'));
       }
       if (preview) hits.push({ rect: [x, y, cw, chh], tip: `${p.xl} · ${s.legend}\n${valTitle}: ${fmtNum(r12(p.y), -1)}` + (p.n > 1 ? `\nn = ${p.n}` : '') });
@@ -1798,7 +1799,7 @@ function buildPlot(res, preview) {
 
   // Werte an den Balken
   if (S.valueLabels !== 'none' && t === 'bar') {
-    const f = fontObj(S.tickSize * cf), dec = S.valueDec >= 0 ? S.valueDec : null;
+    const f = fontObj(S.tickSize * cf, S.tickBold), dec = S.valueDec >= 0 ? S.valueDec : null;
     for (const mk of barMarks) {
       const v = mk.val, lab = fmtNum(v, dec ?? (Math.abs(v) >= 100 ? 0 : decOf(r12(+v.toPrecision(3))))) + (P.bar.mode === 'stack100' ? ' %' : '');
       const cm = (mk.c0 + mk.c1) / 2, neg = mk.v1 < mk.v0, padPx = lw(2);
@@ -1896,14 +1897,14 @@ function buildPlot(res, preview) {
     }
     out.push(el('path', { d: cd.join(''), stroke: tc, 'stroke-width': sw, fill: 'none' }));
     if (cbar.title) {
-      const blk = textBlock(cbar.title, S.labelSize * cf, false, false, ph);
+      const blk = textBlock(cbar.title, S.labelSize * cf, S.labelBold, false, ph);
       if (blk) out.push(`<g transform="translate(${f2(x0 + bw + lw(3.5) + tickPad + mw + labelPad + blk.h)} ${f2(rect.y0)}) rotate(90)">${svgBlock(blk, 0, ph, 0, 'center', tc)}</g>`);
     }
   }
 
   // Gleichungen der Trendlinien
   if (eqLines.length) {
-    const f = fontObj(S.legendSize * cf), lh = f.px * 1.3, w = maxOf(eqLines.map(e => tw(e.text, f))) + f.px;
+    const f = fontObj(S.legendSize * cf, S.legendBold), lh = f.px * 1.3, w = maxOf(eqLines.map(e => tw(e.text, f))) + f.px;
     const leftSide = !(S.legendPos === 'ul' || (S.legendPos === 'best' && legBox && legBox.corner === 'ul'));
     const x = leftSide ? rect.x0 + f.px * 0.5 : rect.x1 - w - f.px * 0.5, y = rect.y0 + f.px * 0.5;
     out.push(el('rect', { x, y, width: w, height: lh * eqLines.length + f.px * 0.4, fill: S.plotBg, 'fill-opacity': 0.8, rx: f.px * 0.2 }));
@@ -2971,6 +2972,8 @@ function pythonCode() {
   sets.ylim = lim(S.yMin, S.yMax);
   const sk = kw(sets); if (sk) L.push(`ax.set(${sk})`);
   if (S.spines === 'lb') L.push('sns.despine(ax=ax)');
+  if (S.labelBold) L.push('ax.xaxis.label.set_fontweight("bold")', 'ax.yaxis.label.set_fontweight("bold")');
+  if (S.tickBold) L.push('plt.setp(ax.get_xticklabels() + ax.get_yticklabels(), fontweight="bold")');
   if (S.decSep === ',') {
     L.push('komma = FuncFormatter(lambda v, p: f"{v:g}".replace(".", ","))');
     if (!sp.xCat || horiz) L.push('ax.xaxis.set_major_formatter(komma)');
@@ -2981,6 +2984,7 @@ function pythonCode() {
   else if (S.legendPos === 'outR') L.push('if ax.get_legend(): sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5), frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
   else if (S.legendPos === 'outB') L.push('if ax.get_legend(): sns.move_legend(ax, "upper center", bbox_to_anchor=(0.5, -0.15), ncol=4, frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
   else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, frameon=${S.legendFrame ? 'True' : 'False'})`);
+  if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
   L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent ? ', transparent=True' : ''})`, 'plt.show()', '');
   void res2;
   return L.join('\n');
