@@ -121,6 +121,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
       <select id="sampleSel" title="Beispieldaten laden"><option value="">Beispiel…</option></select>
     </div>
     <div class="row"><label><input type="checkbox" data-p="useHeader"> Erste Zeile ist Kopfzeile</label></div>
+    <div class="row" title="Lange Form: Eine Spalte nennt, was der Wert ist (z. B. Mean, Upper, Lower). Ihre Werte werden zu eigenen Spalten."><span>Kennungsspalte (lange Form)</span><select data-p="roleCol" id="roleSel"></select></div>
     <div id="dataInfo" class="hint"></div>
     <div id="preview"></div>
     <div class="sub">Zeilen filtern</div>
@@ -145,8 +146,14 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
       <div class="row"><span>Bei gleichem X-Wert</span>
         <select data-p="agg"><option value="none">nicht zusammenfassen</option><option value="mean">Mittelwert</option><option value="median">Median</option><option value="sum">Summe</option><option value="count">Anzahl</option><option value="min">Minimum</option><option value="max">Maximum</option></select></div>
       <div class="row"><span>Streuung</span>
-        <select data-p="err"><option value="none">keine</option><option value="sd">Standardabweichung</option><option value="se">Standardfehler</option><option value="ci">95-%-Konfidenzintervall</option></select>
+        <select data-p="err"><option value="none">keine</option><option value="sd">Standardabweichung</option><option value="se">Standardfehler</option><option value="ci">95-%-Konfidenzintervall</option><option value="cols">aus Spalten der Tabelle</option></select>
         <select data-p="errStyle"><option value="band">Band</option><option value="bars">Fehlerbalken</option></select></div>
+      <div id="errColsBox">
+        <div class="row"><span>Die Spalten enthalten</span><select data-p="errCols.mode"><option value="bounds">Ober- und Untergrenze</option><option value="delta">Fehler + und Fehler −</option></select></div>
+        <div class="row"><span id="lblErrHi">Obergrenze</span><select data-p="errCols.hi" class="numSel"></select></div>
+        <div class="row"><span id="lblErrLo">Untergrenze</span><select data-p="errCols.lo" class="numSel"></select></div>
+        <p class="hint" id="hintErrCols"></p>
+      </div>
       <div class="row" id="rowLineOpts"><label><input type="checkbox" data-p="sortX"> X sortieren</label><label><input type="checkbox" data-p="connectGaps"> Lücken verbinden</label></div>
       <div class="row" id="rowTrend"><label><input type="checkbox" data-p="trend"> Trendlinie (linear)</label><label><input type="checkbox" data-p="trendEq"> Gleichung und R²</label></div>
     </div>
@@ -478,6 +485,8 @@ const freshP = () => ({
   hist: { binMode: 'fd', bins: 10, width: 1, stat: 'count', multiple: 'layer' },
   box: { fliers: true, inner: 'box', norm: 'area' },
   hm: { annot: true, dec: -1 },
+  roleCol: '',                                   // '' = automatisch erkennen, '-' = aus
+  errCols: { mode: 'bounds', hi: '', lo: '' },   // Fehler aus Spalten: Grenzen oder Abstände
   filters: [], types: {},
   levels: { hue: {}, style: {}, size: {}, extra: {} },
   order: { hue: [], style: [], size: [], extra: [], x: [] },
@@ -486,7 +495,9 @@ const freshP = () => ({
 
 let S = { ...DEF };
 let P = freshP();
-let D = { cols: [], n: 0 };     // eingelesene Tabelle
+let D0 = { cols: [], n: 0 };    // eingelesene Tabelle wie eingegeben
+let D = { cols: [], n: 0 };     // Tabelle für das Diagramm (bei langer Form umgeformt)
+let roleUsed = '';              // tatsächlich verwendete Kennungsspalte
 let tables = [], tIdx = 0;      // gefundene Tabellen im Eingabefeld
 let wb = null;                  // geöffnete Excel-Datei (nur im Speicher)
 let R = null;                   // Ergebnis des letzten Renderns (Layout, Trefferflächen)
@@ -662,9 +673,9 @@ function makeCol(name, raw, votes, tblDec) {
   const good = type === 'num' ? nN : type === 'date' ? nD : ne.length;
   return { name, type, auto, raw, val, dec, pct: type === 'num' && ne.some(s => /%\s*$/.test(s)), bad: ne.length - good };
 }
-function buildData(rows) {
+function buildData(rows, useHeader = P.useHeader) {
   const n = Math.max(1, ...rows.map(r => r.length));
-  const hdr = P.useHeader && rows.length > 1 ? rows[0] : null;
+  const hdr = useHeader && rows.length > 1 ? rows[0] : null;
   const body = hdr ? rows.slice(1) : rows;
   const names = [];
   for (let c = 0; c < n; c++) {
@@ -682,6 +693,57 @@ function buildData(rows) {
   });
   const tblDec = all[','] > all['.'] ? ',' : '.';
   return { cols: names.map((nm, c) => makeCol(nm, raws[c], votes[c], tblDec)), n: body.length };
+}
+
+/* ---------- Lange Form mit Kennungsspalte (z. B. Quantity = Mean/Upper/Lower) ---------- */
+const MEAN_RE = /^(mean|mittelwert|mittel|average|avg|mw)\b/i;
+const ROLE_RE = /upper|lower|error|\berr\b|fehler|^sd$|^se$|^sem$|std|ober|unter|^ci\b|\bmin\b|\bmax\b|plus|minus/i;
+const HI_RE = /upper|ober|\bmax\b|\bhigh\b/i, LO_RE = /lower|unter|\bmin\b|\blow\b/i;
+const PLUS_RE = /\+|plus/i, MINUS_RE = /[-−]\s*$|minus/i, SYM_RE = /^(sd|se|sem|std|stdev|ci|err|error|fehler|abweichung|standardabweichung|standardfehler)$/i;
+// Kennungsspalte vermuten: Textspalte mit „Mean“ und mindestens einer Fehler-Angabe
+function detectRoleCol(d) {
+  if (!d.cols.some(c => c.type === 'num')) return '';
+  for (const c of d.cols) {
+    if (c.type !== 'cat') continue;
+    const u = [...new Set(c.raw.filter(s => !isNA(s)))];
+    if (u.length >= 2 && u.length <= 12 && u.some(s => MEAN_RE.test(s)) && u.some(s => ROLE_RE.test(s))) return c.name;
+  }
+  return '';
+}
+// Werte der Kennungsspalte werden zu Spalten; mehrere Zahlenspalten werden vorher zur Spalte „Kategorie“ (wie pd.melt + pivot)
+function pivotRoles(d, roleName) {
+  const rc = d.cols.find(c => c.name === roleName);
+  const vals = d.cols.filter(c => c !== rc && c.type === 'num'), ids = d.cols.filter(c => c !== rc && c.type !== 'num');
+  if (!rc || !vals.length) return null;
+  const melt = vals.length > 1, roles = [], map = new Map();
+  for (let r = 0; r < d.n; r++) {
+    const role = rc.raw[r];
+    if (isNA(role)) continue;
+    if (!roles.includes(role)) roles.push(role);
+    for (const vc of vals) {
+      const idv = [...(melt ? [vc.name] : []), ...ids.map(c => c.raw[r])], k = JSON.stringify(idv);
+      if (!map.has(k)) map.set(k, { idv, cells: {} });
+      map.get(k).cells[role] = vc.raw[r];
+    }
+  }
+  const header = [...(melt ? ['Kategorie'] : []), ...ids.map(c => c.name), ...roles];
+  return [header, ...[...map.values()].map(e => [...e.idv, ...roles.map(ro => e.cells[ro] ?? '')])];
+}
+// Fehler-Spalten anhand der Namen vermuten: zuerst Grenzen (Upper/Lower), dann Abstände (Error +/−), dann symmetrisch (SD, SE …)
+function guessErrCols(d) {
+  const num = d.cols.filter(c => c.type === 'num').map(c => c.name), f = re => num.find(n => re.test(n)) || '';
+  const hi = f(HI_RE), lo = f(LO_RE);
+  if (hi || lo) return { mode: 'bounds', hi, lo };
+  const p = f(PLUS_RE), m = f(MINUS_RE);
+  if (p || m) return { mode: 'delta', hi: p, lo: m };
+  const s = f(SYM_RE);
+  return s ? { mode: 'delta', hi: s, lo: '' } : null;
+}
+// Fehlergrenzen eines Punktes aus den Spaltenwerten (fehlt eine Seite, wird gespiegelt)
+function colErr(y, eh, el) {
+  if (y == null || (eh == null && el == null)) return { lo: null, hi: null };
+  if (P.errCols.mode === 'delta') return { lo: y - Math.abs(el ?? eh), hi: y + Math.abs(eh ?? el) };
+  return { lo: el ?? 2 * y - eh, hi: eh ?? 2 * y - el };
 }
 
 /* ---------- Statistik (reine Funktionen) ---------- */
@@ -905,7 +967,11 @@ function pipeline() {
   // lange Form: ein Datensatz je Zeile und Y-Spalte
   const recs = [];
   if (sp.countMode || (!sp.ys.length && t === 'hist')) { if (sp.countMode) for (const r of rows) recs.push({ r, v: '', y: 1 }); }
-  else for (const yn of sp.ys) { const yc = colByName(yn); for (const r of rows) recs.push({ r, v: yn, y: yc.val[r] }); }
+  else {
+    const ech = P.err === 'cols' ? colByName(P.errCols.hi) : null, ecl = P.err === 'cols' ? colByName(P.errCols.lo) : null;
+    if (P.err === 'cols' && sp.multi && (ech || ecl)) out.notes.push('Fehler aus Spalten gelten für alle Y-Spalten');
+    for (const yn of sp.ys) { const yc = colByName(yn); for (const r of rows) recs.push({ r, v: yn, y: yc.val[r], eh: ech ? ech.val[r] : null, el: ecl ? ecl.val[r] : null }); }
+  }
   if (!recs.length) return out;
 
   // X-Werte
@@ -980,23 +1046,27 @@ function pipeline() {
       for (const rc of g.recs) {
         const x = sp.xCat ? catIdx.get(rc.xl) : rc.x;
         if (x == null) continue;
-        s.pts.push({ x, xl: rc.xl, y: rc.y, n: 1, hv: hueNum && hueNum.num(rc), sv: sizeNum && sizeNum.num(rc), r: rc.r });
+        const ce = P.err === 'cols' ? colErr(rc.y, rc.eh, rc.el) : { lo: null, hi: null };
+        s.pts.push({ x, xl: rc.xl, y: rc.y, n: 1, lo: ce.lo, hi: ce.hi, hv: hueNum && hueNum.num(rc), sv: sizeNum && sizeNum.num(rc), r: rc.r });
       }
     } else {
       const by = new Map();
       for (const rc of g.recs) {
         const k = sp.xCat ? rc.xl : rc.x;
         if (k == null || (sp.xCat && !catIdx.has(k))) continue;
-        if (!by.has(k)) by.set(k, { x: sp.xCat ? catIdx.get(k) : k, xl: rc.xl, ys: [], hv: [], sv: [], cnt: 0 });
+        if (!by.has(k)) by.set(k, { x: sp.xCat ? catIdx.get(k) : k, xl: rc.xl, ys: [], hv: [], sv: [], eh: [], el: [], cnt: 0 });
         const b = by.get(k); b.cnt++;
         if (rc.y != null) b.ys.push(rc.y);
         if (hueNum) b.hv.push(hueNum.num(rc)); if (sizeNum) b.sv.push(sizeNum.num(rc));
+        if (rc.eh != null) b.eh.push(rc.eh); if (rc.el != null) b.el.push(rc.el);
       }
       for (const b of by.values()) {
         let y = agg === 'count' ? b.cnt : b.ys.length ? AGG[agg](b.ys) : null;
         if (sp.countMode && P.bar.stat === 'percent') y = 100 * b.cnt / total;
-        const e = P.err !== 'none' && !sp.countMode && agg !== 'count' && agg !== 'sum' ? errHalf(b.ys, P.err) : NaN;
-        s.pts.push({ x: b.x, xl: b.xl, y, n: sp.countMode ? b.cnt : b.ys.length, lo: isFinite(e) ? y - e : null, hi: isFinite(e) ? y + e : null,
+        const e = P.err !== 'none' && P.err !== 'cols' && !sp.countMode && agg !== 'count' && agg !== 'sum' ? errHalf(b.ys, P.err) : NaN;
+        const ce = P.err === 'cols' && !sp.countMode ? colErr(y, b.eh.length ? mean(b.eh) : null, b.el.length ? mean(b.el) : null)
+          : { lo: isFinite(e) ? y - e : null, hi: isFinite(e) ? y + e : null };
+        s.pts.push({ x: b.x, xl: b.xl, y, n: sp.countMode ? b.cnt : b.ys.length, lo: ce.lo, hi: ce.hi,
           hv: b.hv.length ? mean(b.hv.filter(v => v != null)) : null, sv: b.sv.length ? mean(b.sv.filter(v => v != null)) : null });
       }
     }
@@ -1707,7 +1777,7 @@ function buildPlot(res, preview) {
     if (preview) for (const p of valid) {
       const [x, y] = ptCV(p.x, p.y, axis);
       hits.push({ x, y, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 || 0)), -1)}` +
-        (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo), -1)} … ${fmtNum(r12(p.hi), -1)}` : '') });
+        (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI', cols: 'Fehlerbereich' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo), -1)} … ${fmtNum(r12(p.hi), -1)}` : '') });
     }
   }
   if (decimated.length) notes.push(`Linien vereinfacht (zu viele Punkte für die Breite): ${[...new Set(decimated)].join(', ')}`);
@@ -2042,6 +2112,15 @@ const SAMPLES = {
     text: () => '| Monat | Hardware | Software | Service | Sonstiges |\n|:--|--:|--:|--:|--:|\n| Jan | 120 | 80 | 45 | 15 |\n| Feb | 135 | 72 | 50 | -8 |\n| Mär | 128 | 90 | 48 | 12 |\n| Apr | 150 | 95 | 60 | 20 |\n| Mai | 160 | 88 | 52 | 18 |\n| Jun | 172 | 101 | 66 | 25 |',
     p: { type: 'bar', x: 'Monat', ys: ['Hardware', 'Software', 'Service', 'Sonstiges'], hue: '', style: '', size: '', agg: 'none', err: 'none', bar: { mode: 'stack' } }
   },
+  'Mittelwerte mit Fehlern (lange Form)': {
+    text: () => {
+      const L = ['Category\tSeries\tQuantity\tValue'];
+      for (const [c, s, m, ep, em] of [['Ausgangszustand', 'A', 120, 18, 15], ['Ausgangszustand', 'B', 340, 40, 35], ['Ausgangszustand', 'C', 910, 75, 80],
+        ['1 GPa', 'A', 480, 52, 60], ['1 GPa', 'B', 1260, 110, 95], ['1 GPa', 'C', 1480, 70, 66], ['2 GPa', 'A', 690, 90, 84], ['2 GPa', 'B', 1610, 130, 140], ['2 GPa', 'C', 1530, 105, 120]])
+        for (const [q, v] of [['Mean', m], ['Upper', m + ep], ['Lower', m - em], ['Error_plus', ep], ['Error_minus', em]]) L.push(`${c}\t${s}\t${q}\t${v.toFixed(2)}`);
+      return L.join('\n'); },
+    p: { type: 'bar', x: '', ys: [], hue: '', style: '', size: '', roleCol: '' }
+  },
   'Verteilung (zwei Gruppen)': {
     text: () => { const r = rng(5), L = ['Gruppe\tMesswert'];
       for (let i = 0; i < 110; i++) L.push(`Werk Nord\t${deNum(r.n(50, 8), 2)}`);
@@ -2063,7 +2142,11 @@ function parseSrc() {
   rebuildData();
 }
 function rebuildData() {
-  D = tables.length ? buildData(tables[tIdx].rows) : { cols: [], n: 0 };
+  D0 = tables.length ? buildData(tables[tIdx].rows) : { cols: [], n: 0 };
+  roleUsed = P.roleCol === '-' ? '' : D0.cols.some(c => c.name === P.roleCol && c.type === 'cat') ? P.roleCol : detectRoleCol(D0);
+  const pv = roleUsed ? pivotRoles(D0, roleUsed) : null;
+  if (!pv) roleUsed = '';
+  D = pv ? buildData(pv, true) : D0;
   fixSelection();
   buildDataPanel();
   buildColumnSelects();
@@ -2078,15 +2161,28 @@ function fixSelection() {
   P.ys = P.ys.filter(n => names.includes(n));
   if (!P.x && P.type !== 'hist') P.x = names[0];
   if (!P.ys.length) {
-    const nums = D.cols.filter(c => c.type === 'num' && c.name !== P.x).map(c => c.name);
-    P.ys = nums.slice(0, 8);
+    // Tabelle mit fertigen Mittelwerten und Fehlern (Mean, Upper/Lower, Error +/−): direkt als Balken mit Fehlerbalken
+    const mc = D.cols.find(c => c.type === 'num' && MEAN_RE.test(c.name)), g = mc && guessErrCols(D);
+    if (mc && g) {
+      const cats = D.cols.filter(c => c.type === 'cat').map(c => c.name);
+      Object.assign(P, { ys: [mc.name], err: 'cols', errCols: g, agg: 'none', style: '', size: '' });
+      if (cats.length) { P.x = cats[0]; P.hue = cats[1] || ''; if (TYPE_INFO[P.type].xy) P.type = 'bar'; }
+      seriesSig = '';
+    } else {
+      const nums = D.cols.filter(c => c.type === 'num' && c.name !== P.x).map(c => c.name);
+      P.ys = nums.slice(0, 8);
+    }
   }
+  if (P.err === 'cols') for (const k of ['hi', 'lo']) if (P.errCols[k] && !names.includes(P.errCols[k])) P.errCols[k] = '';
   for (const k of ['hue', 'style', 'size']) if (P[k] && !valid(P[k])) P[k] = '';
   P.filters = P.filters.filter(f => names.includes(f.col));
 }
 const TYPE_NAMES = { num: 'Zahl', date: 'Datum', cat: 'Text' };
 function buildDataPanel() {
   const cols = D.cols;
+  const autoRole = detectRoleCol(D0);
+  $('#roleSel').innerHTML = `<option value="">automatisch${autoRole ? ` (${esc(autoRole)})` : ' (keine erkannt)'}</option><option value="-">(keine)</option>` +
+    D0.cols.filter(c => c.type === 'cat').map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   if (!cols.length) { $('#preview').innerHTML = ''; $('#dataInfo').textContent = 'Keine Tabelle gefunden.'; buildFilters(); return; }
   const n = Math.min(8, D.n);
   let h = '<table><tr>' + cols.map(c => {
@@ -2108,6 +2204,7 @@ function buildDataPanel() {
     rebuildData(); render();
   });
   const info = [`${D.n} Zeilen × ${cols.length} Spalten`];
+  if (roleUsed) info.push(`lange Form umgeformt: Werte aus „${roleUsed}“ sind jetzt Spalten (Vorschau zeigt das Ergebnis)`);
   const pct = cols.filter(c => c.pct).map(c => c.name);
   if (pct.length) info.push(`Prozentangaben als Zahlen gelesen (%-Zeichen entfernt): ${pct.join(', ')}`);
   const bad = cols.filter(c => c.bad > 0).map(c => `${c.name} (${c.bad})`);
@@ -2140,6 +2237,7 @@ function buildColumnSelects() {
   const colOpts = cols.map(c => opt(c.name, `${c.name}  (${TYPE_NAMES[c.type]})`)).join('');
   $('[data-p="x"]').innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : '');
   $$('.grpSel').forEach(s => s.innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : ''));
+  $$('.numSel').forEach(s => s.innerHTML = opt('', '(keine)') + cols.filter(c => c.type === 'num').map(c => opt(c.name, c.name)).join(''));
   const box = $('#ys'); box.innerHTML = '';
   for (const c of cols) {
     const lab = document.createElement('label'); lab.title = c.name + (c.type === 'cat' ? ' (Text – nicht als Wert nutzbar)' : '');
@@ -2158,6 +2256,11 @@ function updateVisibility() {
   const t = P.type, xy = !!TYPE_INFO[t].xy, cat = !!TYPE_INFO[t].cat;
   const show = (s, on) => { const e = $(s); if (e) e.hidden = !on; };
   show('#barBox', t === 'bar' || t === 'area');
+  show('#errColsBox', P.err === 'cols');
+  const delta = P.errCols.mode === 'delta';
+  $('#lblErrHi').textContent = delta ? 'Fehler + (Abstand nach oben)' : 'Obergrenze';
+  $('#lblErrLo').textContent = delta ? 'Fehler − (Abstand nach unten)' : 'Untergrenze';
+  $('#hintErrCols').textContent = delta ? 'Ist nur „Fehler +“ gewählt, gilt der Wert in beide Richtungen (z. B. SD).' : 'Fehlt eine Grenze, wird die andere am Wert gespiegelt.';
   $$('#barBox .row').forEach((r, i) => r.hidden = t === 'area' && i !== 1);
   show('#histBox', t === 'hist');
   show('#boxBox', t === 'box' || t === 'violin');
@@ -2371,7 +2474,7 @@ function renderNow() {
   updateSeriesPanel(res);
   const wrap = $('#wrap'), view = $('#view');
   if ($('#fit').checked) {
-    zoom = clamp(Math.min((view.clientWidth - 60) / plot.W, (view.clientHeight - 60) / plot.H), 0.25, 4);
+    zoom = clamp(Math.min((view.clientWidth - 64) / plot.W, (view.clientHeight - 64) / plot.H), 0.25, 4);
     $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %';
   }
   wrap.innerHTML = plot.svg;
@@ -2464,7 +2567,8 @@ $$('[data-p]').forEach(el => {
     let v = el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.dataset.num) ? parseFloat(el.value) : el.value;
     if (typeof v === 'number' && isNaN(v)) return;
     setPath(P, k, v);
-    if (k === 'useHeader') { rebuildData(); }
+    if (k === 'useHeader' || k === 'roleCol') { if (k === 'roleCol') P.ys = []; seriesSig = ''; rebuildData(); }
+    if (k === 'err' && v === 'cols' && !P.errCols.hi && !P.errCols.lo) { const g = guessErrCols(D); if (g) P.errCols = g; }
     if (['x', 'hue', 'style', 'size', 'bar.stat', 'bar.mode', 'bar.orient', 'hist.binMode'].includes(k)) buildColumnSelects();
     if (k === 'bar.order' || k === 'hue' || k === 'style' || k === 'size') seriesSig = '';
     syncUI(); render();
@@ -2764,7 +2868,8 @@ const pyNum = v => v == null || !isFinite(v) ? 'None' : String(r12(v));
 function pythonCode() {
   const res = R ? R.res : pipeline(), sp = res.sp, t = sp.t, m = sp.m;
   const rows = filteredRows(), cf = ctxF();
-  const used = [...new Set([sp.x !== VAR && sp.x, ...sp.ys, ...['hue', 'style', 'size'].map(k => m[k] !== VAR && m[k])].filter(Boolean))];
+  const ec = P.err === 'cols' && !sp.countMode && !sp.multi && (P.errCols.hi || P.errCols.lo) && sp.x && (['line', 'linept', 'scatter'].includes(t) || (t === 'bar' && P.bar.mode === 'dodge')) ? P.errCols : null;
+  const used = [...new Set([sp.x !== VAR && sp.x, ...sp.ys, ...['hue', 'style', 'size'].map(k => m[k] !== VAR && m[k]), ...(ec ? [ec.hi, ec.lo] : [])].filter(Boolean))];
   const L = ['# Erzeugt mit dem Diagramm-Designer (PlotTransformer)', 'import numpy as np', 'import pandas as pd', 'import matplotlib.pyplot as plt', 'import seaborn as sns', 'from matplotlib.ticker import FuncFormatter', ''];
   if (rows.length > 5000) {
     L.push(`# ${rows.length} Zeilen: Daten bitte als CSV speichern (Spalten: ${used.join(', ')})`, `df = pd.read_csv("daten.csv", sep=";", decimal=",")`);
@@ -2807,7 +2912,27 @@ function pythonCode() {
   const order = sp.xCat && TYPE_INFO[t].cat ? `[${res.cats.map(py).join(', ')}]` : null;
   const common = { data: 'df', hue: H && py(H), hue_order: hueOrder };
   const horiz = t === 'bar' && P.bar.orient === 'h';
-  if (t === 'line' || t === 'linept') L.push(`sns.lineplot(${kw({ ...common, x: py(X), y: py(Y), style: St && py(St), size: Sz && py(Sz), estimator: est, errorbar: eb, err_style: py(P.errStyle), sort: P.sortX ? 'True' : 'False', markers: t === 'linept' && St ? 'True' : null, marker: t === 'linept' && !St ? '"o"' : null, ax: 'ax' })})`);
+  if (ec) {
+    // Fehlergrenzen stehen in der Tabelle: mit matplotlib zeichnen (yerr), nicht von seaborn schätzen lassen
+    const hc = ec.hi || ec.lo, lc = ec.lo || ec.hi;
+    L.push('# Fehlergrenzen aus den Spalten der Tabelle');
+    if (ec.mode === 'delta') L.push(`df["_hi"] = df[${py(Y)}] + df[${py(hc)}].abs()`, `df["_lo"] = df[${py(Y)}] - df[${py(lc)}].abs()`);
+    else L.push(`df["_hi"] = ${ec.hi ? `df[${py(ec.hi)}]` : `2 * df[${py(Y)}] - df[${py(ec.lo)}]`}`, `df["_lo"] = ${ec.lo ? `df[${py(ec.lo)}]` : `2 * df[${py(Y)}] - df[${py(ec.hi)}]`}`);
+    if (t === 'bar') {
+      const piv = v => `df.pivot_table(index=${py(X)}, columns=${H ? py(H) : 'None'}, values=${py(v)}, aggfunc="mean", sort=False)${order ? `.reindex(${order})` : ''}${hueOrder ? `[${hueOrder}]` : ''}`;
+      L.push(`mittel = ${piv(Y)}`, `lo = ${piv('_lo')}`, `hi = ${piv('_hi')}`,
+        'fehler = np.stack([(mittel - lo).to_numpy().T, (hi - mittel).to_numpy().T], axis=1)   # Form: (Reihen, 2, Kategorien)',
+        `mittel.plot.${horiz ? 'barh' : 'bar'}(yerr=${horiz ? 'None' : 'fehler'}${horiz ? ', xerr=fehler' : ''}, capsize=4, width=${S.barWidth}, ax=ax, rot=0)`);
+      if (!H) L.push('if ax.get_legend(): ax.get_legend().remove()');
+    } else {
+      const fmt = t === 'scatter' ? 'o' : t === 'linept' ? 'o-' : '-';
+      L.push(`for name, g in (df.groupby(${py(H)}, sort=False) if ${H ? 'True' : 'False'} else [(${py(Y)}, df)]):`,
+        `    g = g.sort_values(${py(X)})`,
+        `    ax.errorbar(g[${py(X)}], g[${py(Y)}], yerr=[g[${py(Y)}] - g["_lo"], g["_hi"] - g[${py(Y)}]], fmt=${py(fmt)}, capsize=3, label=name)`);
+      if (H) L.push(`ax.legend(title=${py(H)})`);
+      L.push(`ax.set(xlabel=${py(X)}, ylabel=${py(Y)})`);
+    }
+  } else if (t === 'line' || t === 'linept') L.push(`sns.lineplot(${kw({ ...common, x: py(X), y: py(Y), style: St && py(St), size: Sz && py(Sz), estimator: est, errorbar: eb, err_style: py(P.errStyle), sort: P.sortX ? 'True' : 'False', markers: t === 'linept' && St ? 'True' : null, marker: t === 'linept' && !St ? '"o"' : null, ax: 'ax' })})`);
   else if (t === 'scatter') L.push(`sns.scatterplot(${kw({ ...common, x: py(X), y: py(Y), style: St && py(St), size: Sz && py(Sz), sizes: Sz ? `(${r2(S.sizeMin ** 2)}, ${r2(S.sizeMax ** 2)})` : null, ax: 'ax' })})`);
   else if (t === 'bar' && sp.countMode) L.push(`sns.countplot(${kw({ ...common, [horiz ? 'y' : 'x']: X ? py(X) : null, order, stat: py(P.bar.stat), ax: 'ax' })})`);
   else if (t === 'bar' && P.bar.mode !== 'dodge') {
@@ -2881,7 +3006,7 @@ function sanitizeP(o) {
     const d = p[k], v = o[k];
     if (v == null) continue;
     if (Array.isArray(d)) { if (Array.isArray(v)) p[k] = k === 'filters' ? v.filter(f => f && typeof f.col === 'string').map(f => ({ col: f.col, op: OPS.some(x => x[0] === f.op) ? f.op : '=', val: String(f.val ?? '') })) : v.filter(x => typeof x === 'string'); }
-    else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
+    else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm', 'errCols'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
     else if (typeof v === typeof d) p[k] = v;
   }
   if (!TYPE_INFO[p.type]) p.type = 'line';

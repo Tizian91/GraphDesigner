@@ -87,6 +87,30 @@ document.getElementById('app').onload = async () => {
     }
     check('Balkenhöhen = seaborn (Mittelwert)', maxMean < 1e-9, true);
     check(`KI-Grenzen innerhalb 2 % von seaborn (Bootstrap), max. Abweichung ${(maxCi * 100).toFixed(2)} %`, maxCi < 0.02, true);
+    // Fertige Mittelwerte mit Fehlern in drei Tabellenformen (wie aus einem Plot-Digitalisierer)
+    const KAT = ['K1', 'K2'], SER = ['N0', 'N1'];
+    const M = { K1: { N0: [10, 13, 8, 3, 2], N1: [20, 26, 15, 6, 5] }, K2: { N0: [30, 34, 27, 4, 3], N1: [40, 49, 33, 9, 7] } };   // Mean, Upper, Lower, +, −
+    const Q = ['Mean', 'Upper error end', 'Lower error end', 'Error +', 'Error -'];
+    const tLang = ['Category\tSeries\tQuantity\tValue', ...KAT.flatMap(k => SER.flatMap(s => Q.map((q, i) => `${k}\t${s}\t${q}\t${M[k][s][i]}`)))].join('\n');
+    const tBreit = ['Category\tSeries\tMean\tUpper\tLower\tError_plus\tError_minus', ...KAT.flatMap(k => SER.map(s => `${k}\t${s}\t${M[k][s].join('\t')}`))].join('\n');
+    const tQuer = ['Series\tQuantity\tK1\tK2', ...SER.flatMap(s => Q.map((q, i) => `${s}\t${q}\t${M.K1[s][i]}\t${M.K2[s][i]}`))].join('\n');
+    const load = (txt, extra = '') => { ev(`S={...DEF};P=freshP();seriesSig='';$('#src').value=${JSON.stringify(txt)};tIdx=0;parseSrc();${extra}`); return ev('pipeline()'); };
+    const bars = r => r.series.flatMap(s => s.pts.map(p => `${p.xl}/${s.key}: ${p.y} [${p.lo}; ${p.hi}]`)).sort();
+    const expBars = KAT.flatMap(k => SER.map(s => `${k}/${s}: ${M[k][s][0]} [${M[k][s][2]}; ${M[k][s][1]}]`)).sort();
+    let r = load(tLang);
+    check('lange Form: Kennungsspalte erkannt', ev('roleUsed'), 'Quantity');
+    check('lange Form: umgeformte Spalten', ev('D.cols.map(c => c.name)'), ['Category', 'Series', ...Q]);
+    check('lange Form: automatisch Balken, X, hue, Fehler aus Spalten', ev('[P.type, P.x, P.hue, P.ys[0], P.err, P.errCols.mode, P.errCols.hi, P.errCols.lo]'), ['bar', 'Category', 'Series', 'Mean', 'cols', 'bounds', 'Upper error end', 'Lower error end']);
+    check('lange Form: Balken und Fehlergrenzen', bars(r), expBars);
+    r = load(tBreit);
+    check('breite Form: Fehler aus Upper/Lower', bars(r), expBars);
+    r = load(tBreit, `P.errCols={mode:'delta',hi:'Error_plus',lo:'Error_minus'};`);
+    check('breite Form: Fehler + / − (unsymmetrisch)', bars(r), expBars);
+    r = load(tQuer);
+    check('Kategorien als Spalten: Spalte „Kategorie“ ergänzt', ev('D.cols.map(c => c.name)'), ['Kategorie', 'Series', ...Q]);
+    check('Kategorien als Spalten: Balken und Fehlergrenzen', bars(r), expBars);
+    check('Fehlerbalken werden gezeichnet', (ev('buildPlot(pipeline(), false).svg').match(/<path d="M[^"]*" stroke="#424242"/g) || []).length, 4);
+    check('Normale Tabellen bleiben unverändert', (load('a;b\n1;2\n3;4'), ev('[roleUsed, P.err]')), ['', 'none']);
     // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
       Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);
