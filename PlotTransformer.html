@@ -308,7 +308,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Untertitel</span><input data-k="subtitle" style="width:200px"></div>
     <textarea class="small" data-k="note" placeholder="Fußnote / Quelle, z. B. Quelle: eigene Messungen"></textarea>
     <div class="row"><span>Titel ausrichten</span><select data-k="titleAlign"><option value="left">links</option><option value="center">zentriert</option><option value="right">rechts</option></select><label><input type="checkbox" data-k="titleBold"> fett</label></div>
-    <p class="hint">**fett** und *kursiv* sind möglich. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
+    <div class="row"><label><input type="checkbox" data-k="math"> Formeln darstellen ($…$ wie LaTeX)</label></div>
+    <p class="hint">**fett** und *kursiv* sind möglich. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
     <div class="sub">Legende</div>
     <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
@@ -438,7 +439,7 @@ const DEF = {
   xScale: 'linear', xTicks: 0, xDec: -1, xSci: false, xDate: 'auto', xRot: 'auto',
   yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
   y2Scale: 'linear', y2Dec: -1,
-  titleAlign: 'center', titleBold: false, labelBold: false, tickBold: false, legendBold: false,
+  titleAlign: 'center', titleBold: false, math: true, labelBold: false, tickBold: false, legendBold: false,
   legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true,
   title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
   xMin: '', xMax: '', yMin: '', yMax: '', y2Min: '', y2Max: '', xStep: '', yStep: '', fileName: 'diagramm'
@@ -514,6 +515,8 @@ const r2 = v => Math.round(v * 100) / 100;
 const f2 = v => +(+v).toFixed(2);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const strip = s => String(s).replace(/<br\s*\/?>/gi, ' ').replace(/\*\*|__|`/g, '').replace(/\\\|/g, '|');
+// Markdown-Escapes wie \_ \* \# auflösen (LaTeX-Befehle wie \alpha bleiben erhalten)
+const mdUnescape = s => String(s).replace(/\\([_*#\[\]`~|])/g, '$1');
 const safeName = () => (S.fileName || 'diagramm').replace(/[\\/:*?"<>|]/g, '_');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const minOf = a => a.reduce((m, v) => v < m ? v : m, Infinity);
@@ -563,7 +566,7 @@ function parseMdTables(text) {
   if (blk.length) blocks.push(blk);
   const res = [];
   for (const b of blocks) {
-    const rows = b.filter(l => !SEP_RE.test(l)).map(l => splitRow(l).map(strip));
+    const rows = b.filter(l => !SEP_RE.test(l)).map(l => splitRow(l).map(c => mdUnescape(strip(c))));
     if (rows.length) res.push({ rows });
   }
   return res;
@@ -605,7 +608,7 @@ function parseInput(text) {
   if (!text.trim()) return [];
   const d = detectDelim(text);
   if (d === '|' || text.split(/\r?\n/).some(l => l.includes('|') && SEP_RE.test(l))) return parseMdTables(text);
-  const rows = parseCSV(text, d || '\u0000');
+  const rows = parseCSV(text, d || '\u0000').map(r => r.map(mdUnescape));
   const w = Math.max(...rows.map(r => r.length));
   while (rows.length > 2 && w > 1 && rows[0].length < 2) rows.shift();   // Titelzeilen vor der Tabelle
   return rows.length ? [{ rows }] : [];
@@ -1163,10 +1166,110 @@ function baselineOff(font) {
   baseCache.set(font.css, v);
   return v;
 }
-const tw = (s, font) => { mctx.font = font.css; return mctx.measureText(String(s)).width; };
+const tw = (s, font) => {
+  if (hasRich(s)) return sum(richRuns(s, font).map(r => r.w));
+  mctx.font = font.css; return mctx.measureText(String(s)).width;
+};
 const lineH = font => font.px * 1.2;
 
-// Einfaches Inline-Markdown für Titel: **fett**, *kursiv*, `code`, <br>
+/* ---------- Formeln: LaTeX in $…$ (Teilmenge wie matplotlib mathtext) ---------- */
+const TEX_SYM = {
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ϵ', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ',
+  iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', varpi: 'ϖ', rho: 'ρ', varrho: 'ϱ', sigma: 'σ',
+  varsigma: 'ς', tau: 'τ', upsilon: 'υ', phi: 'ϕ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
+  Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+  cdot: '·', cdotp: '·', times: '×', div: '÷', pm: '±', mp: '∓', leq: '≤', le: '≤', geq: '≥', ge: '≥', neq: '≠', ne: '≠',
+  ll: '≪', gg: '≫', approx: '≈', sim: '∼', simeq: '≃', equiv: '≡', propto: '∝', infty: '∞', partial: '∂', nabla: '∇',
+  sum: '∑', prod: '∏', int: '∫', oint: '∮', to: '→', rightarrow: '→', leftarrow: '←', leftrightarrow: '↔', Rightarrow: '⇒',
+  Leftarrow: '⇐', Leftrightarrow: '⇔', uparrow: '↑', downarrow: '↓', ldots: '…', dots: '…', cdots: '⋯', prime: '′',
+  circ: '∘', degree: '°', deg: '°', AA: 'Å', angstrom: 'Å', perp: '⊥', parallel: '∥', ell: 'ℓ', hbar: 'ℏ', langle: '⟨',
+  rangle: '⟩', bullet: '•', star: '⋆', ast: '∗', in: '∈', notin: '∉', subset: '⊂', supset: '⊃', cup: '∪', cap: '∩',
+  forall: '∀', exists: '∃', emptyset: '∅', varnothing: '∅', permil: '‰', perthousand: '‰', dagger: '†', mid: '∣', vert: '|',
+  Vert: '‖', lbrace: '{', rbrace: '}', lfloor: '⌊', rfloor: '⌋', lceil: '⌈', rceil: '⌉', neg: '¬', wedge: '∧', vee: '∨',
+  quad: ' ', qquad: '  ', ',': ' ', ':': ' ', ';': ' ', ' ': ' ', '!': '',
+  '%': '%', '{': '{', '}': '}', '_': '_', '$': '$', '#': '#', '&': '&', '\\': ' ',
+  left: '', right: '', big: '', Big: '', bigg: '', Bigg: '', displaystyle: '', textstyle: '', limits: ''
+};
+const TEX_ACCENT = { hat: '̂', bar: '̄', overline: '̅', vec: '⃗', tilde: '̃', dot: '̇', ddot: '̈' };
+const TEX_UP = ['mathrm', 'rm', 'operatorname', 'mathsf', 'mathup', 'mathnormal'], TEX_TEXT = ['text', 'textrm', 'mbox', 'textsf', 'textup'];
+const TEX_IT = ['mathit', 'textit', 'it'], TEX_BF = ['mathbf', 'textbf', 'bf', 'boldsymbol', 'bm'];
+// LaTeX-Formel in Läufe zerlegen: {t, sc (Größe), sh (Verschiebung in em), i, b}
+function texRuns(src) {
+  let i = 0; const out = [];
+  const emit = (t, st) => { if (t) out.push({ t, sc: st.sc, sh: st.sh, i: !!st.it, b: !!st.b }); };
+  const skip = () => { while (i < src.length && /\s/.test(src[i])) i++; };
+  const group = st => { while (i < src.length) { if (src[i] === '}') { i++; return; } atom(st); } };
+  const arg = st => { skip(); if (src[i] === '{') { i++; group(st); } else if (i < src.length) atom(st); };
+  function atom(st) {
+    const ch = src[i];
+    if (ch === '{') { i++; group({ ...st }); return; }
+    if (ch === '^' || ch === '_') { i++; arg({ ...st, sc: st.sc * 0.7, sh: st.sh + (ch === '_' ? -0.25 : 0.45) * st.sc }); return; }
+    if (ch === '\\') { cmd(st); return; }
+    i++;
+    if (ch === "'") { emit('′', { ...st, it: false }); return; }
+    if (/\s/.test(ch)) { if (st.txt) emit(' ', st); return; }
+    if (ch === '-' && !st.txt) { emit('−', { ...st, it: false }); return; }
+    emit(ch, { ...st, it: st.it && /\p{L}/u.test(ch) && !/[α-ωΑ-Ω]/.test(ch) });
+  }
+  function cmd(st) {
+    i++;
+    const m = /^([A-Za-z]+|.)/.exec(src.slice(i)); if (!m) return;
+    const name = m[1]; i += name.length;
+    if (TEX_UP.includes(name)) return arg({ ...st, it: false });
+    if (TEX_TEXT.includes(name)) return arg({ ...st, it: false, txt: true });
+    if (TEX_IT.includes(name)) return arg({ ...st, it: true });
+    if (TEX_BF.includes(name)) return arg({ ...st, b: true });
+    if (name === 'frac' || name === 'dfrac' || name === 'tfrac') { arg(st); emit('/', { ...st, it: false }); arg(st); return; }
+    if (name === 'sqrt') { skip(); if (src[i] === '[') { const e = src.indexOf(']', i); if (e > i) i = e + 1; } emit('√', { ...st, it: false }); arg(st); return; }
+    if (TEX_ACCENT[name]) { const n = out.length; arg(st); if (out.length > n) out[out.length - 1].t += TEX_ACCENT[name]; return; }
+    if (TEX_SYM[name] != null) { emit(TEX_SYM[name], { ...st, it: false }); return; }
+    emit(name, { ...st, it: false });   // unbekannter Befehl: Namen zeigen
+  }
+  while (i < src.length) atom({ sc: 1, sh: 0, it: true, b: false });
+  const merged = [];
+  for (const r of out) { const l = merged[merged.length - 1]; if (l && l.sc === r.sc && l.sh === r.sh && l.i === r.i && l.b === r.b) l.t += r.t; else merged.push({ ...r }); }
+  return merged;
+}
+// Bekannte LaTeX-Befehle außerhalb von $…$ (z. B. \alpha, \mu) und HTML <sub>/<sup>
+const BARE_RE = /\\([A-Za-z]+)/g;
+const bareSym = s => s.replace(BARE_RE, (m, n) => TEX_SYM[n] != null && /^[A-Za-z]{2,}$/.test(n) ? TEX_SYM[n] : m);
+const prepRich = s => String(s).replace(/<sub>(.*?)<\/sub>/gi, (m, a) => `$_{\\text{${a}}}$`).replace(/<sup>(.*?)<\/sup>/gi, (m, a) => `$^{\\text{${a}}}$`);
+const hasRich = s => S.math && typeof s === 'string' && (/\$[^$]+\$|<su[bp]>/i.test(s) || /\\[A-Za-z]{2,}/.test(s));
+// Text mit Formeln in Läufe zerlegen; Text außerhalb von $…$ bleibt in der Grundschrift
+function richRuns(str, font) {
+  const s = prepRich(str), parts = [], re = /(^|[^\\])\$([^$]+?)\$/g;
+  let last = 0, m;
+  while ((m = re.exec(s))) {
+    const a = m.index + m[1].length;
+    if (a > last) parts.push({ t: s.slice(last, a) });
+    parts.push({ math: m[2] }); last = re.lastIndex;
+  }
+  if (last < s.length) parts.push({ t: s.slice(last) });
+  const runs = [];
+  for (const p of parts) {
+    if (p.t != null) { const t = bareSym(p.t.replace(/\\\$/g, '$')); if (t) runs.push({ t, font, dy: 0 }); continue; }
+    for (const r of texRuns(p.math)) {
+      const f = fontObj(font.px / PT * r.sc, font.b || r.b, r.i || font.i);
+      runs.push({ t: r.t, font: f, dy: r.sh * font.px });
+    }
+  }
+  for (const r of runs) { mctx.font = r.font.css; r.w = mctx.measureText(r.t).width; }
+  return runs;
+}
+// Formeln als reiner Text (für Tooltips): Hoch-/Tiefstellung mit Unicode, wo möglich
+const SUB = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉', '+': '₊', '−': '₋', '-': '₋', '=': '₌', '(': '₍', ')': '₎', a: 'ₐ', e: 'ₑ', o: 'ₒ', x: 'ₓ', h: 'ₕ', k: 'ₖ', l: 'ₗ', m: 'ₘ', n: 'ₙ', p: 'ₚ', s: 'ₛ', t: 'ₜ', i: 'ᵢ', r: 'ᵣ', u: 'ᵤ', v: 'ᵥ', j: 'ⱼ' };
+const SUPC = () => ({ ...SUP, '+': '⁺', '−': '⁻', '=': '⁼', '(': '⁽', ')': '⁾', n: 'ⁿ', i: 'ⁱ', '∘': '°' });   // als Funktion, weil SUP erst weiter unten definiert ist
+function plainRich(str) {
+  if (!hasRich(str)) return str;
+  const f = fontObj(10);
+  return richRuns(str, f).map(r => {
+    if (!r.dy) return r.t;
+    const map = r.dy > 0 ? SUPC() : SUB, conv = [...r.t].map(c => map[c]);
+    return conv.every(Boolean) ? conv.join('') : (r.dy > 0 ? '^' : '_') + r.t;
+  }).join('');
+}
+
+// Einfaches Inline-Markdown für Titel: **fett**, *kursiv*, `code`, <br>, Formeln in $…$
 const ENT = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ', '&quot;': '"' };
 function parseInline(str) {
   str = String(str).replace(/&(amp|lt|gt|nbsp|quot);/g, m => ENT[m]);
@@ -1177,6 +1280,7 @@ function parseInline(str) {
     for (let k = 0; k < line.length; k++) {
       const ch = line[k], prev = line[k - 1] || ' ', next = line[k + 1] || ' ';
       if (ch === '\\' && /[\\`*_|#\[\]]/.test(next)) { buf += next; k++; continue; }
+      if (ch === '$' && S.math && prev !== '\\') { const e = line.indexOf('$', k + 1); if (e > k + 1) { push(); segs.push({ t: line.slice(k, e + 1), b, i: it, c: false, m: true }); k = e; continue; } }
       if (ch === '`') { const e = line.indexOf('`', k + 1); if (e > k) { push(); segs.push({ t: line.slice(k + 1, e), b, i: it, c: true }); k = e; continue; } }
       if ((ch === '*' || ch === '_') && next === ch) {
         const after = line[k + 2] || ' ';
@@ -1196,10 +1300,10 @@ function tokenize(lines, pt, forceB, forceI) {
     for (const sg of segs) {
       const font = fontObj(pt, sg.b || forceB, sg.i || forceI, sg.c);
       mctx.font = font.css;
-      for (const p of sg.t.split(/(\s+)/)) {
+      for (const p of (sg.m ? [sg.t] : sg.t.split(/(\s+)/))) {
         if (!p) continue;
         const sp = /^\s+$/.test(p), t = sp ? ' ' : p;
-        toks.push({ t, font, sp, w: mctx.measureText(t).width });
+        toks.push({ t, font, sp, w: tw(t, font) });
       }
     }
     return toks;
@@ -1372,6 +1476,12 @@ const el = (tag, o, inner) => `<${tag}${attrs(o)}${inner != null ? `>${inner}</$
 const pathD = pts => pts.map((p, i) => (i ? 'L' : 'M') + f2(p[0]) + ' ' + f2(p[1])).join('');
 const dashArr = (dash, w) => { const d = DASH[dash]; return d ? d.map(v => f2(v * w)).join(' ') : null; };
 function svgText(x, y, str, font, color, anchor, extra) {
+  if (hasRich(str)) {   // Formel: einzelne Läufe mit Hoch-/Tiefstellung
+    const runs = richRuns(str, font), w = sum(runs.map(r => r.w));
+    let x0 = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x, s = '';
+    for (const r of runs) { s += svgText(x0, y - r.dy, r.t, r.font, color); x0 += r.w; }
+    return extra ? `<g${extra}>${s}</g>` : s;
+  }
   return `<text x="${f2(x)}" y="${f2(y)}" font-family="${esc(font.fam.replace(/"/g, "'"))}" font-size="${f2(font.px)}"` +
     `${font.b ? ' font-weight="bold"' : ''}${font.i ? ' font-style="italic"' : ''} fill="${color}"` +
     `${anchor && anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${extra || ''} xml:space="preserve">${esc(str)}</text>`;
@@ -2188,7 +2298,7 @@ function buildDataPanel() {
   const n = Math.min(8, D.n);
   let h = '<table><tr>' + cols.map(c => {
     const ov = P.types[c.name] || 'auto';
-    return `<th title="${esc(c.name)}">${esc(c.name.length > 18 ? c.name.slice(0, 17) + '…' : c.name)}<select data-type="${esc(c.name)}">` +
+    return `<th title="${esc(c.name)}">${esc((n => n.length > 18 ? n.slice(0, 17) + '…' : n)(plainRich(c.name)))}<select data-type="${esc(c.name)}">` +
       `<option value="auto"${ov === 'auto' ? ' selected' : ''}>auto: ${TYPE_NAMES[c.auto]}</option>` +
       [['num,', 'Zahl (1,5)'], ['num.', 'Zahl (1.5)'], ['date', 'Datum'], ['cat', 'Text']].map(([v, l]) => `<option value="${v}"${ov === v ? ' selected' : ''}>${l}</option>`).join('') +
       '</select></th>';
@@ -2196,7 +2306,7 @@ function buildDataPanel() {
   for (let r = 0; r < n; r++) h += '<tr>' + cols.map(c => {
     const v = c.val[r];
     const txt = v == null ? (c.raw[r] ? c.raw[r] : '–') : c.type === 'num' ? fmtNum(v, -1) : c.type === 'date' ? dateDefault(v) : v;
-    return `<td class="${c.type === 'num' ? 'num' : ''}${v == null ? ' na' : ''}">${esc(String(txt).slice(0, 40))}</td>`;
+    return `<td class="${c.type === 'num' ? 'num' : ''}${v == null ? ' na' : ''}">${esc(plainRich(String(txt)).slice(0, 40))}</td>`;
   }).join('') + '</tr>';
   if (D.n > n) h += `<tr><td colspan="${cols.length}" class="na">… ${D.n - n} weitere Zeilen</td></tr>`;
   $('#preview').innerHTML = h + '</table>';
@@ -2235,14 +2345,14 @@ $('#btnAddFilter').onclick = () => { if (!D.cols.length) return; P.filters.push(
 function buildColumnSelects() {
   const cols = D.cols, multi = P.ys.filter(n => colByName(n)).length > 1;
   const opt = (v, l, dis) => `<option value="${esc(v)}"${dis ? ' disabled' : ''}>${esc(l)}</option>`;
-  const colOpts = cols.map(c => opt(c.name, `${c.name}  (${TYPE_NAMES[c.type]})`)).join('');
+  const colOpts = cols.map(c => opt(c.name, `${plainRich(c.name)}  (${TYPE_NAMES[c.type]})`)).join('');
   $('[data-p="x"]').innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : '');
   $$('.grpSel').forEach(s => s.innerHTML = opt('', '(keine)') + colOpts + (multi ? opt(VAR, VAR_LABEL) : ''));
   $$('.numSel').forEach(s => s.innerHTML = opt('', '(keine)') + cols.filter(c => c.type === 'num').map(c => opt(c.name, c.name)).join(''));
   const box = $('#ys'); box.innerHTML = '';
   for (const c of cols) {
     const lab = document.createElement('label'); lab.title = c.name + (c.type === 'cat' ? ' (Text – nicht als Wert nutzbar)' : '');
-    lab.innerHTML = `<input type="checkbox" ${P.ys.includes(c.name) ? 'checked' : ''} ${c.type === 'cat' ? 'disabled' : ''}> ${esc(c.name)}`;
+    lab.innerHTML = `<input type="checkbox" ${P.ys.includes(c.name) ? 'checked' : ''} ${c.type === 'cat' ? 'disabled' : ''}> ${esc(plainRich(c.name))}`;
     if (c.type === 'cat') lab.classList.add('dis');
     lab.querySelector('input').onchange = e => {
       if (e.target.checked) { const order = cols.map(x => x.name); P.ys = order.filter(n => n === c.name || P.ys.includes(n)); }
@@ -2352,7 +2462,7 @@ function updateSeriesPanel(res) {
         if (patch) ctl += `<select data-l="${esc(id)}" data-prop="hatch" title="Schraffur">${opts(HATCH_LABEL)}</select>`;
       }
       if (d === 'size') ctl = `<input type="number" step="0.25" min="0" data-l="${esc(id)}" data-prop="size" title="${markers ? 'Markergröße' : 'Linienbreite'} (pt)">`;
-      row.innerHTML = `<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span><span class="nm" style="flex:1" title="${esc(l)}">${esc(l)}</span>${ctl}`;
+      row.innerHTML = `<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span><span class="nm" style="flex:1" title="${esc(l)}">${esc(plainRich(l))}</span>${ctl}`;
       list.appendChild(row);
     }
     makeSortable(list, order => { P.order[d] = order; render(); });
@@ -2387,7 +2497,7 @@ function updateSeriesPanel(res) {
     if (['line', 'scatter', 'linept', 'area'].includes(t) || t === 'bar') c2 += `<select data-s="${k}" data-prop="axis" title="Y-Achse">${opts({ y: 'Achse links', y2: 'Achse rechts' })}</select>`;
     row.innerHTML = `<div class="row" style="margin:2px 0">${hueSeries ? '<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span>' : ''}` +
       `<input type="checkbox" data-s="${k}" data-prop="visible" title="sichtbar">` +
-      `<input data-s="${k}" data-prop="label" placeholder="${esc(s.label)}" style="flex:1;min-width:60px" title="Name in der Legende">` +
+      `<input data-s="${k}" data-prop="label" placeholder="${esc(plainRich(s.label))}" style="flex:1;min-width:60px" title="Name in der Legende">` +
       `<input type="color" data-s="${k}" data-prop="color" title="Farbe"></div>` +
       (c2 ? `<div class="row" style="margin:2px 0 2px 22px;flex-wrap:wrap">${c2}</div>` : '');
     if (!isLine) row.querySelectorAll('[data-prop="dash"],[data-prop="lw"],[data-prop="marker"],[data-prop="ms"]').forEach(e => e.remove());
@@ -2507,7 +2617,7 @@ $('#wrap').addEventListener('pointermove', e => {
     else { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = h; } }
   }
   if (!best) { tip.style.display = 'none'; return; }
-  tip.textContent = best.tip; tip.style.display = 'block';
+  tip.textContent = plainRich(best.tip); tip.style.display = 'block';
   const tx = e.clientX + 14, ty = e.clientY + 14, tr = tip.getBoundingClientRect();
   tip.style.left = Math.min(tx, innerWidth - tr.width - 8) + 'px'; tip.style.top = Math.min(ty, innerHeight - tr.height - 8) + 'px';
 });
@@ -2987,7 +3097,7 @@ function pythonCode() {
   if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
   L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent ? ', transparent=True' : ''})`, 'plt.show()', '');
   void res2;
-  return L.join('\n');
+  return L.join('\n').replace(/<sub>(.*?)<\/sub>/gi, '$$_{\\\\mathrm{$1}}$$').replace(/<sup>(.*?)<\/sup>/gi, '$$^{\\\\mathrm{$1}}$$');
 }
 $('#btnPyCopy').onclick = () => copyText(pythonCode(), 'Python-Code kopiert');
 $('#btnPySave').onclick = () => download(new Blob([pythonCode()], { type: 'text/x-python' }), safeName() + '.py');

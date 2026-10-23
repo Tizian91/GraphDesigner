@@ -111,6 +111,18 @@ document.getElementById('app').onload = async () => {
     check('Kategorien als Spalten: Balken und Fehlergrenzen', bars(r), expBars);
     check('Fehlerbalken werden gezeichnet', (ev('buildPlot(pipeline(), false).svg').match(/<path d="M[^"]*" stroke="#424242"/g) || []).length, 4);
     check('Normale Tabellen bleiben unverändert', (load('a;b\n1;2\n3;4'), ev('[roleUsed, P.err]')), ['', 'none']);
+    // Formeln (LaTeX in $…$) und Markdown-Escapes
+    const runs = s => w.texRuns(s).map(r => [r.t, r.sc < 1 ? (r.sh > 0 ? 'hoch' : 'tief') : 'normal', r.i ? 'kursiv' : 'gerade']);
+    check('Formel: \\sigma_y', runs('\\sigma_y'), [['σ', 'normal', 'gerade'], ['y', 'tief', 'kursiv']]);
+    check('Formel: E^{2} und \\mathrm', runs('E^{2}\\,\\mathrm{in\\ MPa}'), [['E', 'normal', 'kursiv'], ['2', 'hoch', 'gerade'], [' in MPa', 'normal', 'gerade']]);
+    check('Formel: ^\\circ C und \\pm', w.plainRich('$T$ in $^\\circ$C $\\pm 5$'), 'T in °C ±5');
+    check('Formel: Tooltip-Text mit Index', w.plainRich('$\\sigma_y$ in MPa'), 'σ_y in MPa');
+    check('Formel: Hochzahl als Unicode', w.plainRich('Fläche in m$^2$'), 'Fläche in m²');
+    check('Formel: \\alpha ohne $', w.plainRich('Winkel \\alpha'), 'Winkel α');
+    check('Formel: HTML-Tiefstellung aus Markdown', w.plainRich('H<sub>2</sub>O'), 'H₂O');
+    check('einzelnes $ bleibt Text', w.plainRich('BIP (US$)'), 'BIP (US$)');
+    check('Markdown-Escapes in Tabellen', w.parseInput('| Probe\\_A | $\\sigma\\_y$ |\n|---|---|\n| 1 | 2 |')[0].rows[0], ['Probe_A', '$\\sigma_y$']);
+    check('Formel verändert die Textbreite', ev('tw')('$\\sigma_y$', w.fontObj(10)) < ev('tw')('$\\sigma_y$'.replace(/\$/g, '§'), w.fontObj(10)), true);
     // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
       Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);
