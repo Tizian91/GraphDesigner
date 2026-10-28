@@ -20,6 +20,7 @@ Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](htt
 - **Fertige Mittelwerte mit Fehlern:** Fehlerbalken direkt aus Spalten der Tabelle, als Ober-/Untergrenze (`Upper`, `Lower`) oder als Abstand (`Error +`, `Error −`, auch unsymmetrisch, oder `SD`). Auch die lange Form mit einer Kennungsspalte (z. B. `Quantity` = Mean/Upper/Lower) und Tabellen mit Kategorien als Spalten werden erkannt und automatisch als Balkendiagramm mit Fehlerbalken gezeichnet – praktisch für Daten aus einem Plot-Digitalisierer
 - **Gestaltung:** Stile nach matplotlib/seaborn (Standard, whitegrid, darkgrid, ticks, ggplot, FiveThirtyEight, bmh, Graustufen, Publikation, Präsentation), seaborn-Kontexte, Paletten mit den Originalfarben, Achsen (log, Grenzen, Ticks, Zahlen- und Datumsformat), Gitter, Legende, zweite Y-Achse, Schraffuren
 - **Formeln:** LaTeX in `$…$` wie bei matplotlib (z. B. `$\sigma_y$`, `m$^2$`, `$\mathrm{…}$`, `\alpha`), HTML-`<sub>`/`<sup>` und Markdown-Escapes wie `\_` – in Titeln, Achsen, Kategorien, Legende und im Python-Export
+- **Projekte:** Daten, Diagramm-Einstellungen und Stil als Projektdatei (`.diagramm`) speichern und später weiterbearbeiten (Strg+S, Strg+O, Speichern unter …)
 - **Stile:** eigene Stile im Browser oder in einem Ordner speichern, als JSON exportieren/importieren
 - **Export:** PNG mit DPI-Angabe (150/300/600 dpi), SVG, PDF über Drucken, „Für Word kopieren“ in Originalgröße, Python-Code (pandas, matplotlib, seaborn)
 - **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel per Doppelklick bearbeiten
@@ -37,7 +38,7 @@ In Chrome funktioniert es genauso (Menü **⋮ → Streamen, speichern und teile
 
 ### Dateien aus dem Explorer öffnen
 
-Die installierte App meldet sich bei Windows als Programm für `.md`, `.markdown`, `.csv`, `.tsv`, `.txt`, `.xlsx` und `.xls` an:
+Die installierte App meldet sich bei Windows als Programm für `.md`, `.markdown`, `.csv`, `.tsv`, `.txt`, `.xlsx`, `.xls` und Projektdateien (`.diagramm`) an:
 im Explorer Rechtsklick auf die Datei → **Öffnen mit** → **Diagramm-Designer**. Beim ersten Mal fragt Edge einmalig, ob die App Dateien öffnen darf.
 
 ### Deinstallieren

@@ -23,6 +23,7 @@
         "text/csv": [".csv"],
         "text/tab-separated-values": [".tsv"],
         "text/plain": [".txt"],
+        "application/json": [".diagramm"],
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
         "application/vnd.ms-excel": [".xls"]
       }

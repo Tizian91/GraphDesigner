@@ -123,6 +123,18 @@ document.getElementById('app').onload = async () => {
     check('einzelnes $ bleibt Text', w.plainRich('BIP (US$)'), 'BIP (US$)');
     check('Markdown-Escapes in Tabellen', w.parseInput('| Probe\\_A | $\\sigma\\_y$ |\n|---|---|\n| 1 | 2 |')[0].rows[0], ['Probe_A', '$\\sigma_y$']);
     check('Formel verändert die Textbreite', ev('tw')('$\\sigma_y$', w.fontObj(10)) < ev('tw')('$\\sigma_y$'.replace(/\$/g, '§'), w.fontObj(10)), true);
+    // Projektdatei: speichern, anderes laden, wieder öffnen
+    ev(`S={...DEF};P=freshP();seriesSig='';$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
+      P.type='bar';S.title='Projekt-Test';S.palette='deep';P.series['Sensor A']={color:'#123456'};renderNow();`);
+    const pj = ev('projectJSON()');
+    ev(`S={...DEF};P=freshP();$('#src').value='a;b\\n1;2';parseSrc();renderNow();`);
+    ev(`loadProject(JSON.parse(${JSON.stringify(pj)}), 'Zugversuch.diagramm', null)`);
+    check('Projekt: Kennung in der Datei', JSON.parse(pj).app, 'Diagramm-Designer');
+    check('Projekt: Name aus dem Dateinamen', ev('projName'), 'Zugversuch');
+    check('Projekt: Daten, Diagramm und Stil wiederhergestellt', ev(`[P.type, S.title, S.palette, P.series['Sensor A'].color, D.n, S.fileName]`), ['bar', 'Projekt-Test', 'deep', '#123456', 50, 'Zugversuch']);
+    check('Projekt: nach dem Öffnen unverändert', ev('updateProjUI(), projDirty'), false);
+    check('Projekt: Änderung wird erkannt', ev(`S.title='geändert', updateProjUI(), projDirty`), true);
+    ev(`projName='';projSnap='';updateProjUI()`);
     // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
       Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);

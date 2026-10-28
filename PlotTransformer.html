@@ -23,6 +23,7 @@ html,body{height:100%}
 body{margin:0;font:13px/1.4 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
 header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap}
 header h1{font-size:15px;margin:0 12px 0 0}
+#projName{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 header .sp{flex:1}
 main{flex:1;display:flex;min-height:0}
 aside{width:380px;min-width:260px;max-width:75vw;flex:none;overflow:auto;background:var(--panel);padding:4px 12px 30px}
@@ -100,8 +101,12 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 </head>
 <body>
 <header>
-  <h1>Diagramm-Designer</h1>
-  <span class="hint">Tabelle einfügen → Diagramm gestalten → als Bild oder für Word exportieren</span>
+  <h1 title="Tabelle einfügen → Diagramm gestalten → als Bild oder für Word exportieren">Diagramm-Designer</h1>
+  <button id="btnProjOpen" title="Projektdatei öffnen (Strg+O)">Projekt öffnen…</button>
+  <button id="btnProjSave" title="Daten, Diagramm und Stil als Projektdatei speichern (Strg+S)">Projekt speichern</button>
+  <button id="btnProjSaveAs" title="Unter neuem Namen speichern (Strg+Umschalt+S)">Speichern unter…</button>
+  <span id="projName" class="hint"></span>
+  <input type="file" id="projFile" accept=".diagramm,.json" hidden>
   <span class="sp"></span>
   <button id="hWord" class="primary" title="PNG (in Originalgröße) und, wenn möglich, SVG in die Zwischenablage, dann in Word Strg+V">Für Word kopieren</button>
   <button id="hCopy">Bild kopieren</button>
@@ -113,7 +118,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <summary>Daten</summary>
     <textarea id="src" spellcheck="false" placeholder="Zeit;Messwert&#10;0;1,5&#10;1;2,3"></textarea>
     <div class="row">
-      <input type="file" id="file" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls" hidden>
+      <input type="file" id="file" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls,.diagramm,.json" hidden>
       <button id="btnOpen">Datei öffnen…</button>
       <select id="sheetSel" hidden title="Tabellenblatt"></select>
       <select id="tblSel" hidden title="Tabelle"></select>
@@ -2712,7 +2717,8 @@ $('#src').addEventListener('input', () => { clearTimeout(srcTimer); srcTimer = s
 $('#tblSel').addEventListener('change', e => { tIdx = +e.target.value; seriesSig = ''; rebuildData(); render(); });
 $('#btnOpen').onclick = () => $('#file').click();
 $('#file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
-function loadFile(f) {
+function loadFile(f, handle) {
+  if (/\.(diagramm|json)$/i.test(f.name)) { openProjectFile(f, handle); return; }
   if (/\.xlsx?$/i.test(f.name)) { loadXlsx(f); return; }
   f.text().then(t => { wb = null; $('#sheetSel').hidden = true; $('#src').value = t; tIdx = 0; parseSrc(); render(); toast(`${f.name} geladen`); });
 }
@@ -2898,6 +2904,7 @@ $('#btnDirSave').onclick = async () => {
 $('#btnReset').onclick = () => {
   if (!confirm('Alle Einstellungen und Diagramm-Zuordnungen zurücksetzen?')) return;
   S = { ...DEF }; P = freshP(); seriesSig = '';
+  projName = ''; projHandle = null; projSnap = '';
   parseSrc(); syncUI(); render();
 };
 
@@ -3108,7 +3115,8 @@ let saveTimer = null;
 function saveSoon() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    try { localStorage.setItem(STORE, JSON.stringify({ S, P, src: $('#src').value, tIdx })); } catch { }
+    updateProjUI();
+    try { localStorage.setItem(STORE, JSON.stringify({ S, P, src: $('#src').value, tIdx, projName, projClean: !!projName && !projDirty })); } catch { }
   }, 400);
 }
 function saveUI() { try { localStorage.setItem(STORE + '.ui', JSON.stringify({ fit: $('#fit').checked, zoom, tips: $('#tips').checked, lock: $('#lockAspect').checked })); } catch { } }
@@ -3141,8 +3149,96 @@ function restore() {
   let ui = null; try { ui = JSON.parse(localStorage.getItem(STORE + '.ui')); } catch { }
   if (ui) { $('#fit').checked = ui.fit !== false; $('#tips').checked = ui.tips !== false; $('#lockAspect').checked = !!ui.lock; if (ui.zoom) { zoom = ui.zoom; $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %'; } }
   parseSrc();
+  return st;
 }
 $('#tips').onchange = saveUI;
+/* ---------- Projekte: Daten, Diagramm und Stil in einer Datei speichern und wieder öffnen ---------- */
+const PROJ_EXT = '.diagramm';
+const PROJ_TYPES = [{ description: 'Diagramm-Projekt', accept: { 'application/json': [PROJ_EXT, '.json'] } }];
+let projName = '', projHandle = null, projSnap = '', projDirty = false;
+const stateStr = () => JSON.stringify({ S, P, src: $('#src').value, tIdx });
+const isProject = o => !!o && typeof o === 'object' && o.app === 'Diagramm-Designer' && typeof o.src === 'string';
+function projectJSON() {
+  return JSON.stringify({ app: 'Diagramm-Designer', format: 1, saved: new Date().toISOString(), S, P, src: $('#src').value, tIdx }, null, 1);
+}
+// Projektname aus dem Dateinamen; der Export-Dateiname folgt, solange er nicht selbst geändert wurde
+function setProjName(file) {
+  const name = String(file || '').replace(/\.(diagramm|json)$/i, '').trim();
+  if (name && (!S.fileName || S.fileName === DEF.fileName || S.fileName === projName)) S.fileName = name;
+  projName = name;
+  syncUI();
+}
+function updateProjUI() {
+  projDirty = !!projName && stateStr() !== projSnap;
+  const el = $('#projName');
+  el.textContent = projName ? projName + (projDirty ? ' •' : '') : 'nicht als Projekt gespeichert';
+  el.title = projName ? (projDirty ? 'Ungespeicherte Änderungen – Strg+S speichert' : 'Alle Änderungen gespeichert') : 'Strg+S speichert alles als Projektdatei';
+  document.title = (projName ? projName + (projDirty ? ' •' : '') + ' – ' : '') + 'Diagramm-Designer';
+}
+function loadProject(o, file, handle) {
+  S = { ...DEF, ...sanitizeStyle(o.S) };
+  if (o.S) NON_STYLE.forEach(k => { if (typeof o.S[k] === typeof DEF[k]) S[k] = o.S[k]; });
+  P = sanitizeP(o.P);
+  $('#src').value = o.src; tIdx = +o.tIdx || 0; wb = null; $('#sheetSel').hidden = true; seriesSig = '';
+  projName = ''; projHandle = handle || null;
+  setProjName(file);
+  parseSrc(); syncUI(); renderNow();
+  projSnap = stateStr(); updateProjUI();
+  if (projHandle) idb.set('projHandle', projHandle).catch(() => { });
+}
+// Eine .diagramm-/.json-Datei öffnen: Projekt laden, sonst als Stil übernehmen
+async function openProjectFile(f, handle) {
+  let o = null; try { o = JSON.parse(await f.text()); } catch { }
+  if (isProject(o)) {
+    if (projDirty && !confirm(`Ungespeicherte Änderungen an „${projName}“ verwerfen?`)) return;
+    loadProject(o, f.name, handle);
+    toast(`Projekt „${projName}“ geöffnet`);
+  } else if (o && Object.keys(sanitizeStyle(o)).length) { applyStyle(o); toast('Stil übernommen'); }
+  else toast(`${f.name} ist keine Projektdatei des Diagramm-Designers`);
+}
+async function openProject() {
+  if (!('showOpenFilePicker' in window)) { $('#projFile').click(); return; }
+  try { const [h] = await window.showOpenFilePicker({ id: 'diagrammProjekte', types: PROJ_TYPES }); await openProjectFile(await h.getFile(), h); }
+  catch (e) { if (e.name !== 'AbortError') { console.error(e); toast('Projekt konnte nicht geöffnet werden'); } }
+}
+async function saveProject(as) {
+  if ('showSaveFilePicker' in window) {
+    try {
+      if (!projHandle || as) projHandle = await window.showSaveFilePicker({ id: 'diagrammProjekte', suggestedName: (projName || safeName()) + PROJ_EXT, types: PROJ_TYPES });
+      else if ((await projHandle.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await projHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') { toast('Keine Schreibberechtigung – bitte „Speichern unter…“ verwenden'); return; }
+      setProjName(projHandle.name);
+      const w = await projHandle.createWritable(); await w.write(projectJSON()); await w.close();
+      idb.set('projHandle', projHandle).catch(() => { });
+    } catch (e) { if (e.name !== 'AbortError') { console.error(e); toast('Projekt konnte nicht gespeichert werden'); } return; }
+  } else {   // ohne Dateisystem-Zugriff (z. B. Firefox): als Download
+    const name = as || !projName ? prompt('Name des Projekts', projName || safeName()) : projName;
+    if (!name) return;
+    setProjName(name);
+    download(new Blob([projectJSON()], { type: 'application/json' }), projName.replace(/[\\/:*?"<>|]/g, '_') + PROJ_EXT);
+  }
+  renderNow();
+  projSnap = stateStr(); updateProjUI();
+  toast(`Projekt „${projName}“ gespeichert`);
+}
+$('#btnProjOpen').onclick = openProject;
+$('#btnProjSave').onclick = () => saveProject(false);
+$('#btnProjSaveAs').onclick = () => saveProject(true);
+$('#projFile').onchange = e => { const f = e.target.files[0]; if (f) openProjectFile(f, null); e.target.value = ''; };
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); }
+  else if (k === 'o') { e.preventDefault(); openProject(); }
+});
+window.addEventListener('beforeunload', e => { if (projName && stateStr() !== projSnap) { e.preventDefault(); e.returnValue = ''; } });
+// Nach dem Neustart: Projektname und Dateizugriff wiederherstellen (Strg+S schreibt wieder in dieselbe Datei)
+async function projInit(st) {
+  projName = st && typeof st.projName === 'string' ? st.projName : '';
+  projSnap = st && st.projClean ? stateStr() : '';
+  if (projName) { try { const h = await idb.get('projHandle'); if (h && h.name.replace(/\.(diagramm|json)$/i, '') === projName) projHandle = h; } catch { } }
+  updateProjUI();
+}
+
 $('#lockAspect').onchange = saveUI;
 
 /* ---------- Seitenleiste verbreitern ---------- */
@@ -3171,18 +3267,19 @@ $('#lockAspect').onchange = saveUI;
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
 
-restore();
+const restored = restore();
 syncUI();
 refreshUserPresets();
 dirInit();
 renderNow();
+projInit(restored);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 
 /* ---------- Installierte App (Edge/Chrome) ---------- */
 // Offline-Cache; Service Worker laufen nur über http(s), nicht bei file://.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
 // Im Explorer per „Öffnen mit“ an die installierte App übergebene Dateien laden (Excel über SheetJS).
-if ('launchQueue' in window) launchQueue.setConsumer(async p => { if (p.files && p.files[0]) loadFile(await p.files[0].getFile()); });
+if ('launchQueue' in window) launchQueue.setConsumer(async p => { if (p.files && p.files[0]) loadFile(await p.files[0].getFile(), p.files[0]); });
 </script>
 </body>
 </html>
