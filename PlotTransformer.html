@@ -272,9 +272,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div id="palSw" class="swatch"></div>
     <div class="row"><span>Fortlaufend (Zahlen, Heatmap)</span><select data-k="seqPal"></select><label><input type="checkbox" data-k="seqRev"> umkehren</label></div>
     <div id="seqSw" class="swatch"></div>
-    <div class="row"><span>Hintergrund Abbildung</span><input type="color" data-k="bg"></div>
-    <div class="row"><span>Hintergrund Plotbereich</span><input type="color" data-k="plotBg"></div>
-    <div class="row"><label><input type="checkbox" data-k="transparent"> Transparenter Hintergrund</label></div>
+    <div class="row" title="Fläche um den Plotbereich (Titel, Achsenbeschriftung, Legende außen)"><span>Hintergrund Abbildung</span><input type="color" data-k="bg"><label><input type="checkbox" data-k="transparent"> transparent</label></div>
+    <div class="row" title="Fläche hinter dem Gitter, innerhalb der Achsen"><span>Hintergrund Plotbereich</span><input type="color" data-k="plotBg"><label><input type="checkbox" data-k="plotTransparent"> transparent</label></div>
     <div class="row"><span>Textfarbe</span><input type="color" data-k="textColor"></div>
   </details>
 
@@ -496,7 +495,7 @@ const DEF = {
   figW: 16, figH: 10, figUnit: 'cm', font: 'Arial', fontCustom: '', context: 'notebook',
   fontSize: 10, titleSize: 12, labelSize: 10, tickSize: 10, legendSize: 10,
   marginMode: 'auto', mL: 45, mR: 12, mT: 12, mB: 36, dpi: 300, baseStyle: 'mpl',
-  palette: 'tab10', seqPal: 'viridis', seqRev: false, bg: '#ffffff', plotBg: '#ffffff', transparent: false, textColor: '#000000',
+  palette: 'tab10', seqPal: 'viridis', seqRev: false, bg: '#ffffff', plotBg: '#ffffff', transparent: false, plotTransparent: false, textColor: '#000000',
   lineW: 1.5, markerSize: 6, markerEdge: 'none', alpha: 1, bandAlpha: 0.2, areaAlpha: 0.4, autoDash: false,
   sizeMin: 3, sizeMax: 12, lwMin: 0.75, lwMax: 3,
   barWidth: 0.8, barGap: 0.05, barEdge: 'none', barEdgeColor: '#000000', barEdgeW: 0.75, barAlpha: 1,
@@ -1835,7 +1834,7 @@ function buildPlot(res, preview) {
 
   /* --- 5. Zeichnen --- */
   if (!S.transparent) out.push(el('rect', { x: 0, y: 0, width: W, height: H, fill: S.bg }));
-  if (!S.transparent || S.plotBg !== S.bg) out.push(el('rect', { x: rect.x0, y: rect.y0, width: pw, height: ph, fill: S.plotBg }));
+  if (!S.plotTransparent) out.push(el('rect', { x: rect.x0, y: rect.y0, width: pw, height: ph, fill: S.plotBg }));
 
   // Gitter
   if (S.grid !== 'none' && t !== 'heatmap') {
@@ -2369,7 +2368,7 @@ function legendLayout(leg, font, cf) {
 }
 function drawLegend(leg, B, x0, y0, font, cf, preview) {
   const s = [], lwp = pt => pt * PT * cf;
-  if (S.legendFrame) s.push(el('rect', { x: x0, y: y0, width: B.w, height: B.h, rx: B.fpx * 0.2, fill: S.transparent && S.legendPos.startsWith('out') || S.legendAlpha <= 0 ? 'none' : S.plotBg,
+  if (S.legendFrame) s.push(el('rect', { x: x0, y: y0, width: B.w, height: B.h, rx: B.fpx * 0.2, fill: (S.legendPos.startsWith('out') ? S.transparent : S.plotTransparent) || S.legendAlpha <= 0 ? 'none' : S.plotBg,
     'fill-opacity': S.legendAlpha > 0 && S.legendAlpha < 1 ? S.legendAlpha : null, stroke: S.legendFrameW > 0 ? S.legendFrameColor : null, 'stroke-width': S.legendFrameW > 0 ? lwp(S.legendFrameW) : null }));
   let cx = x0 + B.bp + 0.2 * B.fpx;
   B.cols.forEach((col, ci) => {
@@ -2809,7 +2808,7 @@ function renderNow() {
     $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %';
   }
   showPlot(plot);
-  $('#wrap').classList.toggle('checker', S.transparent);
+  $('#wrap').classList.toggle('checker', S.transparent || S.plotTransparent);
   const u = S.figUnit === 'in' ? 'Zoll' : S.figUnit, sc = (+S.dpi || 300) / 96;
   const st = [`${r2(S.figW)} × ${r2(S.figH)} ${u}`, `PNG ${Math.round(plot.W * sc)} × ${Math.round(plot.H * sc)} px bei ${S.dpi} dpi`,
     `${res.nRows ?? 0} von ${D.n} Zeilen`, `${res.series.length} ${res.series.length === 1 ? 'Reihe' : 'Reihen'}`];
@@ -2920,7 +2919,7 @@ const evOf = el => el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' 
 const AXIS_SHARED = [['Achsentitel / Ticks (pt)', ['labelSize', 'tickSize']], ['Fett', ['labelBold|Achsentitel', 'tickBold|Ticks']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']], ['Dezimaltrennzeichen', ['decSep', 'thousands|Tausender']]];
 const INSP = {
   fig: { name: 'Grundeinstellungen', rows: [['Breite × Höhe', ['figW', 'figH', 'figUnit']], ['Schriftart', ['font']], ['Grundschrift / Titel (pt)', ['fontSize', 'titleSize']], ['Kontext (Skalierung)', ['context']],
-    ['Palette', ['palette']], ['Hintergrund Abbildung', ['bg', 'transparent|transparent']], ['Hintergrund Plotbereich', ['plotBg']], ['Textfarbe', ['textColor']]] },
+    ['Palette', ['palette']], ['Hintergrund Abbildung', ['bg', 'transparent']], ['Hintergrund Plotbereich', ['plotBg', 'plotTransparent']], ['Textfarbe', ['textColor']]] },
   title: { name: 'Titel', rows: [['Titel', ['title']], ['Untertitel', ['subtitle']], ['Ausrichten', ['titleAlign', 'titleBold|fett']], ['Größe (pt)', ['titleSize']], ['', ['math']]] },
   note: { name: 'Fußnote', rows: [['', ['note']]] },
   x: { name: 'X-Achse', rows: [['Titel', ['xTitle']], ['Min / Max', ['xMin', 'xMax']], ['Skala', ['xScale']], ['Ticks: Anzahl / Abstand', ['xTicks', 'xStep']], ['Nachkommastellen', ['xDec', 'xSci|wiss.']],
@@ -2930,7 +2929,7 @@ const INSP = {
   y2: { name: 'Rechte Y-Achse', rows: [['Titel', ['y2Title']], ['Min / Max', ['y2Min', 'y2Max']], ['Skala', ['y2Scale']], ['Nachkommastellen', ['y2Dec']]], shared: AXIS_SHARED },
   legend: { name: 'Legende', rows: [['Position', ['legendPos']], ['Einträge', ['legendMode']], ['Spalten (0 = automatisch)', ['legendCols']], ['Titel der Legende', ['legendTitle']], ['Schrift (pt)', ['legendSize', 'legendBold|fett']],
     ['', ['legendFrame|Rahmen und Hintergrund']], ['Rahmen Farbe / Breite (pt)', ['legendFrameColor', 'legendFrameW']], ['Deckkraft Hintergrund', ['legendAlpha']]] },
-  plot: { name: 'Plotbereich', rows: [['Hintergrund', ['plotBg']], ['Achsenlinien', ['spines']], ['Farbe / Breite (pt)', ['spineColor', 'spineW']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']],
+  plot: { name: 'Plotbereich', rows: [['Hintergrund', ['plotBg', 'plotTransparent']], ['Achsenlinien', ['spines']], ['Farbe / Breite (pt)', ['spineColor', 'spineW']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']],
     ['Gitterlinien', ['grid', 'gridX|X', 'gridY|Y']], ['Gitter Farbe / Stil', ['gridColor', 'gridStyle']], ['Gitter Breite (pt)', ['gridW']]] }
 };
 // Kopie des Steuerelements von links; beide schreiben in denselben Stilwert
@@ -3451,6 +3450,8 @@ function sanitizeStyle(o) {
     else if (opts) { if (opts.includes(v)) out[k] = v; }
     else if (FONT_RE.test(v)) out[k] = v;
   }
+  // Ältere Stile kannten nur „transparent“: der Plotbereich war dann mit durchsichtig, wenn er dieselbe Farbe hatte
+  if (o.transparent === true && !('plotTransparent' in o) && (o.plotBg || DEF.plotBg) === (o.bg || DEF.bg)) out.plotTransparent = true;
   return out;
 }
 function applyStyle(o) { Object.assign(S, sanitizeStyle(o)); syncUI(); render(); }
@@ -3743,7 +3744,8 @@ function pythonCode() {
   if (S.legendFrame && S.legendPos !== 'none' && t !== 'heatmap') L.push(`if ax.get_legend(): ax.get_legend().get_frame().set_linewidth(${S.legendFrameW})`);
   if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
   pyAnnots(L, cf);
-  L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent ? ', transparent=True' : ''})`, 'plt.show()', '');
+  if (S.transparent !== S.plotTransparent) L.push('', S.transparent ? 'fig.patch.set_alpha(0)   # nur die Abbildung durchsichtig' : 'ax.patch.set_alpha(0)   # nur der Plotbereich durchsichtig');
+  L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent && S.plotTransparent ? ', transparent=True' : ''})`, 'plt.show()', '');
   void res2;
   return L.join('\n').replace(/<sub>(.*?)<\/sub>/gi, '$$_{\\\\mathrm{$1}}$$').replace(/<sup>(.*?)<\/sup>/gi, '$$^{\\\\mathrm{$1}}$$');
 }

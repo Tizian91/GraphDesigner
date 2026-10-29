@@ -151,6 +151,15 @@ document.getElementById('app').onload = async () => {
     check('Projekt: nach dem Öffnen unverändert', ev('updateProjUI(), projDirty'), false);
     check('Projekt: Änderung wird erkannt', ev(`S.title='geändert', updateProjUI(), projDirty`), true);
     ev(`projName='';projSnap='';updateProjUI()`);
+    // Hintergründe: Abbildung und Plotbereich unabhängig durchsichtig
+    const bgs = (t, pt) => { ev(`S.transparent=${t};S.plotTransparent=${pt};S.bg='#ffffff';S.plotBg='#ffffff';renderNow()`); const s = ev('buildPlot(R.res,false).svg'); return [/<rect x="0" y="0" [^>]*fill="#ffffff"/.test(s), (s.match(/<rect [^>]*fill="#ffffff"\/>/g) || []).length]; };
+    check('Abbildung durchsichtig, Plotbereich weiß', bgs(true, false), [false, 1]);
+    check('Plotbereich durchsichtig, Abbildung weiß', bgs(false, true), [true, 1]);
+    check('beide durchsichtig', bgs(true, true), [false, 0]);
+    check('ältere Stile: transparent bei gleicher Farbe = beides durchsichtig', ev(`sanitizeStyle({transparent:true,bg:'#ffffff',plotBg:'#ffffff'}).plotTransparent`), true);
+    check('ältere Stile: andere Plotfarbe bleibt sichtbar', ev(`sanitizeStyle({transparent:true,bg:'#ffffff',plotBg:'#eaeaf2'}).plotTransparent`), undefined);
+    check('Python: nur Abbildung durchsichtig', ev(`S.transparent=true;S.plotTransparent=false;pythonCode().includes('fig.patch.set_alpha(0)') && !pythonCode().includes('transparent=True')`), true);
+    ev(`S.transparent=false;S.plotTransparent=false`);
     // Achsen: Umkehrfunktion (Bildschirm → Datenwert) für das Ziehen von Annotationen
     const axInv = (o, v) => ev(`(() => { const a = makeAxis(${JSON.stringify({ len: 300, tickPt: 10, ...o })}); return a.inv(a.f(${v})); })()`);
     check('Achse: Umkehrfunktion linear', axInv({ kind: 'lin', d0: 2, d1: 12 }, 7.5), 7.5);
