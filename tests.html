@@ -122,6 +122,19 @@ document.getElementById('app').onload = async () => {
     check('Formel: HTML-Tiefstellung aus Markdown', w.plainRich('H<sub>2</sub>O'), 'H₂O');
     check('einzelnes $ bleibt Text', w.plainRich('BIP (US$)'), 'BIP (US$)');
     check('Markdown-Escapes in Tabellen', w.parseInput('| Probe\\_A | $\\sigma\\_y$ |\n|---|---|\n| 1 | 2 |')[0].rows[0], ['Probe_A', '$\\sigma_y$']);
+    // Zeilenumbruch mit \n (Formelzeichen wie \nu bleiben erhalten)
+    const lines = s => ev(`parseInline(${JSON.stringify(s)}).map(l => l.map(x => x.t).join(''))`);
+    check('\\n bricht um', lines('Zugversuch\\nProbe A'), ['Zugversuch', 'Probe A']);
+    check('\\n vor Kleinbuchstaben bricht um', lines('Spannung\\nunter Last'), ['Spannung', 'unter Last']);
+    check('\\nu in $…$ bleibt Formel', lines('Querdehnzahl $\\nu$'), ['Querdehnzahl $\\nu$']);
+    check('\\nu ohne $ bleibt Formelzeichen', lines('Querdehnzahl \\nu'), ['Querdehnzahl \\nu']);
+    check('<br> bricht um', lines('A<br>B'), ['A', 'B']);
+    check('Python: \\n als echter Umbruch', ev(`pyText('A\\\\nB $\\\\nu$')`), JSON.stringify('A\nB $\\nu$'));
+    ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A']});
+      S.legendPos='outR';S.title='Ein ziemlich langer Titel für dieses Diagramm, der über dem Plotbereich umbrechen muss';renderNow();`);
+    const tb = ev(`(() => { const p = R.plot.rect, g = R.plot.svg.match(/data-edit="title">(.*?)<\\/g>/)[1], xs = [...g.matchAll(/<text x="([^"]+)" y="([^"]+)"/g)];
+      return [new Set(xs.map(m => m[2])).size > 1, xs.every(m => +m[1] >= p.x0 - 0.5)]; })()`);
+    check('Zentrierter Titel bricht innerhalb des Plotbereichs um (mehrere Zeilen, keine links vom Plot)', tb, [true, true]);
     check('Formel verändert die Textbreite', ev('tw')('$\\sigma_y$', w.fontObj(10)) < ev('tw')('$\\sigma_y$'.replace(/\$/g, '§'), w.fontObj(10)), true);
     // Projektdatei: speichern, anderes laden, wieder öffnen
     ev(`S={...DEF};P=freshP();seriesSig='';$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();

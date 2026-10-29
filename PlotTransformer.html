@@ -344,7 +344,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <textarea class="small" data-k="note" placeholder="Fußnote / Quelle, z. B. Quelle: eigene Messungen"></textarea>
     <div class="row"><span>Titel ausrichten</span><select data-k="titleAlign"><option value="left">links</option><option value="center">zentriert</option><option value="right">rechts</option></select><label><input type="checkbox" data-k="titleBold"> fett</label></div>
     <div class="row"><label><input type="checkbox" data-k="math"> Formeln darstellen ($…$ wie LaTeX)</label></div>
-    <p class="hint">**fett** und *kursiv* sind möglich. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
+    <p class="hint">**fett** und *kursiv* sind möglich, \n beginnt eine neue Zeile (z. B. Zugversuch\nProbe A). Ein zentrierter Titel bricht an der Breite des Plotbereichs um. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
     <div class="sub">Legende</div>
     <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
@@ -1367,8 +1367,11 @@ function plainRich(str) {
 
 // Einfaches Inline-Markdown für Titel: **fett**, *kursiv*, `code`, <br>, Formeln in $…$
 const ENT = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ', '&quot;': '"' };
+// „\n“ als Zeilenumbruch, auch in einzeiligen Feldern. Nicht in $…$ und nicht bei Formelzeichen wie \nu, \nabla, \neq
+const lineBreaks = s => String(s).split(S.math ? /((?:^|[^\\])\$[^$]+?\$)/ : /(?!)/)
+  .map((p, i) => i % 2 ? p : p.replace(/\\n([A-Za-z]*)/g, (m, w) => S.math && TEX_SYM['n' + w] != null ? m : '\n' + w)).join('');
 function parseInline(str) {
-  str = String(str).replace(/&(amp|lt|gt|nbsp|quot);/g, m => ENT[m]);
+  str = lineBreaks(String(str).replace(/&(amp|lt|gt|nbsp|quot);/g, m => ENT[m]));
   const alnum = /[\p{L}\p{N}]/u;
   return str.split(/<br\s*\/?>|\n/i).map(line => {
     const segs = []; let b = false, it = false, buf = '';
@@ -1756,10 +1759,13 @@ function buildPlot(res, preview) {
 
   /* --- 4. Layout: Ränder aus Textmaßen --- */
   const pad = F.base * PT * 0.5, gap = F.base * PT * 0.4;
-  const tBlk = textBlock(S.title, F.title, S.titleBold, false, W - 2 * pad);
-  const sBlk = textBlock(S.subtitle, F.base, false, false, W - 2 * pad);
+  // Zentrierter Titel bricht an der Breite des Plotbereichs um (steht über ihm), sonst an der Abbildungsbreite
+  const centerT = S.titleAlign === 'center';
+  const titleBlocks = maxW => [textBlock(S.title, F.title, S.titleBold, false, maxW), textBlock(S.subtitle, F.base, false, false, maxW)];
+  const topOf = () => pad + (tBlk ? tBlk.h + gap : 0) + (sBlk ? sBlk.h + gap : 0);
+  let [tBlk, sBlk] = titleBlocks(W - 2 * pad);
   const nBlk = textBlock(S.note, F.small, false, false, W - 2 * pad);
-  let top = pad + (tBlk ? tBlk.h + gap : 0) + (sBlk ? sBlk.h + gap : 0);
+  let top = topOf();
   let bottom = H - pad - (nBlk ? nBlk.h + gap : 0);
   const tickOut = S.tickDir === 'out' ? lw(S.tickLen) : 0, tickPad = lw(3.5), labelPad = lw(4);
   const lblFont = fontObj(S.labelSize * cf, S.labelBold);
@@ -1785,6 +1791,7 @@ function buildPlot(res, preview) {
     AX.y = makeAxis({ ...roles.y, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor || S.grid === 'both' });
     if (useY2) AX.y2 = makeAxis({ ...roles.y2, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor });
     if (manual) { rect = { x0: S.mL * PT, x1: W - S.mR * PT, y0: S.mT * PT, y1: H - S.mB * PT }; continue; }
+    if (centerT) { [tBlk, sBlk] = titleBlocks(pw); top = topOf(); }
     // X-Beschriftung: drehen, wenn sie sich überlappt
     const xw = AX.x.ticks.map(k => tw(k.label, F.tick)), fh = F.tick.px * 1.15;
     let r = S.xRot === 'auto' ? 0 : +S.xRot;
@@ -1808,6 +1815,11 @@ function buildPlot(res, preview) {
     rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + 20, bot) };
   }
   const pw = rect.x1 - rect.x0, ph = rect.y1 - rect.y0;
+  // an der endgültigen Plotbreite nachziehen, solange sich die Zeilenzahl (und damit das Layout) nicht ändert
+  if (centerT) {
+    const [t2, s2] = titleBlocks(pw), same = (a, b) => (a ? a.lines.length : 0) === (b ? b.lines.length : 0);
+    if (manual || (same(t2, tBlk) && same(s2, sBlk))) [tBlk, sBlk] = [t2, s2];
+  }
   const X = v => rect.x0 + AX.x.f(v) * pw;
   const Yf = (ax, v) => rect.y1 - ax.f(v) * ph;
   const Y = v => Yf(AX.y, v), Y2 = v => Yf(AX.y2 || AX.y, v);
@@ -3603,6 +3615,7 @@ async function copyText(text, msg) {
 
 /* ---------- Python-Code (pandas + matplotlib + seaborn) ---------- */
 const py = s => JSON.stringify(String(s));
+const pyText = s => py(lineBreaks(s).replace(/<br\s*\/?>/gi, '\n'));   // Beschriftung: \n und <br> als echter Umbruch
 const pyNum = v => v == null || !isFinite(v) ? 'None' : String(r12(v));
 function pythonCode() {
   const res = R ? R.res : pipeline(), sp = res.sp, t = sp.t, m = sp.m;
@@ -3701,7 +3714,7 @@ function pythonCode() {
   L.push('');
   const res2 = R ? R.plot : null;
   const tt = k => S[k] && S[k].trim() ? S[k] : null;
-  const sets = { title: tt('title') && py(S.title.replace(/\*\*|\*|`/g, '')), xlabel: tt('xTitle') && py(S.xTitle), ylabel: tt('yTitle') && py(S.yTitle) };
+  const sets = { title: tt('title') && pyText(S.title.replace(/\*\*|\*|`/g, '')), xlabel: tt('xTitle') && pyText(S.xTitle), ylabel: tt('yTitle') && pyText(S.yTitle) };
   if (S.xTitle === ' ') sets.xlabel = '""'; if (S.yTitle === ' ') sets.ylabel = '""';
   if (S.xScale === 'log' && !sp.xCat) sets.xscale = '"log"';
   if (S.yScale === 'log') sets.yscale = '"log"';
@@ -3737,7 +3750,7 @@ function pyAnnots(L, cf) {
   const cv = (v, kind) => kind === 'date' ? (imp.add('dates'), `mdates.date2num(pd.Timestamp(${Math.round(v)}, unit="ms"))`) : pyNum(r12(v));
   const LS = { solid: '"-"', dashed: '"--"', dotted: '":"', dashdot: '"-."', longdash: '(0, (8, 3))', dashdotdot: '(0, (5, 1.5, 1, 1.5, 1, 1.5))' };
   const hexA = (c, a) => c + Math.round(clamp(a, 0, 1) * 255).toString(16).padStart(2, '0');
-  const txt = s => py(String(s).replace(/\*\*|`/g, ''));
+  const txt = s => pyText(String(s).replace(/\*\*|`/g, ''));
   for (const a of P.ann) {
     const v = k => av(a, k), w = r2(v('annW')), col = py(v('annColor')), ls = LS[v('annDash')] || '"-"', fig = a.ref === 'fig';
     const X = q => fig ? pyNum(r12(q[0])) : cv(q[0], g.xKind), Y = q => fig ? pyNum(r12(1 - q[1])) : cv(q[1], g.yKind);
