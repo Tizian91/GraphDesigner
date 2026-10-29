@@ -1,7 +1,7 @@
 // Service Worker: hält die App offline verfügbar, sobald sie installiert ist.
 // Bei jeder Änderung an den Dateien VERSION erhöhen, damit alte Caches verworfen werden.
 'use strict';
-const VERSION = 'v8';
+const VERSION = 'v9';
 const CACHE = 'diagramm-designer-' + VERSION;
 const FILES = [
   './',

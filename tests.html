@@ -129,6 +129,9 @@ document.getElementById('app').onload = async () => {
     check('\\nu in $…$ bleibt Formel', lines('Querdehnzahl $\\nu$'), ['Querdehnzahl $\\nu$']);
     check('\\nu ohne $ bleibt Formelzeichen', lines('Querdehnzahl \\nu'), ['Querdehnzahl \\nu']);
     check('<br> bricht um', lines('A<br>B'), ['A', 'B']);
+    check('\\n direkt vor einer Formel bricht um', lines('Dehnung\\n$\\varepsilon$ in %'), ['Dehnung', '$\\varepsilon$ in %']);
+    check('\\n vor \\$ bricht um (\\$ wird erst beim Zeichnen zum Dollarzeichen)', lines('Preis\\n\\$ 5'), ['Preis', '\\$ 5']);
+    check('Leerzeichen nach \\n wird nicht in die neue Zeile übernommen', ev(`textBlock('Zeile 1\\\\n Zeile 2', 10).lines.map(l => l.toks[0].sp)`), [false, false]);
     check('Python: \\n als echter Umbruch', ev(`pyText('A\\\\nB $\\\\nu$')`), JSON.stringify('A\nB $\\nu$'));
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A']});
       S.legendPos='outR';S.title='Ein ziemlich langer Titel für dieses Diagramm, der über dem Plotbereich umbrechen muss';renderNow();`);

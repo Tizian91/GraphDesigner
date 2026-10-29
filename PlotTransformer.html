@@ -70,6 +70,9 @@ select{max-width:200px}
 textarea{width:100%;font-family:Consolas,"Courier New",monospace;font-size:12px;resize:vertical}
 #src{height:150px;white-space:pre;overflow-wrap:normal}
 textarea.small{height:46px;font-family:inherit;font-size:13px}
+/* Beschriftungsfelder: wachsen mit dem Text nach unten und mit der Breite der Seitenleiste */
+textarea.grow{field-sizing:content;height:auto;min-height:28px;max-height:180px;resize:vertical;font-family:inherit;font-size:13px;white-space:pre-wrap}
+.row>textarea.grow,.row>input.wide{flex:3 1 0;min-width:0;width:auto}
 button{cursor:pointer;background:var(--panel)}
 button:hover{border-color:var(--accent)}
 button:disabled{opacity:.5;cursor:default}
@@ -303,7 +306,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
   <details>
     <summary>Achsen</summary>
     <div class="sub">X-Achse</div>
-    <div class="row"><span>Titel</span><input data-k="xTitle" style="width:170px"></div>
+    <div class="row"><span>Titel</span><input class="wide" data-k="xTitle"></div>
     <div class="row"><span>Min / Max</span><input data-k="xMin" placeholder="auto" style="width:70px"><input data-k="xMax" placeholder="auto" style="width:70px"></div>
     <div class="row"><span>Skala</span><select data-k="xScale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
     <div class="row"><span>Ticks: Anzahl / Abstand</span><input type="number" min="0" max="30" data-k="xTicks" title="0 = automatisch"><input data-k="xStep" placeholder="auto" style="width:70px"></div>
@@ -311,7 +314,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Datumsformat</span><select data-k="xDate" class="dateFmt"></select></div>
     <div class="row"><span>Beschriftung drehen</span><select data-k="xRot"><option value="auto">automatisch</option><option value="0">0°</option><option value="45">45°</option><option value="90">90°</option></select></div>
     <div class="sub">Y-Achse</div>
-    <div class="row"><span>Titel</span><input data-k="yTitle" style="width:170px"></div>
+    <div class="row"><span>Titel</span><input class="wide" data-k="yTitle"></div>
     <div class="row"><span>Min / Max</span><input data-k="yMin" placeholder="auto" style="width:70px"><input data-k="yMax" placeholder="auto" style="width:70px"></div>
     <div class="row"><span>Skala</span><select data-k="yScale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
     <div class="row"><span>Ticks: Anzahl / Abstand</span><input type="number" min="0" max="30" data-k="yTicks" title="0 = automatisch"><input data-k="yStep" placeholder="auto" style="width:70px"></div>
@@ -319,7 +322,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Datumsformat</span><select data-k="yDate" class="dateFmt"></select></div>
     <div class="sub">Rechte Y-Achse</div>
     <p class="hint">Im Reihen-Panel einzelne Reihen der rechten Achse zuordnen.</p>
-    <div class="row"><span>Titel</span><input data-k="y2Title" style="width:170px"></div>
+    <div class="row"><span>Titel</span><input class="wide" data-k="y2Title"></div>
     <div class="row"><span>Min / Max</span><input data-k="y2Min" placeholder="auto" style="width:70px"><input data-k="y2Max" placeholder="auto" style="width:70px"></div>
     <div class="row"><span>Skala</span><select data-k="y2Scale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
     <div class="row"><span>Nachkommastellen</span><select data-k="y2Dec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
@@ -339,19 +342,19 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 
   <details open>
     <summary>Beschriftung</summary>
-    <div class="row"><span>Titel</span><input data-k="title" style="width:200px"></div>
-    <div class="row"><span>Untertitel</span><input data-k="subtitle" style="width:200px"></div>
-    <textarea class="small" data-k="note" placeholder="Fußnote / Quelle, z. B. Quelle: eigene Messungen"></textarea>
+    <div class="row"><span>Titel</span><textarea class="grow" rows="1" data-k="title" placeholder="Enter oder \n = neue Zeile"></textarea></div>
+    <div class="row"><span>Untertitel</span><textarea class="grow" rows="1" data-k="subtitle"></textarea></div>
+    <textarea class="grow" rows="2" data-k="note" placeholder="Fußnote / Quelle, z. B. Quelle: eigene Messungen"></textarea>
     <div class="row"><span>Titel ausrichten</span><select data-k="titleAlign"><option value="left">links</option><option value="center">zentriert</option><option value="right">rechts</option></select><label><input type="checkbox" data-k="titleBold"> fett</label></div>
     <div class="row"><label><input type="checkbox" data-k="math"> Formeln darstellen ($…$ wie LaTeX)</label></div>
-    <p class="hint">**fett** und *kursiv* sind möglich, \n beginnt eine neue Zeile (z. B. Zugversuch\nProbe A). Ein zentrierter Titel bricht an der Breite des Plotbereichs um. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
+    <p class="hint">**fett** und *kursiv* sind möglich. Eine neue Zeile beginnt mit Enter oder \n (z. B. Zugversuch\nProbe A), in Achsentiteln mit \n. Ein zentrierter Titel bricht an der Breite des Plotbereichs um. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
     <div class="sub">Legende</div>
     <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
     <div class="row"><span>Spalten</span><input type="number" min="0" max="12" data-k="legendCols" title="0 = automatisch"><label><input type="checkbox" data-k="legendFrame"> Rahmen</label></div>
     <div class="row"><span>Rahmen Farbe / Breite (pt)</span><input type="color" data-k="legendFrameColor"><input type="number" step="0.25" min="0" data-k="legendFrameW"></div>
     <div class="row"><span>Deckkraft Hintergrund</span><input type="number" step="0.05" min="0" max="1" data-k="legendAlpha"></div>
-    <div class="row"><span>Titel der Legende</span><input data-k="legendTitle" style="width:150px" placeholder="automatisch"></div>
+    <div class="row"><span>Titel der Legende</span><input class="wide" data-k="legendTitle" placeholder="automatisch"></div>
   </details>
 
   <details open>
@@ -387,7 +390,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 
   <details open>
     <summary>Export</summary>
-    <div class="row"><span>Dateiname</span><input data-k="fileName" style="width:150px"></div>
+    <div class="row"><span>Dateiname</span><input class="wide" data-k="fileName"></div>
     <div class="btns"><button id="btnPng" class="primary">PNG speichern</button><button id="btnCopy">Bild kopieren</button><button id="btnWord">Für Word kopieren</button><button id="btnSvg">SVG speichern</button><button id="btnPdf">PDF (Drucken)</button></div>
     <div class="btns"><button id="btnPyCopy">Python-Code kopieren</button><button id="btnPySave">.py speichern</button></div>
     <details id="pyPrevBox" style="border:0;padding:0">
@@ -1368,7 +1371,7 @@ function plainRich(str) {
 // Einfaches Inline-Markdown für Titel: **fett**, *kursiv*, `code`, <br>, Formeln in $…$
 const ENT = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&nbsp;': ' ', '&quot;': '"' };
 // „\n“ als Zeilenumbruch, auch in einzeiligen Feldern. Nicht in $…$ und nicht bei Formelzeichen wie \nu, \nabla, \neq
-const lineBreaks = s => String(s).split(S.math ? /((?:^|[^\\])\$[^$]+?\$)/ : /(?!)/)
+const lineBreaks = s => String(s).split(S.math ? /((?<!\\)\$[^$]+?\$)/ : /(?!)/)
   .map((p, i) => i % 2 ? p : p.replace(/\\n([A-Za-z]*)/g, (m, w) => S.math && TEX_SYM['n' + w] != null ? m : '\n' + w)).join('');
 function parseInline(str) {
   str = lineBreaks(String(str).replace(/&(amp|lt|gt|nbsp|quot);/g, m => ENT[m]));
@@ -2889,13 +2892,14 @@ $('#wrap').addEventListener('dblclick', e => {
   const g = e.target.closest('[data-edit]'); if (!g) return;
   const k = g.dataset.edit, r = g.getBoundingClientRect(), auto = g.textContent;
   const inp = document.createElement('input'); inp.id = 'editBox';
-  inp.value = S[k] && S[k].trim() ? S[k] : auto;
+  inp.value = (S[k] && S[k].trim() ? S[k] : auto).replace(/\n/g, '\\n');   // einzeiliges Feld: Umbrüche als \n zeigen
+  const init = inp.value;
   inp.style.left = Math.max(4, r.left - 4) + 'px'; inp.style.top = (r.top + r.height / 2 - 14) + 'px'; inp.style.width = Math.max(160, r.width + 40) + 'px';
   document.body.appendChild(inp); inp.focus(); inp.select();
   let done = false;
   const fin = ok => {
     if (done) return; done = true;
-    if (ok && inp.value !== auto) { S[k] = inp.value.trim() ? inp.value : ' '; syncUI(); render(); }
+    if (ok && inp.value !== init) { S[k] = inp.value.trim() ? inp.value : ' '; syncUI(); render(); }
     inp.remove();
   };
   inp.onkeydown = ev => { if (ev.key === 'Enter') fin(true); if (ev.key === 'Escape') fin(false); };
