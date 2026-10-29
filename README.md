@@ -18,12 +18,15 @@ Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](htt
 - **Gruppierung wie in seaborn:** Farbe (`hue`), Stil (`style`) und Größe (`size`), kategorial oder numerisch (Farbleiste, Blasendiagramm); mehrere Y-Spalten werden wie mit `pd.melt` in die lange Form gebracht
 - **Statistik:** Mittelwert, Median, Summe, Anzahl, Min, Max; Standardabweichung, Standardfehler oder 95-%-Konfidenzintervall als Band oder Fehlerbalken; lineare Trendlinie mit Gleichung und R²
 - **Fertige Mittelwerte mit Fehlern:** Fehlerbalken direkt aus Spalten der Tabelle, als Ober-/Untergrenze (`Upper`, `Lower`) oder als Abstand (`Error +`, `Error −`, auch unsymmetrisch, oder `SD`). Auch die lange Form mit einer Kennungsspalte (z. B. `Quantity` = Mean/Upper/Lower) und Tabellen mit Kategorien als Spalten werden erkannt und automatisch als Balkendiagramm mit Fehlerbalken gezeichnet – praktisch für Daten aus einem Plot-Digitalisierer
-- **Gestaltung:** Stile nach matplotlib/seaborn (Standard, whitegrid, darkgrid, ticks, ggplot, FiveThirtyEight, bmh, Graustufen, Publikation, Präsentation), seaborn-Kontexte, Paletten mit den Originalfarben, Achsen (log, Grenzen, Ticks, Zahlen- und Datumsformat), Gitter, Legende, zweite Y-Achse, Schraffuren
+- **Gestaltung:** Stile nach matplotlib/seaborn (Standard, whitegrid, darkgrid, ticks, ggplot, FiveThirtyEight, bmh, Graustufen, Publikation, Präsentation), seaborn-Kontexte, Paletten mit den Originalfarben, Achsen (log, Grenzen, Ticks, Zahlen- und Datumsformat), Gitter, Legende (Rahmenfarbe, -breite, Deckkraft), zweite Y-Achse, Schraffuren
+- **Annotationen:** Pfeil, Linie, Rechteck, Ellipse, Text (mit Kasten) sowie waagerechte und senkrechte Bezugslinien mit Beschriftung. Pfeilspitzen am Ende, am Anfang, an beiden Enden oder keine; Form gefüllt, offen, Strich (Maßlinie) oder Punkt. Nach dem Zeichnen an Griffen umformen (Shift = 45°-Schritte bzw. Quadrat/Kreis), mit der Maus oder den Pfeiltasten verschieben, Entf löscht, Strg+D dupliziert. Annotationen hängen an den Achsenwerten oder an einer festen Stelle der Abbildung und kommen mit in PNG, SVG, PDF und den Python-Code
+- **Auswahl rechts, Stil links:** Ein Klick in der Vorschau auf Titel, Achse, Legende, Plotbereich, Reihe oder Annotation zeigt rechts genau deren Einstellungen; ohne Auswahl stehen dort die Grundeinstellungen. Links steht der Stil für das ganze Diagramm. Eine Reihe oder Annotation kann jeden Stilwert für sich überschreiben – eigene Werte sind orange markiert und lassen sich mit ↺ zurücksetzen oder mit ⇧ als Standard übernehmen. Links lassen sich alle Bereiche auf einmal zuklappen (Alt + Klick: nur diesen offen lassen), rechts lässt sich der Auswahlbereich einklappen
+- **Rückgängig:** Strg+Z / Strg+Y für Stil, Diagramm und Annotationen
 - **Formeln:** LaTeX in `$…$` wie bei matplotlib (z. B. `$\sigma_y$`, `m$^2$`, `$\mathrm{…}$`, `\alpha`), HTML-`<sub>`/`<sup>` und Markdown-Escapes wie `\_` – in Titeln, Achsen, Kategorien, Legende und im Python-Export
 - **Projekte:** Daten, Diagramm-Einstellungen und Stil als Projektdatei (`.diagramm`) speichern und später weiterbearbeiten (Strg+S, Strg+O, Speichern unter …)
 - **Stile:** eigene Stile im Browser oder in einem Ordner speichern, als JSON exportieren/importieren
 - **Export:** PNG mit DPI-Angabe (150/300/600 dpi), SVG, PDF über Drucken, „Für Word kopieren“ in Originalgröße, Python-Code (pandas, matplotlib, seaborn)
-- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel per Doppelklick bearbeiten
+- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel und Texte per Doppelklick bearbeiten
 
 ## Als App installieren (Microsoft Edge)
 
@@ -76,7 +79,7 @@ Alle Pfade sind relativ, die App funktioniert daher in jedem Unterordner. Wenn S
 python -m http.server 8765
 ```
 
-Dann `http://localhost:8765/tests.html` öffnen: Parser, Statistik, PNG-Export und Excel-Import werden mit festen Erwartungswerten geprüft (OK/FEHLER). Die Vergleichswerte erzeugt `tools/referenzwerte.py` mit numpy, scipy und seaborn.
+Dann `http://localhost:8765/tests.html` öffnen: Parser, Statistik, Annotationen, Projektdatei, Rückgängig, PNG-Export und Excel-Import werden mit festen Erwartungswerten geprüft (OK/FEHLER). Die Vergleichswerte erzeugt `tools/referenzwerte.py` mit numpy, scipy und seaborn.
 
 ## Projektstruktur
 

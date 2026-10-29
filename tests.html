@@ -135,6 +135,36 @@ document.getElementById('app').onload = async () => {
     check('Projekt: nach dem Öffnen unverändert', ev('updateProjUI(), projDirty'), false);
     check('Projekt: Änderung wird erkannt', ev(`S.title='geändert', updateProjUI(), projDirty`), true);
     ev(`projName='';projSnap='';updateProjUI()`);
+    // Achsen: Umkehrfunktion (Bildschirm → Datenwert) für das Ziehen von Annotationen
+    const axInv = (o, v) => ev(`(() => { const a = makeAxis(${JSON.stringify({ len: 300, tickPt: 10, ...o })}); return a.inv(a.f(${v})); })()`);
+    check('Achse: Umkehrfunktion linear', axInv({ kind: 'lin', d0: 2, d1: 12 }, 7.5), 7.5);
+    check('Achse: Umkehrfunktion logarithmisch', axInv({ kind: 'log', d0: 1, d1: 1000 }, 42), 42);
+    check('Achse: Umkehrfunktion Kategorien (umgekehrt)', axInv({ kind: 'cat', cats: ['a', 'b', 'c'], d0: -0.5, d1: 2.5, rev: true }, 2), 2);
+    // Annotationen: Pfeilspitzen, Export ohne Griffe, Projektdatei, Python
+    ev(`S={...DEF};P=freshP();sel=null;seriesSig='';$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
+      Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A']});renderNow();`);
+    check('Daten ↔ Abbildung hin und zurück', ev(`(() => { const g = R.plot.geo; return g.toFig('data', g.fromFig('data', 123, 77)).map(v => Math.round(v * 1e6) / 1e6); })()`), [123, 77]);
+    const heads = head => ev(`P.ann=[{id:'t1',type:'arrow',ref:'data',p:[[1,10],[5,20]],text:'',st:{annHead:'${head}',annColor:'#ff0000'}}];(buildPlot(R.res,false).svg.match(/fill="#ff0000"/g)||[]).length`);
+    check('Pfeil: Spitze am Ende', heads('end'), 1);
+    check('Pfeil: Spitzen an beiden Enden', heads('both'), 2);
+    check('Pfeil: keine Spitze = Linie', heads('none'), 0);
+    ev(`P.ann=[{id:'r1',type:'rect',ref:'fig',p:[[0.1,0.1],[0.3,0.2]],text:'',st:{}},{id:'x1',type:'text',ref:'data',p:[[2,15]],text:'Peak',st:{annBox:true,annBoxStroke:'#00ff00'}},
+      {id:'h1',type:'hline',ref:'data',p:[[0,12]],text:'Grenze',st:{}}];sel={kind:'ann',id:'r1'};`);
+    const exp = ev('buildPlot(R.res, false).svg'), prev = ev('buildPlot(R.res, true).svg');
+    check('Export: Rechteck, Text mit Kastenrahmen, Bezugslinie mit Text', [/<rect[^>]*fill="none" stroke="#000000"/.test(exp), exp.includes('stroke="#00ff00"'), exp.includes('>Peak<'), exp.includes('>Grenze<')], [true, true, true, true]);
+    check('Griffe und Auswahlrahmen nur in der Vorschau', [exp.includes('#2f6fde'), prev.includes('#2f6fde')], [false, true]);
+    check('Projekt: Annotationen bleiben erhalten', ev(`(() => { const o = JSON.parse(projectJSON()); P.ann = []; loadProject(o, 'A.diagramm', null); return P.ann.map(a => a.type + ':' + (a.st.annBox ? 'Kasten ' : '') + a.text); })()`), ['rect:', 'text:Kasten Peak', 'hline:Grenze']);
+    check('Ungültige Annotationen werden verworfen', ev(`JSON.stringify(sanitizeP({ann:[{type:'x',p:[[1,2]]},{type:'arrow',p:[[1,'a']]},{type:'arrow',p:[[1,2]],st:{annW:'dick',annColor:'#123456'}}]}).ann.map(a => [a.p.length, a.st.annW ?? null, a.st.annColor]))`), '[[2,null,"#123456"]]');
+    const pyc = ev('pythonCode()');
+    check('Python: Rechteck, Text, Bezugslinie, Import', ['ax.add_patch(Rectangle(', 'ax.text(', 'ax.axhline(', 'from matplotlib.patches import Rectangle, Ellipse'].map(s => pyc.includes(s)), [true, true, true, true]);
+    ev(`projName='';projSnap='';updateProjUI()`);
+    // Eine Reihe überschreibt Stilwerte, ohne den Stil zu ändern
+    ev(`P.ann=[];P.series['Sensor A']={markerEdge:'white',errW:3};renderNow();`);
+    check('Reihe: eigener Markerrand und Fehlerbalkenbreite', ev(`[R.res.series[0].look.markerEdge, R.res.series[0].look.errW, S.markerEdge, S.errW]`), ['white', 3, 'none', 1.5]);
+    // Rückgängig / Wiederholen
+    ev(`noteUndo(); S.title='Vorher'; noteUndo(); S.title='Nachher'; noteUndo(); undo();`);
+    check('Rückgängig', ev('S.title'), 'Vorher');
+    check('Wiederholen', ev('redo(), S.title'), 'Nachher');
     // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
       Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);

@@ -15,8 +15,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#ffffff">
 <style>
-:root{--bg:#f3f4f7;--panel:#ffffff;--text:#1d2330;--muted:#687083;--border:#d9dde5;--accent:#2f6fde;--accent-soft:#e7efff}
-@media (prefers-color-scheme: dark){:root{--bg:#15171c;--panel:#1f232a;--text:#e6e8ec;--muted:#9aa3b2;--border:#353b46;--accent:#6c9cff;--accent-soft:#25324d}}
+:root{--bg:#f3f4f7;--panel:#ffffff;--text:#1d2330;--muted:#687083;--border:#d9dde5;--accent:#2f6fde;--accent-soft:#e7efff;--own:#d9771e;--own-soft:#fdf0e4}
+@media (prefers-color-scheme: dark){:root{--bg:#15171c;--panel:#1f232a;--text:#e6e8ec;--muted:#9aa3b2;--border:#353b46;--accent:#6c9cff;--accent-soft:#25324d;--own:#f0a052;--own-soft:#3a2c1e}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%}
@@ -27,8 +27,34 @@ header h1{font-size:15px;margin:0 12px 0 0}
 header .sp{flex:1}
 main{flex:1;display:flex;min-height:0}
 aside{width:380px;min-width:260px;max-width:75vw;flex:none;overflow:auto;background:var(--panel);padding:4px 12px 30px}
-#splitter{flex:none;width:6px;cursor:col-resize;background:var(--border);touch-action:none;transition:background .15s}
-#splitter:hover,#splitter.active{background:var(--accent)}
+#right{width:330px}
+#splitter,#splitterR{flex:none;width:6px;cursor:col-resize;background:var(--border);touch-action:none;transition:background .15s}
+#splitter:hover,#splitter.active,#splitterR:hover,#splitterR.active{background:var(--accent)}
+.asidehead{position:sticky;top:-4px;z-index:2;display:flex;align-items:center;gap:6px;margin:-4px -12px 0;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--border)}
+#right .rhead{position:sticky;top:-4px;z-index:2;display:flex;align-items:center;gap:6px;margin:-4px -12px 6px;padding:8px 12px;background:var(--own-soft);box-shadow:inset 0 -2px var(--own)}
+#right .rhead b{flex:1}
+#right.collapsed{width:30px!important;min-width:0;padding:0;overflow:hidden;cursor:pointer}
+#right.collapsed>:not(.rhead){display:none}
+#right.collapsed .rhead{writing-mode:vertical-rl;margin:0;padding:8px 4px;height:100%;box-shadow:inset 2px 0 var(--own)}
+#right.collapsed .rhead button:not(#btnRight){display:none}
+.own{color:var(--own)}
+/* Werte rechts: blass = folgt dem Stil links, orange = eigener Wert nur für die Auswahl */
+.pv{display:inline-flex;align-items:center}
+.row>.pv:first-child{flex:1}
+.pv.inh>input,.pv.inh>select,.pv.inh>label{opacity:.6}
+.pv.own>input,.pv.own>select{border-color:var(--own);box-shadow:0 0 0 1px var(--own)}
+.pv.own>label{color:var(--own)}
+#series input.own,#series select.own{border-color:var(--own)}
+.rowact{display:inline-flex;gap:2px}
+.row:not(.has-own)>.rowact{display:none}
+button.mini{padding:1px 6px;font-size:12px}
+button.dev{border-color:var(--own);background:var(--own-soft);color:var(--own);white-space:nowrap}
+.seg{display:inline-flex}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:5px 0 0 5px;margin-left:0}
+.seg button:last-child{border-radius:0 5px 5px 0}
+.card{border:1px solid var(--border);border-radius:6px;padding:4px 8px;margin:6px 0}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
 body.resizing{cursor:col-resize;user-select:none}
 details{border-bottom:1px solid var(--border);padding:4px 0 8px}
 summary{font-weight:600;cursor:pointer;padding:6px 0;user-select:none}
@@ -90,13 +116,16 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 #wrap svg{display:block}
 #wrap [data-sk],#wrap [data-lv]{cursor:pointer}
 #wrap [data-edit]{cursor:text}
+#wrap.tool,#wrap.tool *{cursor:crosshair!important}
+#wrap{touch-action:none}
 #tip{position:fixed;pointer-events:none;background:rgba(25,28,35,.94);color:#fff;font-size:12px;padding:5px 8px;border-radius:5px;white-space:pre;z-index:9;display:none;line-height:1.35}
 #editBox{position:fixed;z-index:9;font:inherit;padding:2px 4px;border:2px solid var(--accent);border-radius:4px;background:var(--panel);color:var(--text)}
 #status{padding:4px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel)}
 #status b{color:#c0392b;font-weight:600}
 #toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:10}
 #toast.show{opacity:.95}
-@media (max-width:820px){main{flex-direction:column}aside{width:auto!important;max-width:none;max-height:45vh;border-bottom:1px solid var(--border)}#splitter{display:none}}
+@media (max-width:820px){main{flex-direction:column}aside{width:auto!important;max-width:none;max-height:45vh;border-bottom:1px solid var(--border)}#splitter,#splitterR{display:none}
+  #right.collapsed{width:auto!important;height:36px}#right.collapsed .rhead{writing-mode:horizontal-tb}}
 </style>
 </head>
 <body>
@@ -113,7 +142,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
   <button id="hPng">PNG speichern</button>
 </header>
 <main>
-<aside>
+<aside id="left">
+  <div class="asidehead"><span class="hint" style="flex:1;margin:0">Daten und Stil – gilt für das ganze Diagramm</span><button id="btnFold" class="mini" title="Alle Bereiche zu- oder aufklappen. Alt + Klick auf einen Bereich: nur diesen offen lassen">⊟ alle zuklappen</button></div>
   <details open>
     <summary>Daten</summary>
     <textarea id="src" spellcheck="false" placeholder="Zeit;Messwert&#10;0;1,5&#10;1;2,3"></textarea>
@@ -319,7 +349,16 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
     <div class="row"><span>Spalten</span><input type="number" min="0" max="12" data-k="legendCols" title="0 = automatisch"><label><input type="checkbox" data-k="legendFrame"> Rahmen</label></div>
+    <div class="row"><span>Rahmen Farbe / Breite (pt)</span><input type="color" data-k="legendFrameColor"><input type="number" step="0.25" min="0" data-k="legendFrameW"></div>
+    <div class="row"><span>Deckkraft Hintergrund</span><input type="number" step="0.05" min="0" max="1" data-k="legendAlpha"></div>
     <div class="row"><span>Titel der Legende</span><input data-k="legendTitle" style="width:150px" placeholder="automatisch"></div>
+  </details>
+
+  <details open>
+    <summary>Annotationen</summary>
+    <p class="hint">Standard für alle Annotationen. Zeichnen mit den Werkzeugen über der Vorschau (➝ Pfeil, ╱ Linie, ▭, ◯, T, Bezugslinien). Eine einzelne Annotation stellst du rechts ein; dort sind <span class="own">eigene Werte orange</span>.</p>
+    <div id="annStd"></div>
+    <div id="annList" class="chips"></div>
   </details>
 
   <details open>
@@ -362,16 +401,33 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 
 <section id="stage">
   <div class="toolbar">
+    <span class="seg" id="atools">
+      <button data-at="select" title="Auswählen und verschieben (Esc). Klick auf Titel, Achse, Legende, Plotbereich oder Reihe zeigt deren Einstellungen rechts">↖</button>
+      <button data-at="arrow" title="Pfeil: ziehen vom Anfang zur Spitze (Shift = 45°-Schritte)">➝</button>
+      <button data-at="line" title="Linie: ziehen (Shift = 45°-Schritte)">╱</button>
+      <button data-at="rect" title="Rechteck: ziehen (Shift = Quadrat)">▭</button>
+      <button data-at="ellipse" title="Ellipse: ziehen (Shift = Kreis)">◯</button>
+      <button data-at="text" title="Text: klicken">T</button>
+      <button data-at="hline" title="Waagerechte Bezugslinie: klicken">―</button>
+      <button data-at="vline" title="Senkrechte Bezugslinie: klicken">⏐</button>
+    </span>
+    <button id="btnUndo" title="Rückgängig (Strg+Z)" disabled>↶</button><button id="btnRedo" title="Wiederholen (Strg+Y)" disabled>↷</button>
+    <span class="sep"></span>
     <label><input type="checkbox" id="fit" checked> Einpassen</label>
     <label>Zoom <input type="range" id="zoom" min="25" max="400" value="150" style="width:110px"></label><span id="zoomLbl">150 %</span>
     <span class="sep"></span>
-    <label><input type="checkbox" id="tips" checked> Werte beim Überfahren zeigen</label>
+    <label title="Werte beim Überfahren mit der Maus zeigen"><input type="checkbox" id="tips" checked> Werte zeigen</label>
     <span class="sep"></span>
     <button id="tPng">PNG</button><button id="tSvg">SVG</button><button id="tPdf">PDF</button>
   </div>
   <div id="view"><div id="wrap"></div></div>
   <div id="status"></div>
 </section>
+<div id="splitterR" title="Ziehen zum Ändern der Breite (Doppelklick = Standard)"></div>
+<aside id="right">
+  <div class="rhead"><button id="btnRight" class="mini" title="Bereich ein- oder ausklappen">»</button><b id="selTitle">Grundeinstellungen</b><button id="btnDesel" class="mini" title="Auswahl aufheben (Esc)" hidden>✕</button></div>
+  <div id="insp"></div>
+</aside>
 </main>
 <div id="tip"></div>
 <div id="toast"></div>
@@ -427,6 +483,10 @@ const MARKER_LABEL = { none: 'keiner', o: '● Kreis', s: '■ Quadrat', '^': '�
 const MARKER_ORDER = ['o', 's', '^', 'D', 'v', 'x', '+', '*'];
 const HATCH_LABEL = { '': 'keine', '/': '////', '\\': '\\\\\\\\', x: 'xxxx', '.': '....', '-': '----', '+': '++++', '|': '||||' };
 const HATCH_ORDER = ['', '/', '\\', 'x', '.', '-', '+', '|'];
+const EDGE_LABEL = { none: 'keiner', white: 'weiß', darker: 'dunkler' };
+const BAREDGE_LABEL = { none: 'keiner', darker: 'wie Füllung, dunkler', color: 'Farbe' };
+const HEAD_LABEL = { end: '→ am Ende', start: '← am Anfang', both: '↔ an beiden Enden', none: '— keine (Linie)' };
+const HEADSTYLE_LABEL = { filled: '▶ gefüllt', open: '> offen', bar: '| Strich', dot: '● Punkt' };
 
 /* ---------- Standardwerte ---------- */
 const DEF = {
@@ -445,7 +505,9 @@ const DEF = {
   yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
   y2Scale: 'linear', y2Dec: -1,
   titleAlign: 'center', titleBold: false, math: true, labelBold: false, tickBold: false, legendBold: false,
-  legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true,
+  legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
+  annColor: '#000000', annW: 1, annDash: 'solid', annHead: 'end', annHeadStyle: 'filled', annHeadSize: 1, annFill: '#ffffff', annFillAlpha: 0,
+  annSize: 10, annTextColor: '#000000', annBold: false, annBox: false, annBoxColor: '#ffffff', annBoxAlpha: 0.8, annBoxStroke: '#000000', annBoxW: 0.5,
   title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
   xMin: '', xMax: '', yMin: '', yMax: '', y2Min: '', y2Max: '', xStep: '', yStep: '', fileName: 'diagramm'
 };
@@ -453,6 +515,29 @@ const DEF = {
 const NON_STYLE = ['title', 'subtitle', 'note', 'xTitle', 'yTitle', 'y2Title', 'legendTitle',
   'xMin', 'xMax', 'yMin', 'yMax', 'y2Min', 'y2Max', 'xStep', 'yStep', 'fileName'];
 const CONTEXT = { paper: 0.8, notebook: 1, talk: 1.5, poster: 2 };
+
+/* ---------- Annotationen: Stilfelder (links Standard in S, rechts eigener Wert in a.st) ---------- */
+const AN_F = {
+  annColor: ['color'], annW: ['num', 0.25, 0], annDash: ['sel', DASH_LABEL], annHead: ['sel', HEAD_LABEL], annHeadStyle: ['sel', HEADSTYLE_LABEL],
+  annHeadSize: ['num', 0.25, 0.25], annFill: ['color'], annFillAlpha: ['num', 0.1, 0, 1], annSize: ['num', 0.5, 3], annTextColor: ['color'],
+  annBold: ['chk', 'fett'], annBox: ['chk', 'Kasten'], annBoxColor: ['color'], annBoxAlpha: ['num', 0.1, 0, 1], annBoxStroke: ['color'], annBoxW: ['num', 0.25, 0]
+};
+const AN_KEYS = Object.keys(AN_F);
+const ANAME = { arrow: 'Pfeil', rect: 'Rechteck', ellipse: 'Ellipse', text: 'Text', hline: 'Waagerechte Linie', vline: 'Senkrechte Linie' };
+const isArrow = a => a.type === 'arrow', isShape = a => a.type === 'rect' || a.type === 'ellipse', hasLine = a => a.type !== 'text';
+const hasText = a => ['text', 'hline', 'vline'].includes(a.type), isText = a => a.type === 'text';
+// Zeilen: [Beschriftung, Schlüssel, für welche Annotationen]
+const AN_ROWS = [
+  ['Linie Farbe / Breite (pt)', ['annColor', 'annW'], hasLine],
+  ['Linienstil', ['annDash'], hasLine],
+  ['Pfeilspitzen', ['annHead'], isArrow],
+  ['Spitze Form / Größe (×)', ['annHeadStyle', 'annHeadSize'], isArrow],
+  ['Füllung / Deckkraft', ['annFill', 'annFillAlpha'], isShape],
+  ['Schrift (pt) / Farbe', ['annSize', 'annTextColor', 'annBold'], hasText],
+  ['Kasten Füllung / Deckkraft', ['annBox', 'annBoxColor', 'annBoxAlpha'], isText],
+  ['Kasten Rahmen Farbe / Breite (pt)', ['annBoxStroke', 'annBoxW'], isText]
+];
+const av = (a, k) => a.st && a.st[k] != null ? a.st[k] : S[k];
 
 /* ---------- Eingebaute Stile (wie matplotlib-rcParams) ---------- */
 const MPL = {
@@ -497,7 +582,8 @@ const freshP = () => ({
   filters: [], types: {},
   levels: { hue: {}, style: {}, size: {}, extra: {} },
   order: { hue: [], style: [], size: [], extra: [], x: [] },
-  series: {}
+  series: {},
+  ann: []                                        // Annotationen: { id, type, ref: 'data'|'fig', p: [[x, y], …], text, st }
 });
 
 let S = { ...DEF };
@@ -1109,13 +1195,17 @@ function isHidden(s) {
   return Object.entries(s.lv || {}).some(([d, l]) => ((P.levels[d] || {})[l] || {}).hidden);
 }
 
+// Werte, die eine einzelne Reihe überschreiben kann (P.series[key]); alles andere folgt dem Stil
+const SERIES_PROPS = ['color', 'dash', 'marker', 'lw', 'ms', 'alpha', 'hatch', 'kind', 'axis',
+  'markerEdge', 'barAlpha', 'barEdge', 'barEdgeColor', 'barEdgeW', 'errW', 'bandAlpha', 'areaAlpha'];
 // Aussehen: Farbe aus hue, Strich/Marker/Schraffur aus style, Größe aus size, dann Overrides der Reihe
 function styleSeries(out) {
   const { sp, dims } = out, t = sp.t, pal = palColors(S.palette);
   const markers = t === 'scatter' || t === 'linept';
   const sizeIsMarker = t === 'scatter' || t === 'linept';
   out.series.forEach((s, i) => {
-    const L = { color: pal[0], dash: 'solid', marker: markers ? 'o' : 'none', lw: S.lineW, ms: S.markerSize, alpha: S.alpha, hatch: '', kind: t === 'bar' ? 'bar' : 'line', axis: 'y' };
+    const L = { color: pal[0], dash: 'solid', marker: markers ? 'o' : 'none', lw: S.lineW, ms: S.markerSize, alpha: S.alpha, hatch: '', kind: t === 'bar' ? 'bar' : 'line', axis: 'y',
+      markerEdge: S.markerEdge, barAlpha: S.barAlpha, barEdge: S.barEdge, barEdgeColor: S.barEdgeColor, barEdgeW: S.barEdgeW, errW: S.errW, bandAlpha: S.bandAlpha, areaAlpha: S.areaAlpha };
     const h = dims.hue;
     if (h) {
       if (h.kind === 'num') L.color = h.split ? seqColor((num(h, s.lv.hue) - h.min) / (h.max - h.min)) : seqColor(0.5);
@@ -1144,7 +1234,8 @@ function styleSeries(out) {
       else L.lw = o.size || S.lwMin + f * (S.lwMax - S.lwMin);
     }
     const ov = P.series[s.key] || {};
-    for (const k of ['color', 'dash', 'marker', 'lw', 'ms', 'alpha', 'hatch', 'kind', 'axis']) if (ov[k] != null && ov[k] !== '') L[k] = ov[k];
+    for (const k of SERIES_PROPS) if (ov[k] != null && ov[k] !== '') L[k] = ov[k];
+    L.errColor = ov.errColor || (S.errColorMode === 'series' ? darker(L.color, 0.2) : S.errColor);
     if (t !== 'bar') L.kind = 'line';
     if (!['line', 'scatter', 'linept', 'area', 'bar'].includes(t)) L.axis = 'y';
     s.look = L;
@@ -1437,12 +1528,14 @@ function makeAxis(o) {
   const nb = o.nTicks > 0 ? o.nTicks : auto;
   if (o.kind === 'cat') {
     ax.f = v => { const r = (v - o.d0) / (o.d1 - o.d0); return o.rev ? 1 - r : r; };
+    ax.inv = fr => o.d0 + (o.rev ? 1 - fr : fr) * (o.d1 - o.d0);
     ax.ticks = o.cats.map((c, i) => ({ v: i, label: c }));
     return ax;
   }
   if (o.kind === 'log') {
     const l0 = Math.log10(o.d0), l1 = Math.log10(o.d1);
     ax.f = v => v > 0 ? (Math.log10(v) - l0) / (l1 - l0) : -1;
+    ax.inv = fr => 10 ** (l0 + fr * (l1 - l0));
     const e0 = Math.floor(l0), e1 = Math.ceil(l1), dec = e1 - e0;
     const every = Math.max(1, Math.ceil(dec / nb));
     const inside = m => { let k = 0; for (let e = e0; e <= e1; e++) for (const x of m) { const v = x * 10 ** e; if (v >= o.d0 * (1 - 1e-9) && v <= o.d1 * (1 + 1e-9)) k++; } return k; };
@@ -1459,6 +1552,7 @@ function makeAxis(o) {
     return ax;
   }
   ax.f = v => (v - o.d0) / (o.d1 - o.d0);
+  ax.inv = fr => o.d0 + fr * (o.d1 - o.d0);
   if (o.kind === 'date') {
     const dt = dateTicks(o.d0, o.d1, nb);
     ax.ticks = dt.ticks.map((v, i) => ({ v, label: dateLabel(v, dt.kind, o.dateFmt, i === 0) }));
@@ -1757,7 +1851,7 @@ function buildPlot(res, preview) {
     }
     return `url(#${pats.get(key)})`;
   };
-  const errCol = s => S.errColorMode === 'series' ? darker(s.look.color, 0.2) : S.errColor;
+  const errCol = s => s.look.errColor;
   const tipBase = s => (s.legend && (vis.length > 1 || res.dims.hue) ? s.legend + '\n' : '');
   const fmtV = (v, axis) => fmtNum(v, (axis === 'y2' ? S.y2Dec : horiz ? S.xDec : S.yDec) >= 0 ? (axis === 'y2' ? S.y2Dec : horiz ? S.xDec : S.yDec) : Math.min(4, Math.max(0, 3 - Math.floor(Math.log10(Math.abs(v) || 1)))));
   const xLabelOf = p => p.xl != null ? p.xl : AX.x.kind === 'date' ? dateDefault(p.x) : fmtNum(p.x, -1);
@@ -1769,12 +1863,12 @@ function buildPlot(res, preview) {
     const L = mk.s.look, c0 = C(mk.c0), c1 = C(mk.c1), a = V(mk.v0, mk.axis), b = V(mk.v1, mk.axis);
     const r = horiz ? { x: Math.min(a, b), y: Math.min(c0, c1), width: Math.abs(b - a), height: Math.abs(c1 - c0) }
       : { x: Math.min(c0, c1), y: Math.min(a, b), width: Math.abs(c1 - c0), height: Math.abs(b - a) };
-    const fillA = mk.layer ? 0.5 * S.barAlpha : S.barAlpha;
-    const stroke = t === 'hist' && S.barEdge === 'none' ? (S.plotBg) : S.barEdge === 'none' ? null : S.barEdge === 'darker' ? darker(L.color) : S.barEdgeColor;
-    const sw = t === 'hist' && S.barEdge === 'none' ? lw(0.5) : lw(S.barEdgeW);
+    const fillA = mk.layer ? 0.5 * L.barAlpha : L.barAlpha;
+    const stroke = t === 'hist' && L.barEdge === 'none' ? (S.plotBg) : L.barEdge === 'none' ? null : L.barEdge === 'darker' ? darker(L.color) : L.barEdgeColor;
+    const sw = t === 'hist' && L.barEdge === 'none' ? lw(0.5) : lw(L.barEdgeW);
     body.push(el('rect', { ...r, fill: L.color, 'fill-opacity': fillA < 1 ? fillA : null, stroke, 'stroke-width': stroke ? sw : null }));
     if (L.hatch) body.push(el('rect', { ...r, fill: hatchFill(L.hatch, L.color === '#000000' || lum(L.color) < 0.05 ? '#ffffff' : darker(L.color, 0.55)) }));
-    if (preview) hits.push({ rect: [r.x, r.y, r.width, r.height], tip: tipBase(mk.s) + (t === 'hist'
+    if (preview) hits.push({ rect: [r.x, r.y, r.width, r.height], sk: mk.s.key, tip: tipBase(mk.s) + (t === 'hist'
       ? `${fmtNum(mk.p.x0, -1)} – ${fmtNum(mk.p.x1, -1)}\n${valTitle}: ${fmtNum(r12(mk.p.y), -1)}` + (P.hist.stat !== 'count' ? ` (n = ${mk.p.n})` : '')
       : `${catTitle || 'Kategorie'}: ${mk.p.xl}\n${yName}: ${fmtNum(mk.p.y, -1)}` + (mk.p.n > 1 ? `\nn = ${mk.p.n}` : '') + (mk.p.lo != null ? `\nStreuung: ${fmtNum(r12(mk.p.lo), -1)} … ${fmtNum(r12(mk.p.hi), -1)}` : '')) });
   }
@@ -1783,7 +1877,7 @@ function buildPlot(res, preview) {
     if (mk.lo == null || t === 'hist') continue;
     const cm = (mk.c0 + mk.c1) / 2, half = (mk.c1 - mk.c0) / 2 * S.errCap;
     const [x1, y1] = ptCV(cm, mk.lo, mk.axis), [x2, y2] = ptCV(cm, mk.hi, mk.axis);
-    const col = errCol(mk.s), w = lw(S.errW);
+    const col = errCol(mk.s), w = lw(mk.s.look.errW);
     let d = pathD([[x1, y1], [x2, y2]]);
     if (half > 0) for (const v of [mk.lo, mk.hi]) { const [p, q] = [ptCV(cm - half, v, mk.axis), ptCV(cm + half, v, mk.axis)]; d += pathD([p, q]); }
     body.push(el('path', { d, stroke: col, 'stroke-width': w, fill: 'none' }));
@@ -1793,7 +1887,7 @@ function buildPlot(res, preview) {
   for (const mk of marks.filter(mk => mk.m === 'box' || mk.m === 'violin')) {
     const L = mk.s.look, p = mk.p, cx = C(mk.c), half = catPx * mk.w / 2, ec = darker(L.color, 0.55), w = lw(Math.max(0.75, S.lineW * 0.8));
     if (mk.m === 'box') {
-      body.push(el('rect', { x: cx - half, y: Y(p.q3), width: 2 * half, height: Math.max(0.5, Y(p.q1) - Y(p.q3)), fill: L.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: ec, 'stroke-width': w }));
+      body.push(el('rect', { x: cx - half, y: Y(p.q3), width: 2 * half, height: Math.max(0.5, Y(p.q1) - Y(p.q3)), fill: L.color, 'fill-opacity': L.barAlpha < 1 ? L.barAlpha : null, stroke: ec, 'stroke-width': w }));
       if (L.hatch) body.push(el('rect', { x: cx - half, y: Y(p.q3), width: 2 * half, height: Math.max(0.5, Y(p.q1) - Y(p.q3)), fill: hatchFill(L.hatch, ec) }));
       const cap = half * 0.5;
       body.push(el('path', { d: pathD([[cx, Y(p.q3)], [cx, Y(p.whi)]]) + pathD([[cx - cap, Y(p.whi)], [cx + cap, Y(p.whi)]]) + pathD([[cx, Y(p.q1)], [cx, Y(p.wlo)]]) + pathD([[cx - cap, Y(p.wlo)], [cx + cap, Y(p.wlo)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
@@ -1804,7 +1898,7 @@ function buildPlot(res, preview) {
       const gmax = maxOf(g.map(m => m.p.kde ? m.p.kde.max : 0)), scale = P.box.norm === 'width' ? p.kde.max : gmax;
       const right = p.kde.ys.map((y, i) => [cx + half * p.kde.ds[i] / scale, Y(y)]);
       const left = p.kde.ys.map((y, i) => [cx - half * p.kde.ds[i] / scale, Y(y)]).reverse();
-      body.push(el('path', { d: pathD([...right, ...left]) + 'Z', fill: L.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: ec, 'stroke-width': w }));
+      body.push(el('path', { d: pathD([...right, ...left]) + 'Z', fill: L.color, 'fill-opacity': L.barAlpha < 1 ? L.barAlpha : null, stroke: ec, 'stroke-width': w }));
       if (P.box.inner === 'box') {
         body.push(el('path', { d: pathD([[cx, Y(p.wlo)], [cx, Y(p.whi)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
         body.push(el('path', { d: pathD([[cx, Y(p.q1)], [cx, Y(p.q3)]]), stroke: ec, 'stroke-width': Math.max(w * 3, half * 0.12), fill: 'none' }));
@@ -1814,7 +1908,7 @@ function buildPlot(res, preview) {
         for (const [q, dd] of [[p.q1, '3 2'], [p.med, null], [p.q3, '3 2']]) body.push(el('path', { d: pathD([[cx - dens(q), Y(q)], [cx + dens(q), Y(q)]]), stroke: ec, 'stroke-width': w, 'stroke-dasharray': dd ? dd.split(' ').map(v => f2(v * w)).join(' ') : null, fill: 'none' }));
       }
     } else body.push(el('path', { d: pathD([[cx - half, Y(p.med)], [cx + half, Y(p.med)]]), stroke: ec, 'stroke-width': w, fill: 'none' }));
-    if (preview) hits.push({ rect: [cx - half, Y(p.whi), 2 * half, Y(p.wlo) - Y(p.whi)], tip: tipBase(mk.s) + `${catTitle || 'Kategorie'}: ${p.xl}\nn = ${p.n}\nMedian: ${fmtNum(r12(p.med), -1)}\nQuartile: ${fmtNum(r12(p.q1), -1)} … ${fmtNum(r12(p.q3), -1)}\nMittelwert: ${fmtNum(r12(p.mean), -1)}` });
+    if (preview) hits.push({ rect: [cx - half, Y(p.whi), 2 * half, Y(p.wlo) - Y(p.whi)], sk: mk.s.key, tip: tipBase(mk.s) + `${catTitle || 'Kategorie'}: ${p.xl}\nn = ${p.n}\nMedian: ${fmtNum(r12(p.med), -1)}\nQuartile: ${fmtNum(r12(p.q1), -1)} … ${fmtNum(r12(p.q3), -1)}\nMittelwert: ${fmtNum(r12(p.mean), -1)}` });
   }
 
   // Heatmap
@@ -1830,7 +1924,7 @@ function buildPlot(res, preview) {
         const f = fontObj(S.tickSize * cf, S.tickBold), lab = fmtNum(p.y, dec ?? Math.max(0, Math.min(3, 2 - Math.floor(Math.log10(Math.abs(cbar.max - cbar.min) || 1)))));
         if (tw(lab, f) < cw * 0.95) body.push(svgText(x + cw / 2, y + chh / 2 + baselineOff(f), lab, f, lum(col) > 0.36 ? '#000000' : '#ffffff', 'middle'));
       }
-      if (preview) hits.push({ rect: [x, y, cw, chh], tip: `${p.xl} · ${s.legend}\n${valTitle}: ${fmtNum(r12(p.y), -1)}` + (p.n > 1 ? `\nn = ${p.n}` : '') });
+      if (preview) hits.push({ rect: [x, y, cw, chh], sk: s.key, tip: `${p.xl} · ${s.legend}\n${valTitle}: ${fmtNum(r12(p.y), -1)}` + (p.n > 1 ? `\nn = ${p.n}` : '') });
     }));
   }
 
@@ -1849,12 +1943,12 @@ function buildPlot(res, preview) {
     // Band (Konfidenzintervall o. Ä.)
     if (P.errStyle === 'band' && P.err !== 'none' && t !== 'scatter' && t !== 'bar') for (const sg of segs) {
       const b = sg.filter(p => p.lo != null);
-      if (b.length > 1) body.push(el('path', { d: pathD([...b.map(p => ptCV(p.x, p.hi, axis)), ...b.map(p => ptCV(p.x, p.lo, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': S.bandAlpha, stroke: 'none' }));
+      if (b.length > 1) body.push(el('path', { d: pathD([...b.map(p => ptCV(p.x, p.hi, axis)), ...b.map(p => ptCV(p.x, p.lo, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': L.bandAlpha, stroke: 'none' }));
     }
     // Fläche
     if (mk.area) for (const sg of segs) {
       if (sg.length < 2) continue;
-      body.push(el('path', { d: pathD([...sg.map(p => ptCV(p.x, p.y, axis)), ...sg.map(p => ptCV(p.x, p.y0 != null ? p.y0 : 0, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': S.areaAlpha, stroke: 'none' }));
+      body.push(el('path', { d: pathD([...sg.map(p => ptCV(p.x, p.y, axis)), ...sg.map(p => ptCV(p.x, p.y0 != null ? p.y0 : 0, axis)).reverse()]) + 'Z', fill: L.color, 'fill-opacity': L.areaAlpha, stroke: 'none' }));
     }
     // Linie
     if (t !== 'scatter' && L.lw > 0) for (const sg of segs) {
@@ -1867,7 +1961,8 @@ function buildPlot(res, preview) {
     }
     // Fehlerbalken an Punkten
     if ((P.errStyle === 'bars' || t === 'scatter' || t === 'bar') && P.err !== 'none') {
-      const col = darker(L.color, 0.15), w = lw(Math.max(0.75, L.lw * 0.8)), cap = lw(S.errCap * 8);
+      const eo = P.series[mk.s.key] || {};   // eigene Fehlerbalken-Werte der Reihe, sonst passend zur Linie
+      const col = eo.errColor || darker(L.color, 0.15), w = lw(eo.errW != null ? eo.errW : Math.max(0.75, L.lw * 0.8)), cap = lw(S.errCap * 8);
       let d = '';
       for (const p of valid) if (p.lo != null) {
         const [x1, y1] = ptCV(p.x, p.lo, axis), [x2, y2] = ptCV(p.x, p.hi, axis);
@@ -1885,14 +1980,14 @@ function buildPlot(res, preview) {
         let col = L.color, ms = L.ms;
         if (hn && p.hv != null) col = seqColor((p.hv - hn.min) / (hn.max - hn.min));
         if (sn && p.sv != null) { const f = (p.sv - sn.min) / (sn.max - sn.min); ms = Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)); }
-        const edge = S.markerEdge === 'white' ? '#ffffff' : S.markerEdge === 'darker' ? darker(col) : null;
+        const edge = L.markerEdge === 'white' ? '#ffffff' : L.markerEdge === 'darker' ? darker(col) : null;
         if (many && (x < rect.x0 - 5 || x > rect.x1 + 5)) continue;
         body.push(markerSVG(L.marker, x, y, lw(ms), col, edge, lw(0.75), L.alpha < 1 ? ` fill-opacity="${L.alpha}"` : ''));
       }
     }
     if (preview) for (const p of valid) {
       const [x, y] = ptCV(p.x, p.y, axis);
-      hits.push({ x, y, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 || 0)), -1)}` +
+      hits.push({ x, y, sk: mk.s.key, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 || 0)), -1)}` +
         (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI', cols: 'Fehlerbereich' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo), -1)} … ${fmtNum(r12(p.hi), -1)}` : '') });
     }
   }
@@ -2027,6 +2122,7 @@ function buildPlot(res, preview) {
   }
 
   // Legende
+  let legRect = null;
   if (legBox) {
     let lx, ly;
     if (outR) { lx = W - pad - legBox.w; ly = rect.y0; if (cbar) lx -= 0; }
@@ -2055,6 +2151,7 @@ function buildPlot(res, preview) {
       [lx, ly] = corners[pos] || corners.ur;
     }
     out.push(drawLegend(leg, legBox, lx, ly, F.legend, cf, preview));
+    legRect = [lx, ly, legBox.w, legBox.h];
   }
 
   // Titel, Untertitel, Fußnote
@@ -2064,9 +2161,104 @@ function buildPlot(res, preview) {
   if (sBlk) { out.push(`<g${editAttr('subtitle')}>${svgBlock(sBlk, sBlk.w > tw0 ? pad : tx0, sBlk.w > tw0 ? W - 2 * pad : tw0, y, S.titleAlign, mix(tc, S.bg, 0.25))}</g>`); }
   if (nBlk) out.push(`<g${editAttr('note')}>${svgBlock(nBlk, pad, W - 2 * pad, H - pad - nBlk.h, 'left', mix(tc, S.bg, 0.2))}</g>`);
 
+  // Annotationen über allem; Punkte in Daten- (Achsen) oder Abbildungskoordinaten (Anteil von Breite/Höhe)
+  const geo = {
+    W, H, rect, xKind: AX.x.kind, yKind: AX.y.kind,
+    toFig: (ref, q) => ref === 'fig' ? [q[0] * W, q[1] * H] : [X(q[0]), Y(q[1])],
+    fromFig: (ref, x, y) => ref === 'fig' ? [x / W, y / H] : [AX.x.inv((x - rect.x0) / pw), AX.y.inv((rect.y1 - y) / ph)]
+  };
+  const annGeo = [];
+  for (const a of P.ann) {
+    const r = annotSVG(a, geo, cf, preview); if (!r) continue;
+    out.push(preview ? `<g data-ann="${esc(a.id)}">${r.svg}</g>` : r.svg);
+    annGeo.push({ a, ...r });
+  }
+  // Vorschau: anklickbare Bereiche und Markierung der Auswahl (nicht im Export)
+  const regions = [];
+  if (preview) {
+    if (legRect) regions.push({ sel: 'legend', box: legRect });
+    if (tBlk || sBlk) regions.push({ sel: 'title', box: [pad, pad, W - 2 * pad, (tBlk ? tBlk.h : 0) + (tBlk && sBlk ? gap : 0) + (sBlk ? sBlk.h : 0)] });
+    if (nBlk) regions.push({ sel: 'note', box: [pad, H - pad - nBlk.h, W - 2 * pad, nBlk.h] });
+    regions.push({ sel: 'x', box: [rect.x0 - 6, rect.y1 + 1, pw + 12, Math.max(8, bottom - bottomRes - rect.y1)] });
+    regions.push({ sel: 'y', box: [0, rect.y0, rect.x0, ph] });
+    if (useY2) regions.push({ sel: 'y2', box: [rect.x1, rect.y0, Math.max(8, W - rightRes - rect.x1), ph] });
+    regions.push({ sel: 'plot', box: [rect.x0, rect.y0, pw, ph] });
+    const acc = '#2f6fde', hz = 1 / zoom;
+    const sr = sel && regions.find(r => r.sel === sel.kind);
+    if (sr) out.push(el('rect', { x: sr.box[0], y: sr.box[1], width: sr.box[2], height: sr.box[3], fill: 'none', stroke: acc, 'stroke-width': 1.5 * hz, 'stroke-dasharray': `${f2(4 * hz)} ${f2(3 * hz)}` }));
+    const ag = sel && sel.kind === 'ann' && annGeo.find(g => g.a.id === sel.id);
+    if (ag) {
+      if (ag.a.type !== 'arrow') { const b = ag.box, m = 3 * hz; out.push(el('rect', { x: b[0] - m, y: b[1] - m, width: b[2] + 2 * m, height: b[3] + 2 * m, fill: 'none', stroke: acc, 'stroke-width': hz, 'stroke-dasharray': `${f2(4 * hz)} ${f2(3 * hz)}` })); }
+      const hs = 7 * hz;
+      for (const h of annHandles(ag)) out.push(el('rect', { x: h.x - hs / 2, y: h.y - hs / 2, width: hs, height: hs, fill: '#ffffff', stroke: acc, 'stroke-width': 1.2 * hz }));
+    }
+  }
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W * 0.75)}pt" height="${f2(H * 0.75)}pt" viewBox="0 0 ${W} ${H}">` +
     (defs.length ? `<defs>${defs.join('')}</defs>` : '') + out.join('') + '</svg>';
-  return { svg, W, H, hits, rect, notes };
+  return { svg, W, H, hits, rect, notes, geo, annGeo, regions };
+}
+
+/* ---------- Annotationen zeichnen ---------- */
+// Spitze bei tip, Richtung (ux, uy) zeigt auf die Spitze; back = um so viel endet die Linie vorher
+function arrowHead(tip, ux, uy, style, hl, w, col) {
+  const hw = hl * 0.42, b = [tip[0] - ux * hl, tip[1] - uy * hl], nx = -uy, ny = ux;
+  if (style === 'open') return { back: 0, svg: el('path', { d: pathD([[b[0] + nx * hw, b[1] + ny * hw], tip, [b[0] - nx * hw, b[1] - ny * hw]]), stroke: col, 'stroke-width': w, fill: 'none', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }) };
+  if (style === 'bar') return { back: 0, svg: el('path', { d: pathD([[tip[0] + nx * hw, tip[1] + ny * hw], [tip[0] - nx * hw, tip[1] - ny * hw]]), stroke: col, 'stroke-width': w, fill: 'none' }) };
+  if (style === 'dot') return { back: 0, svg: el('circle', { cx: tip[0], cy: tip[1], r: Math.max(hl * 0.3, w), fill: col }) };
+  return { back: hl * 0.8, svg: el('path', { d: pathD([tip, [b[0] + nx * hw, b[1] + ny * hw], [b[0] - nx * hw, b[1] - ny * hw]]) + 'Z', fill: col }) };
+}
+// Eine Annotation als SVG; liefert auch Lage in px (pts, box) für Auswahl und Griffe
+function annotSVG(a, geo, cf, preview) {
+  const v = k => av(a, k), lwp = pt => pt * PT * cf, col = v('annColor'), w = lwp(v('annW')), R0 = geo.rect;
+  const pts = a.p.map(q => geo.toFig(a.ref, q));
+  if (!pts.length || pts.some(q => !isFinite(q[0]) || !isFinite(q[1]))) return null;
+  const [p1, p2] = [pts[0], pts[1] || pts[0]];
+  const stroke = { stroke: w > 0 ? col : null, 'stroke-width': w > 0 ? w : null, 'stroke-dasharray': w > 0 ? dashArr(v('annDash'), w) : null };
+  const font = fontObj(v('annSize') * cf, v('annBold')), tcol = v('annTextColor');
+  const bx = [Math.min(p1[0], p2[0]), Math.min(p1[1], p2[1]), Math.abs(p2[0] - p1[0]), Math.abs(p2[1] - p1[1])];
+  let s = '', box = bx;
+  if (a.type === 'arrow') {
+    const dx = p2[0] - p1[0], dy = p2[1] - p1[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, head = v('annHead');
+    const ends = { end: [1], start: [0], both: [0, 1], none: [] }[head] || [];
+    const hl = Math.min(L / Math.max(1, ends.length), lwp((4 + 2.5 * v('annW')) * v('annHeadSize')));
+    let q1 = p1, q2 = p2; const heads = [];
+    for (const k of ends) {
+      const tip = k ? p2 : p1, sg = k ? 1 : -1, h = arrowHead(tip, ux * sg, uy * sg, v('annHeadStyle'), hl, w, col);
+      heads.push(h.svg);
+      if (k) q2 = [p2[0] - ux * h.back, p2[1] - uy * h.back]; else q1 = [p1[0] + ux * h.back, p1[1] + uy * h.back];
+    }
+    if (w > 0) s += el('path', { d: pathD([q1, q2]), fill: 'none', ...stroke, 'stroke-linecap': 'butt' });
+    s += heads.join('');
+  } else if (a.type === 'rect' || a.type === 'ellipse') {
+    const fa = v('annFillAlpha'), fill = fa > 0 ? { fill: v('annFill'), 'fill-opacity': fa < 1 ? fa : null } : { fill: 'none' };
+    s += a.type === 'rect' ? el('rect', { x: bx[0], y: bx[1], width: bx[2], height: bx[3], ...fill, ...stroke })
+      : el('ellipse', { cx: bx[0] + bx[2] / 2, cy: bx[1] + bx[3] / 2, rx: bx[2] / 2, ry: bx[3] / 2, ...fill, ...stroke });
+  } else if (a.type === 'text') {
+    const blk = textBlock(a.text, v('annSize') * cf, v('annBold'), false, 1e9);
+    if (!blk) { box = [p1[0], p1[1], font.px * 2, font.px * 1.2]; if (preview) s += el('rect', { x: box[0], y: box[1], width: box[2], height: box[3], fill: 'none', stroke: '#999999', 'stroke-dasharray': '2 2' }); }
+    else {
+      const bw = v('annBoxW'), on = v('annBox'), pd = on ? font.px * 0.3 + lwp(bw) : 0;
+      box = [p1[0], p1[1], blk.w + 2 * pd, blk.h + 2 * pd];
+      if (on) { const ba = v('annBoxAlpha'); s += el('rect', { x: box[0], y: box[1], width: box[2], height: box[3], fill: ba > 0 ? v('annBoxColor') : 'none', 'fill-opacity': ba > 0 && ba < 1 ? ba : null, stroke: bw > 0 ? v('annBoxStroke') : null, 'stroke-width': bw > 0 ? lwp(bw) : null }); }
+      s += svgBlock(blk, p1[0] + pd, blk.w, p1[1] + pd, 'left', tcol);
+    }
+  } else if (a.type === 'hline' || a.type === 'vline') {
+    const hz = a.type === 'hline', c = hz ? p1[1] : p1[0], g = lwp(3);
+    if (w > 0) s += el('path', { d: hz ? pathD([[R0.x0, c], [R0.x1, c]]) : pathD([[c, R0.y0], [c, R0.y1]]), fill: 'none', ...stroke });
+    if (a.text && a.text.trim()) s += hz ? svgText(R0.x1 - g, c - g - font.px * 0.6 + baselineOff(font), a.text, font, tcol, 'end')
+      : svgText(c + g, R0.y0 + g + font.px * 0.6 + baselineOff(font), a.text, font, tcol);
+    box = hz ? [R0.x0, c - 3, R0.x1 - R0.x0, 6] : [c - 3, R0.y0, 6, R0.y1 - R0.y0];
+  }
+  return { svg: s, pts: [p1, p2], box, w };
+}
+// Griffe der gewählten Annotation: Pfeil/Linie an beiden Enden (k = 0/1), Rechteck/Ellipse an Ecken und Kantenmitten
+function annHandles(g) {
+  const a = g.a;
+  if (a.type === 'arrow') return g.pts.map(([x, y], k) => ({ k, x, y }));
+  if (!isShape(a)) return [];
+  const [x, y, w, h] = g.box, m = { nw: [0, 0], n: [0.5, 0], ne: [1, 0], e: [1, 0.5], se: [1, 1], s: [0.5, 1], sw: [0, 1], w: [0, 0.5] };
+  return Object.entries(m).map(([k, [fx, fy]]) => ({ k, x: x + fx * w, y: y + fy * h }));
 }
 
 // Viele Punkte: je Pixelspalte nur erster, kleinster, größter und letzter Punkt
@@ -2090,7 +2282,8 @@ function legendModel(res, preview) {
   const patch = ['bar', 'area', 'hist', 'box', 'violin'].includes(t);
   const markers = t === 'scatter' || t === 'linept';
   const handle = (L, over) => ({ patch: patch && !(t === 'bar' && L.kind === 'line'), line: !patch && t !== 'scatter' || L.kind === 'line' && t === 'bar', color: L.color, dash: L.dash,
-    marker: L.marker, lw: L.lw, ms: L.ms, hatch: L.hatch, alpha: L.alpha, ...over });
+    marker: L.marker, lw: L.lw, ms: L.ms, hatch: L.hatch, alpha: L.alpha,
+    markerEdge: L.markerEdge, barAlpha: L.barAlpha, barEdge: L.barEdge, barEdgeColor: L.barEdgeColor, barEdgeW: L.barEdgeW, ...over });
   const list = preview ? series : series.filter(s => !s.hidden);
   const sections = [];
   const userTitle = S.legendTitle === '' ? null : S.legendTitle.trim();
@@ -2103,7 +2296,7 @@ function legendModel(res, preview) {
     const vals = niceTicks(sz.min, sz.max, 4).ticks.filter(v => v >= sz.min && v <= sz.max);
     return { title: sz.label, items: vals.map(v => {
       const f = (v - sz.min) / (sz.max - sz.min);
-      return { label: fmtNum(v, -1), h: { marker: 'o', ms: Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)), color: neutral } };
+      return { label: fmtNum(v, -1), h: { marker: 'o', ms: Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)), color: neutral, markerEdge: S.markerEdge } };
     }) };
   };
   if (mode === 'combined' || !splitDims.length) {
@@ -2161,7 +2354,8 @@ function legendLayout(leg, font, cf) {
 }
 function drawLegend(leg, B, x0, y0, font, cf, preview) {
   const s = [], lwp = pt => pt * PT * cf;
-  if (S.legendFrame) s.push(el('rect', { x: x0, y: y0, width: B.w, height: B.h, rx: B.fpx * 0.2, fill: S.transparent && S.legendPos.startsWith('out') ? 'none' : S.plotBg, 'fill-opacity': 0.8, stroke: '#cccccc', 'stroke-width': lwp(0.8) }));
+  if (S.legendFrame) s.push(el('rect', { x: x0, y: y0, width: B.w, height: B.h, rx: B.fpx * 0.2, fill: S.transparent && S.legendPos.startsWith('out') || S.legendAlpha <= 0 ? 'none' : S.plotBg,
+    'fill-opacity': S.legendAlpha > 0 && S.legendAlpha < 1 ? S.legendAlpha : null, stroke: S.legendFrameW > 0 ? S.legendFrameColor : null, 'stroke-width': S.legendFrameW > 0 ? lwp(S.legendFrameW) : null }));
   let cx = x0 + B.bp + 0.2 * B.fpx;
   B.cols.forEach((col, ci) => {
     let cy = y0 + B.bp + 0.1 * B.fpx;
@@ -2174,11 +2368,11 @@ function drawLegend(leg, B, x0, y0, font, cf, preview) {
           const hx0 = cx, hx1 = cx + B.hl;
           if (hd.patch) {
             const ph = B.fpx * 0.7;
-            g.push(el('rect', { x: hx0, y: mid - ph / 2, width: B.hl, height: ph, fill: hd.color, 'fill-opacity': S.barAlpha < 1 ? S.barAlpha : null, stroke: S.barEdge === 'none' ? null : S.barEdge === 'darker' ? darker(hd.color) : S.barEdgeColor, 'stroke-width': S.barEdge === 'none' ? null : lwp(S.barEdgeW) }));
+            g.push(el('rect', { x: hx0, y: mid - ph / 2, width: B.hl, height: ph, fill: hd.color, 'fill-opacity': hd.barAlpha < 1 ? hd.barAlpha : null, stroke: hd.barEdge === 'none' ? null : hd.barEdge === 'darker' ? darker(hd.color) : hd.barEdgeColor, 'stroke-width': hd.barEdge === 'none' ? null : lwp(hd.barEdgeW) }));
             if (hd.hatch) g.push(el('rect', { x: hx0, y: mid - ph / 2, width: B.hl, height: ph, fill: 'none', stroke: 'none' }), legendHatch(hd, hx0, mid - ph / 2, B.hl, ph, cf));
           } else {
             if (hd.line && hd.lw > 0) { const w = lwp(hd.lw); g.push(el('path', { d: pathD([[hx0, mid], [hx1, mid]]), stroke: hd.color, 'stroke-width': w, 'stroke-dasharray': dashArr(hd.dash, w), fill: 'none' })); }
-            if (hd.marker && hd.marker !== 'none') g.push(markerSVG(hd.marker, (hx0 + hx1) / 2, mid, lwp(hd.ms), hd.color, S.markerEdge === 'white' ? '#ffffff' : S.markerEdge === 'darker' ? darker(hd.color) : null, lwp(0.75)));
+            if (hd.marker && hd.marker !== 'none') g.push(markerSVG(hd.marker, (hx0 + hx1) / 2, mid, lwp(hd.ms), hd.color, hd.markerEdge === 'white' ? '#ffffff' : hd.markerEdge === 'darker' ? darker(hd.color) : null, lwp(0.75)));
           }
         }
         g.push(svgText(cx + (hd ? B.hl + B.tp : 0), mid + baselineOff(font), it.label, font, S.textColor));
@@ -2503,7 +2697,7 @@ function updateSeriesPanel(res) {
     row.innerHTML = `<div class="row" style="margin:2px 0">${hueSeries ? '<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span>' : ''}` +
       `<input type="checkbox" data-s="${k}" data-prop="visible" title="sichtbar">` +
       `<input data-s="${k}" data-prop="label" placeholder="${esc(plainRich(s.label))}" style="flex:1;min-width:60px" title="Name in der Legende">` +
-      `<input type="color" data-s="${k}" data-prop="color" title="Farbe"></div>` +
+      `<input type="color" data-s="${k}" data-prop="color" title="Farbe"><button class="mini" data-pick="${k}" title="Alle Einstellungen dieser Reihe rechts zeigen">›</button></div>` +
       (c2 ? `<div class="row" style="margin:2px 0 2px 22px;flex-wrap:wrap">${c2}</div>` : '');
     if (!isLine) row.querySelectorAll('[data-prop="dash"],[data-prop="lw"],[data-prop="marker"],[data-prop="ms"]').forEach(e => e.remove());
     list.appendChild(row);
@@ -2515,6 +2709,7 @@ function updateSeriesPanel(res) {
     const ev = inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input';
     inp.addEventListener(ev, () => onSeriesInput(inp));
   });
+  box.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => setSel({ kind: 'series', key: b.dataset.pick }));
   refreshSeriesInputs(res);
 }
 function onSeriesInput(inp) {
@@ -2534,13 +2729,17 @@ function onSeriesInput(inp) {
 }
 function refreshSeriesInputs(res) {
   const bySk = new Map(res.series.map(s => [s.key, s]));
-  $$('#series [data-s]').forEach(inp => {
+  $$('[data-s]').forEach(inp => {   // links im Reihen-Panel und rechts bei der gewählten Reihe
     if (document.activeElement === inp) return;
     const s = bySk.get(inp.dataset.s); if (!s) return;
-    const p = inp.dataset.prop, ov = P.series[s.key] || {};
+    const p = inp.dataset.prop, ov = P.series[s.key] || {}, v = seriesVal(s, p, res.sp.t);
     if (p === 'visible') inp.checked = !ov.hidden;
     else if (p === 'label') inp.value = ov.label || '';
-    else inp.value = s.look[p] != null ? (typeof s.look[p] === 'number' ? r2(s.look[p]) : s.look[p]) : '';
+    else inp.value = v != null ? (typeof v === 'number' ? r2(v) : v) : '';
+    if (p === 'visible' || p === 'label') return;
+    const own = ov[p] != null && ov[p] !== '', pv = inp.parentElement;
+    inp.classList.toggle('own', own);
+    if (pv.classList.contains('pv')) pv.className = 'pv ' + (own ? 'own' : 'inh');
   });
   $$('#series [data-l]').forEach(inp => {
     if (document.activeElement === inp) return;
@@ -2588,15 +2787,14 @@ function renderNow() {
   catch (err) { console.error(err); $('#status').textContent = 'Fehler beim Zeichnen: ' + err.message; return; }
   R = { res, plot };
   updateSeriesPanel(res);
-  const wrap = $('#wrap'), view = $('#view');
+  const view = $('#view');
   if ($('#fit').checked) {
-    zoom = clamp(Math.min((view.clientWidth - 64) / plot.W, (view.clientHeight - 64) / plot.H), 0.25, 4);
+    const z = clamp(Math.min((view.clientWidth - 64) / plot.W, (view.clientHeight - 64) / plot.H), 0.25, 4);
+    if (Math.abs(z - zoom) > 1e-6) { zoom = z; R.plot = plot = buildPlot(res, true); }   // Griffe und Auswahlrahmen hängen vom Zoom ab
     $('#zoom').value = Math.round(zoom * 100); $('#zoomLbl').textContent = Math.round(zoom * 100) + ' %';
   }
-  wrap.innerHTML = plot.svg;
-  const svg = wrap.firstChild;
-  svg.style.width = (plot.W * zoom) + 'px'; svg.style.height = (plot.H * zoom) + 'px';
-  wrap.classList.toggle('checker', S.transparent);
+  showPlot(plot);
+  $('#wrap').classList.toggle('checker', S.transparent);
   const u = S.figUnit === 'in' ? 'Zoll' : S.figUnit, sc = (+S.dpi || 300) / 96;
   const st = [`${r2(S.figW)} × ${r2(S.figH)} ${u}`, `PNG ${Math.round(plot.W * sc)} × ${Math.round(plot.H * sc)} px bei ${S.dpi} dpi`,
     `${res.nRows ?? 0} von ${D.n} Zeilen`, `${res.series.length} ${res.series.length === 1 ? 'Reihe' : 'Reihen'}`];
@@ -2604,6 +2802,25 @@ function renderNow() {
   else if (!res.series.length) st.unshift('Keine Werte zum Zeichnen – Y-Spalte wählen');
   $('#status').innerHTML = esc(st.join(' · ')) + (plot.notes.length ? ' · <b>' + esc(plot.notes.join(' · ')) + '</b>' : '');
   if ($('#pyPrevBox').open) $('#pyPrev').value = pythonCode();
+  afterRender(res);
+  saveSoon();
+}
+function showPlot(plot) {
+  const wrap = $('#wrap');
+  wrap.innerHTML = plot.svg;
+  const svg = wrap.firstChild;
+  svg.style.width = (plot.W * zoom) + 'px'; svg.style.height = (plot.H * zoom) + 'px';
+}
+// Nur neu zeichnen (ohne Pipeline und Panels) – beim Ziehen von Annotationen und beim Wechsel der Auswahl
+let redrawPending = false;
+function redraw() {
+  if (redrawPending) return;
+  redrawPending = true;
+  requestAnimationFrame(() => { redrawPending = false; redrawNow(); });
+}
+function redrawNow() {
+  if (!R) return;
+  try { R.plot = buildPlot(R.res, true); showPlot(R.plot); } catch (err) { console.error(err); }
   saveSoon();
 }
 window.addEventListener('resize', () => { if ($('#fit').checked) render(); });
@@ -2613,14 +2830,24 @@ $('#zoom').oninput = e => { $('#fit').checked = false; zoom = e.target.value / 1
 /* ---------- Vorschau: Tooltips, Legende anklicken, Titel bearbeiten ---------- */
 const tip = $('#tip');
 function figPos(e) { const svg = $('#wrap svg'); if (!svg) return null; const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom }; }
-$('#wrap').addEventListener('pointermove', e => {
-  if (!R || !$('#tips').checked || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
-  const p = figPos(e); if (!p) return;
+// Datenpunkt oder Balken unter dem Mauszeiger (Punkte haben Vorrang vor Fl\u00E4chen)
+function hitAt(p) {
   let best = null, bd = 10 / zoom + 3;
   for (const h of R.plot.hits) {
     if (h.rect) { const [x, y, w, hh] = h.rect; if (p.x >= x && p.x <= x + w && p.y >= Math.min(y, y + hh) && p.y <= Math.max(y, y + hh)) { if (!best || best.rect) best = h; } }
     else { const d = Math.hypot(h.x - p.x, h.y - p.y); if (d < bd) { bd = d; best = h; } }
   }
+  return best;
+}
+const RESIZE_CUR = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
+$('#wrap').addEventListener('pointermove', e => {
+  if (!R) return;
+  const p = figPos(e); if (!p) return;
+  if (drag) { tip.style.display = 'none'; dragMove(e, p); return; }
+  const hh = hitHandle(p), ha = !hh && tool === 'select' && hitAnn(p);
+  $('#wrap').style.cursor = hh ? (hh.a.type === 'arrow' ? 'crosshair' : RESIZE_CUR[hh.k]) : ha ? 'move' : '';
+  if (!$('#tips').checked || hh || ha || tool !== 'select' || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
+  const best = hitAt(p);
   if (!best) { tip.style.display = 'none'; return; }
   tip.textContent = plainRich(best.tip); tip.style.display = 'block';
   const tx = e.clientX + 14, ty = e.clientY + 14, tr = tip.getBoundingClientRect();
@@ -2628,11 +2855,25 @@ $('#wrap').addEventListener('pointermove', e => {
 });
 $('#wrap').addEventListener('pointerleave', () => tip.style.display = 'none');
 $('#wrap').addEventListener('click', e => {
+  if (skipClick) { skipClick = false; return; }
+  if (tool !== 'select' || !R) return;
   const sk = e.target.closest('[data-sk]'), lv = e.target.closest('[data-lv]');
-  if (sk) { const o = P.series[sk.dataset.sk] = P.series[sk.dataset.sk] || {}; o.hidden = !o.hidden; render(); }
-  else if (lv) { const [d, l] = lv.dataset.lv.split('\uE000'); const L = P.levels[d] = P.levels[d] || {}; L[l] = L[l] || {}; L[l].hidden = !L[l].hidden; render(); }
+  if (sk) { const o = P.series[sk.dataset.sk] = P.series[sk.dataset.sk] || {}; o.hidden = !o.hidden; setSel({ kind: 'legend' }); render(); }
+  else if (lv) { const [d, l] = lv.dataset.lv.split('\uE000'); const L = P.levels[d] = P.levels[d] || {}; L[l] = L[l] || {}; L[l].hidden = !L[l].hidden; setSel({ kind: 'legend' }); render(); }
+  else setSel(pickAt(figPos(e)));
 });
+// Was liegt an dieser Stelle? Annotation \u2192 Legende \u2192 Reihe \u2192 Titel, Achsen, Plotbereich \u2192 nichts (Grundeinstellungen)
+function pickAt(pt) {
+  if (!R || !pt) return null;
+  const g = hitAnn(pt); if (g) return { kind: 'ann', id: g.a.id };
+  const reg = R.plot.regions.find(r => inBox(pt, r.box));
+  if (reg && reg.sel === 'legend') return { kind: 'legend' };
+  const h = hitAt(pt); if (h && h.sk != null) return { kind: 'series', key: h.sk };
+  return reg ? { kind: reg.sel } : null;
+}
 $('#wrap').addEventListener('dblclick', e => {
+  const ag = e.target.closest('[data-ann]');
+  if (ag) { const a = annById(ag.dataset.ann); if (a && hasText(a)) editAnnText(a); return; }
   const g = e.target.closest('[data-edit]'); if (!g) return;
   const k = g.dataset.edit, r = g.getBoundingClientRect(), auto = g.textContent;
   const inp = document.createElement('input'); inp.id = 'editBox';
@@ -2649,6 +2890,380 @@ $('#wrap').addEventListener('dblclick', e => {
   inp.onblur = () => fin(true);
 });
 
+/* ---------- Auswahl: rechts die Einstellungen des angeklickten Elements ---------- */
+let sel = null;   // null = Grundeinstellungen · {kind: 'title'|'note'|'x'|'y'|'y2'|'legend'|'plot'} · {kind: 'series', key} · {kind: 'ann', id}
+let tool = 'select', drag = null, skipClick = false, inspDirty = false;
+const annById = id => P.ann.find(a => a.id === id);
+const selAnn = () => sel && sel.kind === 'ann' ? annById(sel.id) || null : null;
+const annName = a => a.type === 'arrow' && av(a, 'annHead') === 'none' ? 'Linie' : ANAME[a.type];
+const newId = () => 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const inBox = (p, b, tol = 0) => p.x >= b[0] - tol && p.x <= b[0] + b[2] + tol && p.y >= b[1] - tol && p.y <= b[1] + b[3] + tol;
+const evOf = el => el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input';
+
+// Zeilen rechts je Element: [Beschriftung, Schlüssel]; 'k|Text' gibt einem Kontrollkästchen eine eigene Beschriftung
+const AXIS_SHARED = [['Achsentitel / Ticks (pt)', ['labelSize', 'tickSize']], ['Fett', ['labelBold|Achsentitel', 'tickBold|Ticks']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']], ['Dezimaltrennzeichen', ['decSep', 'thousands|Tausender']]];
+const INSP = {
+  fig: { name: 'Grundeinstellungen', rows: [['Breite × Höhe', ['figW', 'figH', 'figUnit']], ['Schriftart', ['font']], ['Grundschrift / Titel (pt)', ['fontSize', 'titleSize']], ['Kontext (Skalierung)', ['context']],
+    ['Palette', ['palette']], ['Hintergrund Abbildung', ['bg', 'transparent|transparent']], ['Hintergrund Plotbereich', ['plotBg']], ['Textfarbe', ['textColor']]] },
+  title: { name: 'Titel', rows: [['Titel', ['title']], ['Untertitel', ['subtitle']], ['Ausrichten', ['titleAlign', 'titleBold|fett']], ['Größe (pt)', ['titleSize']], ['', ['math']]] },
+  note: { name: 'Fußnote', rows: [['', ['note']]] },
+  x: { name: 'X-Achse', rows: [['Titel', ['xTitle']], ['Min / Max', ['xMin', 'xMax']], ['Skala', ['xScale']], ['Ticks: Anzahl / Abstand', ['xTicks', 'xStep']], ['Nachkommastellen', ['xDec', 'xSci|wiss.']],
+    ['Datumsformat', ['xDate']], ['Beschriftung drehen', ['xRot']], ['Gitterlinien', ['grid', 'gridX|senkrecht']]], shared: AXIS_SHARED },
+  y: { name: 'Y-Achse', rows: [['Titel', ['yTitle']], ['Min / Max', ['yMin', 'yMax']], ['Skala', ['yScale']], ['Ticks: Anzahl / Abstand', ['yTicks', 'yStep']], ['Nachkommastellen', ['yDec', 'ySci|wiss.']],
+    ['Datumsformat', ['yDate']], ['Gitterlinien', ['grid', 'gridY|waagerecht']]], shared: AXIS_SHARED },
+  y2: { name: 'Rechte Y-Achse', rows: [['Titel', ['y2Title']], ['Min / Max', ['y2Min', 'y2Max']], ['Skala', ['y2Scale']], ['Nachkommastellen', ['y2Dec']]], shared: AXIS_SHARED },
+  legend: { name: 'Legende', rows: [['Position', ['legendPos']], ['Einträge', ['legendMode']], ['Spalten (0 = automatisch)', ['legendCols']], ['Titel der Legende', ['legendTitle']], ['Schrift (pt)', ['legendSize', 'legendBold|fett']],
+    ['', ['legendFrame|Rahmen und Hintergrund']], ['Rahmen Farbe / Breite (pt)', ['legendFrameColor', 'legendFrameW']], ['Deckkraft Hintergrund', ['legendAlpha']]] },
+  plot: { name: 'Plotbereich', rows: [['Hintergrund', ['plotBg']], ['Achsenlinien', ['spines']], ['Farbe / Breite (pt)', ['spineColor', 'spineW']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']],
+    ['Gitterlinien', ['grid', 'gridX|X', 'gridY|Y']], ['Gitter Farbe / Stil', ['gridColor', 'gridStyle']], ['Gitter Breite (pt)', ['gridW']]] }
+};
+// Kopie des Steuerelements von links; beide schreiben in denselben Stilwert
+function ctlClone(spec) {
+  const [k, lab] = spec.split('|'), src = $(`#left [data-k="${k}"]`);
+  if (!src) return null;
+  const n = (src.parentElement.tagName === 'LABEL' ? src.parentElement : src).cloneNode(true);
+  const inp = n.matches('[data-k]') ? n : n.querySelector('[data-k]');
+  if (lab && n.tagName === 'LABEL') n.lastChild.textContent = ' ' + lab;
+  inp.removeAttribute('id'); setCtl(inp, S[k]); bindK(inp);
+  return n;
+}
+function buildInsp() {
+  const box = $('#insp'), k = sel ? sel.kind : 'fig';
+  $('#btnDesel').hidden = !sel;
+  if (k === 'series') return seriesInsp(box);
+  if (k === 'ann') return annInsp(box);
+  const spec = INSP[k] || INSP.fig;
+  $('#selTitle').textContent = spec.name;
+  box.innerHTML = sel ? '' : '<p class="hint">Klicke in der Vorschau auf Titel, eine Achse, die Legende, den Plotbereich, eine Reihe oder eine Annotation – hier erscheinen dann genau deren Einstellungen. Alles Übrige steht links.</p>';
+  const addRows = rows => rows.forEach(([label, keys]) => {
+    const row = document.createElement('div'); row.className = 'row';
+    if (label) row.insertAdjacentHTML('beforeend', `<span>${esc(label)}</span>`);
+    for (const s of keys) { const n = ctlClone(s); if (n) row.appendChild(n); }
+    box.appendChild(row);
+  });
+  addRows(spec.rows);
+  if (spec.shared) { box.insertAdjacentHTML('beforeend', '<div class="sub">Gilt für alle Achsen</div>'); addRows(spec.shared); }
+  if (!sel) box.insertAdjacentHTML('beforeend', `<div class="sub">Annotationen</div><div class="chips">${annChips() || '<span class="hint">noch keine</span>'}</div>
+    <p class="hint">Werkzeuge über der Vorschau: ➝ Pfeil, ╱ Linie, ▭ Rechteck, ◯ Ellipse, T Text, ― und ⏐ Bezugslinien. Ziehen zum Zeichnen (Shift = 45° bzw. Quadrat/Kreis), Esc zurück zu ↖. Eine gewählte Annotation an den Griffen umformen; Pfeiltasten verschieben, Entf löscht, Strg+D dupliziert.</p>`);
+}
+
+/* --- Reihe rechts: alle Werte, die eine Reihe überschreiben kann --- */
+// Angezeigter Wert: eigener Wert, sonst was der Stil (bzw. die Farb-/Stil-Zuordnung) ergibt
+function seriesVal(s, p, t) {
+  const ov = P.series[s.key] || {}, L = s.look, lineErr = t !== 'bar' || L.kind === 'line';
+  if (lineErr && p === 'errColor') return ov.errColor || darker(L.color, 0.15);
+  if (lineErr && p === 'errW') return ov.errW ?? Math.max(0.75, L.lw * 0.8);
+  return L[p];
+}
+function seriesInsp(box) {
+  const res = R && R.res, s = res && res.series.find(x => x.key === sel.key);
+  if (!s) { sel = null; return buildInsp(); }
+  const t = res.sp.t, L = s.look, ov = P.series[s.key] || {}, k = esc(s.key);
+  $('#selTitle').textContent = 'Reihe: ' + plainRich(s.legend || s.label);
+  const asLine = t !== 'bar' || L.kind === 'line';
+  const lineT = asLine && ['line', 'linept', 'area', 'bar'].includes(t);
+  const markT = asLine && ['line', 'linept', 'scatter', 'bar'].includes(t);
+  const patch = ['bar', 'hist', 'box', 'violin'].includes(t) && !asLine;
+  const err = P.err !== 'none' && !['hist', 'box', 'violin', 'heatmap'].includes(t);
+  const num = (st, mn, mx) => ['num', st, mn, mx];
+  const rows = [
+    ['Farbe', [['color', ['color']]]],
+    lineT && ['Linie Stil / Breite (pt)', [['dash', ['sel', DASH_LABEL]], ['lw', num(0.25, 0)]]],
+    markT && ['Marker / Größe (pt)', [['marker', ['sel', MARKER_LABEL]], ['ms', num(0.5, 0)]]],
+    markT && ['Markerrand', [['markerEdge', ['sel', EDGE_LABEL]]]],
+    (lineT || markT) && t !== 'area' && ['Deckkraft Linie und Marker', [['alpha', num(0.05, 0, 1)]]],
+    err && P.errStyle === 'band' && ['line', 'linept', 'area'].includes(t) && ['Deckkraft Band', [['bandAlpha', num(0.05, 0, 1)]]],
+    t === 'area' && ['Deckkraft Fläche', [['areaAlpha', num(0.05, 0, 1)]]],
+    patch && ['Deckkraft Füllung', [['barAlpha', num(0.05, 0, 1)]]],
+    patch && (t === 'bar' || t === 'hist') && ['Rahmen / Farbe', [['barEdge', ['sel', BAREDGE_LABEL]], ['barEdgeColor', ['color']]]],
+    patch && (t === 'bar' || t === 'hist') && ['Rahmenbreite (pt)', [['barEdgeW', num(0.25, 0)]]],
+    patch && t !== 'violin' && ['Schraffur', [['hatch', ['sel', HATCH_LABEL]]]],
+    err && ['Fehlerbalken Farbe / Breite (pt)', [['errColor', ['color']], ['errW', num(0.25, 0)]]],
+    t === 'bar' && ['Darstellung', [['kind', ['sel', { bar: 'Balken', line: 'Linie' }]]]],
+    ['line', 'scatter', 'linept', 'area', 'bar'].includes(t) && ['Y-Achse', [['axis', ['sel', { y: 'links', y2: 'rechts' }]]]]
+  ].filter(Boolean);
+  const field = (p, [ty, a, b, c]) => {
+    const own = ov[p] != null && ov[p] !== '', v = seriesVal(s, p, t), attr = `data-s="${k}" data-prop="${p}"`;
+    const inner = ty === 'color' ? `<input type="color" ${attr} value="${esc(v)}">` : ty === 'sel' ? `<select ${attr}>${opts(a, v)}</select>`
+      : `<input type="number" step="${a}" min="${b}"${c != null ? ` max="${c}"` : ''} ${attr} value="${v != null ? r2(v) : ''}" style="width:60px">`;
+    return `<span class="pv ${own ? 'own' : 'inh'}" title="${own ? 'eigener Wert – gilt nur für diese Reihe' : 'folgt dem Stil bzw. der Zuordnung links'}">${inner}</span>`;
+  };
+  const nOwn = SERIES_PROPS.concat('errColor').filter(p => ov[p] != null && ov[p] !== '').length;
+  box.innerHTML = `<div class="row"><input type="checkbox" data-s="${k}" data-prop="visible"${ov.hidden ? '' : ' checked'} title="sichtbar"><input data-s="${k}" data-prop="label" value="${esc(ov.label || '')}" placeholder="${esc(plainRich(s.label))}" style="flex:1;min-width:60px" title="Name in der Legende"></div>
+    <p class="hint">Blasse Werte folgen dem Stil links. Eine Änderung hier gilt <span class="own">nur für diese Reihe</span>; ↺ setzt sie zurück.</p>
+    <div class="sub">Aussehen <span class="own cnt">${nOwn ? nOwn + ' eigene' : ''}</span></div>` +
+    rows.map(([label, fs]) => `<div class="row${fs.some(([p]) => ov[p] != null && ov[p] !== '') ? ' has-own' : ''}" data-props="${fs.map(f => f[0])}"><span>${label}</span>${fs.map(([p, f]) => field(p, f)).join('')}<span class="rowact"><button class="mini" data-act="sreset" title="Eigene Werte entfernen – wieder dem Stil folgen">↺</button></span></div>`).join('') +
+    `<div class="btns"><button data-act="sresetAll"${nOwn ? '' : ' disabled'}>↺ Alle eigenen Werte zurücksetzen</button></div>`;
+  box.querySelectorAll('[data-s]').forEach(inp => inp.addEventListener(evOf(inp), () => { if (inp.dataset.prop === 'kind') inspDirty = true; onSeriesInput(inp); markSeriesOwn(box, s.key); }));
+  box.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+    const o = P.series[s.key] || {};
+    const props = b.dataset.act === 'sreset' ? b.closest('.row').dataset.props.split(',') : SERIES_PROPS.concat('errColor');
+    for (const p of props) delete o[p];
+    seriesSig = ''; inspDirty = true; render();
+  });
+}
+function markSeriesOwn(box, key) {
+  const ov = P.series[key] || {};
+  box.querySelectorAll('.pv').forEach(pv => {
+    const p = pv.firstElementChild.dataset.prop, own = ov[p] != null && ov[p] !== '';
+    pv.className = 'pv ' + (own ? 'own' : 'inh');
+    pv.closest('.row').classList.toggle('has-own', [...pv.closest('.row').querySelectorAll('.pv')].some(x => x.classList.contains('own')));
+  });
+  const n = SERIES_PROPS.concat('errColor').filter(p => ov[p] != null && ov[p] !== '').length;
+  box.querySelector('.cnt').textContent = n ? n + ' eigene' : '';
+  box.querySelector('[data-act="sresetAll"]').disabled = !n;
+}
+
+/* --- Annotation rechts: Text, Lage, Aussehen (eigene Werte orange) --- */
+function fieldHTML(k, attr, v) {
+  const [t, a, b, c] = AN_F[k];
+  if (t === 'color') return `<input type="color" ${attr} value="${esc(v)}">`;
+  if (t === 'chk') return `<label><input type="checkbox" ${attr}${v ? ' checked' : ''}> ${esc(a)}</label>`;
+  if (t === 'sel') return `<select ${attr}>${opts(a, v)}</select>`;
+  return `<input type="number" step="${a}" min="${b}"${c != null ? ` max="${c}"` : ''} ${attr}${v != null ? ` value="${v}"` : ''} style="width:60px">`;
+}
+const fieldVal = el => { if (el.type === 'checkbox') return el.checked; if (el.type !== 'number') return el.value; const v = parseFloat(el.value); return isNaN(v) ? null : v; };
+const annChips = () => P.ann.map(a => `<button class="mini${sel && sel.kind === 'ann' && sel.id === a.id ? ' on' : ''}" data-asel="${esc(a.id)}">${esc(annName(a))}${a.text ? ': ' + esc(plainRich(a.text).slice(0, 14)) : ''}</button>`).join('');
+function annInsp(box) {
+  const a = selAnn(); if (!a || !R) { sel = null; return buildInsp(); }
+  $('#selTitle').textContent = annName(a);
+  const g = R.plot.geo, fig = a.ref === 'fig', unit = fig ? ' (% der Abbildung)' : '';
+  const fmtC = (v, kind) => fig ? String(r2(v * 100)).replace('.', S.decSep) : kind === 'date' ? dateDefault(Math.round(v)) : String(+(+v).toPrecision(6)).replace('.', S.decSep);
+  const ptRow = (label, i, which) => `<div class="row"><span>${label}${unit}</span>${which.includes('x') ? `<input data-c="${i},0" value="${esc(fmtC(a.p[i][0], g.xKind))}" style="width:84px">` : ''}${which.includes('y') ? `<input data-c="${i},1" value="${esc(fmtC(a.p[i][1], g.yKind))}" style="width:84px">` : ''}</div>`;
+  const nOwn = a.st ? Object.keys(a.st).length : 0;
+  let h = '';
+  if (a.type === 'text') h += `<textarea data-a="text" class="small" placeholder="Text – **fett**, *kursiv*, Formeln in $…$">${esc(a.text)}</textarea>`;
+  if (a.type === 'hline' || a.type === 'vline') h += `<div class="row"><span>Beschriftung</span><input data-a="text" value="${esc(a.text)}" style="width:150px"></div>`;
+  h += `<div class="sub">Lage</div><div class="row"><span>Bezug</span><select data-a="ref" title="Daten: bleibt am Datenpunkt, auch wenn sich die Achsen ändern. Abbildung: feste Stelle im Bild">${opts({ data: 'Daten (Achsenwerte)', fig: 'Abbildung (feste Stelle)' }, a.ref)}</select></div>`;
+  if (a.type === 'arrow') h += ptRow('Anfang X / Y', 0, 'xy') + ptRow('Ende X / Y', 1, 'xy') +
+    '<div class="btns"><button data-act="ahor" title="Ende auf die Höhe des Anfangs setzen">⟷ waagerecht</button><button data-act="aver" title="Ende senkrecht über/unter den Anfang setzen">↕ senkrecht</button><button data-act="aflip" title="Anfang und Ende tauschen">⇄ umdrehen</button></div>';
+  else if (isShape(a)) h += ptRow('Ecke 1 X / Y', 0, 'xy') + ptRow('Ecke 2 X / Y', 1, 'xy');
+  else if (a.type === 'text') h += ptRow('Links oben X / Y', 0, 'xy');
+  else h += ptRow(a.type === 'hline' ? 'Y' : 'X', 0, a.type === 'hline' ? 'y' : 'x');
+  h += `<div class="sub">Aussehen <span class="own cnt">${nOwn ? nOwn + ' eigene' : ''}</span></div>` +
+    AN_ROWS.filter(r => r[2](a)).map(([label, keys]) => {
+      const own = keys.some(k => a.st && a.st[k] != null);
+      return `<div class="row${own ? ' has-own' : ''}" data-keys="${keys}"><span>${label}</span>${keys.map(k => { const o = a.st && a.st[k] != null;
+        return `<span class="pv ${o ? 'own' : 'inh'}" title="${o ? 'eigener Wert – gilt nur hier' : 'folgt dem Standard (links)'}">${fieldHTML(k, `data-st="${k}"`, av(a, k))}</span>`; }).join('')}<span class="rowact"><button class="mini" data-act="sreset" title="Eigene Werte entfernen – wieder dem Standard folgen">↺</button><button class="mini" data-act="sstd" title="Als Standard übernehmen – gilt dann für alle Annotationen ohne eigenen Wert">⇧</button></span></div>`;
+    }).join('') +
+    `<div class="btns"><button data-act="resetAll"${nOwn ? '' : ' disabled'}>↺ Alle zurücksetzen</button><button data-act="stdAll"${nOwn ? '' : ' disabled'} title="Eigene Werte als Standard für alle Annotationen übernehmen">⇧ Als Standard</button></div>
+    <div class="btns" style="margin-top:10px"><button data-act="adup">Duplizieren (Strg+D)</button><button data-act="adel">Löschen (Entf)</button></div>
+    <p class="hint">${a.type === 'arrow' ? 'Enden an den Griffen ziehen (Shift = 45°-Schritte). ' : isShape(a) ? 'An Ecken und Kanten ziehen (Shift beim Zeichnen = Quadrat/Kreis). ' : hasText(a) ? 'Doppelklick in der Vorschau bearbeitet den Text. ' : ''}Ziehen verschiebt (Shift = nur waagerecht/senkrecht), Pfeiltasten um 1 px (Shift = 10 px).</p>`;
+  box.innerHTML = h;
+  box.querySelectorAll('[data-st]').forEach(inp => inp.addEventListener(evOf(inp), () => {
+    const k = inp.dataset.st, v = fieldVal(inp); if (v == null) return;
+    (a.st || (a.st = {}))[k] = v;
+    const pv = inp.closest('.pv'); pv.className = 'pv own'; pv.title = 'eigener Wert – gilt nur hier'; inp.closest('.row').classList.add('has-own');
+    box.querySelector('.cnt').textContent = Object.keys(a.st).length + ' eigene';
+    box.querySelectorAll('[data-act="resetAll"],[data-act="stdAll"]').forEach(x => { x.disabled = false; });
+    if (k === 'annHead') $('#selTitle').textContent = annName(a);
+    updAnnStd(); redraw();
+  }));
+  box.querySelectorAll('[data-a]').forEach(inp => inp.addEventListener(evOf(inp), () => {
+    if (inp.dataset.a === 'ref') { const px = a.p.map(q => g.toFig(a.ref, q)); a.ref = inp.value; a.p = px.map(q => g.fromFig(a.ref, q[0], q[1])); buildInsp(); }
+    else { a.text = inp.value; updAnnStd(); }
+    redraw();
+  }));
+  box.querySelectorAll('[data-c]').forEach(inp => inp.addEventListener('change', () => {
+    const [i, j] = inp.dataset.c.split(',').map(Number), kind = j ? g.yKind : g.xKind;
+    const v = fig ? (parseUser(inp.value) ?? NaN) / 100 : parseUser(inp.value, kind === 'date' ? 'date' : undefined);
+    if (v == null || !isFinite(v)) { inp.value = fmtC(a.p[i][j], kind); return; }
+    a.p[i][j] = v; redraw();
+  }));
+  box.querySelectorAll('[data-act]').forEach(b => b.onclick = () => annAction(b.dataset.act, a, b));
+}
+function annAction(act, a, b) {
+  const keys = () => b.closest('.row').dataset.keys.split(',');
+  switch (act) {
+    case 'ahor': a.p[1][1] = a.p[0][1]; break;
+    case 'aver': a.p[1][0] = a.p[0][0]; break;
+    case 'aflip': a.p.reverse(); break;
+    case 'sreset': if (a.st) keys().forEach(k => delete a.st[k]); break;
+    case 'sstd': for (const k of keys()) if (a.st && a.st[k] != null) { S[k] = a.st[k]; delete a.st[k]; } syncUI(); break;
+    case 'resetAll': a.st = {}; break;
+    case 'stdAll': Object.assign(S, a.st); a.st = {}; syncUI(); break;
+    case 'adup': dupAnn(a); return;
+    case 'adel': delAnn(a); return;
+  }
+  updAnnStd(); buildInsp(); render();
+}
+function dupAnn(a) {
+  const c = JSON.parse(JSON.stringify(a)), g = R.plot.geo;
+  c.id = newId(); c.p = a.p.map(q => g.toFig(a.ref, q)).map(q => g.fromFig(a.ref, q[0] + 10, q[1] + 10));
+  P.ann.push(c); setSel({ kind: 'ann', id: c.id });
+}
+function delAnn(a) { P.ann = P.ann.filter(x => x !== a); if (sel && sel.id === a.id) sel = null; buildInsp(); updAnnStd(); redraw(); }
+
+// Links: Standard der Annotationen; je Zeile ein Hinweis, wie viele Annotationen eigene Werte haben
+function buildAnnStd() {
+  $('#annStd').innerHTML = AN_ROWS.map(([label, keys]) => `<div class="row" data-keys="${keys}"><span>${label}</span>${keys.map(k => fieldHTML(k, `data-k="${k}"`, DEF[k])).join('')}<button class="mini dev" hidden></button></div>`).join('');
+  $$('#annStd .dev').forEach(b => b.onclick = () => {
+    const keys = b.parentNode.dataset.keys.split(',');
+    if (!confirm('Eigene Werte dieser Zeile bei allen Annotationen entfernen? Sie folgen danach wieder dem Standard.')) return;
+    for (const a of P.ann) if (a.st) keys.forEach(k => delete a.st[k]);
+    updAnnStd(); buildInsp(); render();
+  });
+}
+function updAnnStd() {
+  for (const row of $$('#annStd .row')) {
+    const keys = row.dataset.keys.split(','), n = P.ann.filter(a => a.st && keys.some(k => a.st[k] != null)).length, b = row.querySelector('.dev');
+    b.hidden = !n; b.textContent = `${n} eigene`;
+    b.title = `${n} von ${P.ann.length} Annotationen haben hier eigene Werte – für sie wirkt eine Änderung links nicht.\nKlick: eigene Werte zurücksetzen`;
+  }
+  $('#annList').innerHTML = annChips();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-asel]'); if (b) setSel({ kind: 'ann', id: b.dataset.asel }); });
+
+function setSel(s) {
+  if (JSON.stringify(s || null) === JSON.stringify(sel)) return;
+  sel = s || null; buildInsp(); updAnnStd(); redraw();
+}
+// Nach jedem Rendern: Auswahl prüfen (Reihe/Annotation kann verschwunden sein), rechte Seite ggf. neu aufbauen
+function afterRender(res) {
+  const gone = sel && ((sel.kind === 'ann' && !selAnn()) || (sel.kind === 'series' && !res.series.some(s => s.key === sel.key)) || (sel.kind === 'y2' && !R.plot.regions.some(r => r.sel === 'y2')));
+  if (gone) sel = null;
+  if (gone || inspDirty) buildInsp();
+  inspDirty = false;
+  updAnnStd();
+}
+$('#btnDesel').onclick = e => { e.stopPropagation(); setSel(null); };
+
+/* ---------- Annotationen zeichnen und mit Griffen umformen ---------- */
+function setTool(t) {
+  tool = t;
+  $$('#atools [data-at]').forEach(b => b.classList.toggle('on', b.dataset.at === t));
+  $('#wrap').classList.toggle('tool', t !== 'select');
+}
+$$('#atools [data-at]').forEach(b => b.onclick = () => setTool(b.dataset.at));
+const figPts = (a, g = R.plot.geo) => a.p.map(q => g.toFig(a.ref, q));
+const setAnnPx = (a, pts, g = R.plot.geo) => { a.p = pts.map(q => g.fromFig(a.ref, q[0], q[1])); };
+const TOL = () => 6 / zoom + 1;
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+  const t = L2 ? clamp(((p.x - a[0]) * dx + (p.y - a[1]) * dy) / L2, 0, 1) : 0;
+  return Math.hypot(p.x - a[0] - t * dx, p.y - a[1] - t * dy);
+}
+function hitHandle(pt) {
+  const a = selAnn(); if (!a || !R) return null;
+  const g = R.plot.annGeo.find(x => x.a.id === a.id); if (!g) return null;
+  const h = annHandles(g).find(q => Math.abs(q.x - pt.x) <= TOL() && Math.abs(q.y - pt.y) <= TOL());
+  return h ? { a, k: h.k } : null;
+}
+function hitAnn(pt) {
+  if (!R) return null;
+  for (const g of [...R.plot.annGeo].reverse()) {
+    const a = g.a, tol = TOL();
+    if (a.type === 'arrow') { if (segDist(pt, g.pts[0], g.pts[1]) <= tol + g.w / 2) return g; }
+    else if (a.type === 'ellipse') {
+      const [x, y, w, h] = g.box, rx = w / 2 + tol, ry = h / 2 + tol;
+      if (((pt.x - x - w / 2) / rx) ** 2 + ((pt.y - y - h / 2) / ry) ** 2 <= 1) return g;
+    } else if (inBox(pt, g.box, a.type === 'hline' || a.type === 'vline' ? tol - 3 : tol)) return g;
+  }
+  return null;
+}
+function snap45(o, q) {
+  const dx = q[0] - o[0], dy = q[1] - o[1], L = Math.hypot(dx, dy), an = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
+  const c = Math.cos(an), s = Math.sin(an);
+  return [Math.abs(c) < 1e-9 ? o[0] : o[0] + c * L, Math.abs(s) < 1e-9 ? o[1] : o[1] + s * L];
+}
+function squareTo(o, q) { const s = Math.max(Math.abs(q[0] - o[0]), Math.abs(q[1] - o[1])); return [o[0] + Math.sign(q[0] - o[0] || 1) * s, o[1] + Math.sign(q[1] - o[1] || 1) * s]; }
+function newAnn(t, pt) {
+  const g = R.plot.geo, q = g.fromFig('data', pt.x, pt.y);
+  const a = { id: newId(), type: t === 'line' ? 'arrow' : t, ref: 'data', text: t === 'text' ? 'Text' : '', p: ['text', 'hline', 'vline'].includes(t) ? [q] : [q, q.slice()],
+    st: t === 'line' ? { annHead: 'none' } : t === 'hline' || t === 'vline' ? { annDash: 'dashed' } : {} };
+  P.ann.push(a); sel = { kind: 'ann', id: a.id };
+  return a;
+}
+$('#wrap').addEventListener('pointerdown', e => {
+  if (e.button !== 0 || !R) return;
+  const pt = figPos(e); if (!pt) return;
+  const hh = hitHandle(pt);
+  if (hh) drag = { t: 'handle', a: hh.a, k: hh.k };
+  else if (tool !== 'select') {
+    const a = newAnn(tool, pt);
+    drag = ['text', 'hline', 'vline'].includes(tool) ? { t: 'move', a, created: true } : { t: 'create', a };
+    buildInsp(); updAnnStd();
+  } else {
+    const g = hitAnn(pt); if (!g) return;
+    if (!(sel && sel.id === g.a.id)) setSel({ kind: 'ann', id: g.a.id });
+    drag = { t: 'move', a: g.a };
+  }
+  drag.geo = R.plot.geo; drag.f0 = figPts(drag.a, drag.geo); drag.start = pt; drag.moved = false;
+  if (drag.t === 'create') drag.f0 = [[pt.x, pt.y], [pt.x, pt.y]];
+  try { $('#wrap').setPointerCapture(e.pointerId); } catch { }
+  tip.style.display = 'none';
+  e.preventDefault(); redraw();
+});
+function dragMove(e, p) {
+  const d = drag, a = d.a;
+  let dx = p.x - d.start.x, dy = p.y - d.start.y;
+  if (!d.moved && Math.hypot(dx, dy) * zoom < 3) return;
+  d.moved = true;
+  let pts;
+  if (d.t === 'move') {
+    if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    if (a.type === 'hline') dx = 0; if (a.type === 'vline') dy = 0;
+    pts = d.f0.map(q => [q[0] + dx, q[1] + dy]);
+  } else if (d.t === 'create' || a.type === 'arrow') {
+    const k = d.t === 'create' ? 1 : d.k, o = d.f0[1 - k];
+    let q = [p.x, p.y];
+    if (e.shiftKey) q = a.type === 'arrow' ? snap45(o, q) : squareTo(o, q);
+    pts = d.f0.map(x => x.slice()); pts[k] = q;
+  } else {   // Griff an Ecke oder Kante eines Rechtecks/einer Ellipse
+    const [p1, p2] = d.f0;
+    let x0 = Math.min(p1[0], p2[0]), x1 = Math.max(p1[0], p2[0]), y0 = Math.min(p1[1], p2[1]), y1 = Math.max(p1[1], p2[1]);
+    if (d.k.includes('w')) x0 = p.x; if (d.k.includes('e')) x1 = p.x; if (d.k.includes('n')) y0 = p.y; if (d.k.includes('s')) y1 = p.y;
+    pts = [[x0, y0], [x1, y1]];
+  }
+  setAnnPx(a, pts, d.geo); redraw();
+}
+function endDrag() {
+  const d = drag; drag = null; if (!d) return;
+  skipClick = true; setTimeout(() => { skipClick = false; }, 0);
+  if (d.t === 'create' && !d.moved) {   // nur geklickt: Standardgröße
+    const [x, y] = d.f0[0];
+    setAnnPx(d.a, d.a.type === 'arrow' ? [[x - 45, y - 30], [x, y]] : [[x - 30, y - 20], [x + 30, y + 20]], d.geo);
+  }
+  buildInsp(); updAnnStd(); redrawNow();
+  if (d.created && hasText(d.a) && !d.moved && d.a.type === 'text') editAnnText(d.a);
+}
+$('#wrap').addEventListener('pointerup', endDrag);
+$('#wrap').addEventListener('pointercancel', endDrag);
+// Text direkt in der Vorschau bearbeiten (Enter = fertig, Shift+Enter = neue Zeile, Esc = abbrechen)
+function editAnnText(a) {
+  const g = $(`#wrap [data-ann="${CSS.escape(a.id)}"]`); if (!g) return;
+  const r = g.getBoundingClientRect(), inp = document.createElement('textarea'); inp.id = 'editBox';
+  inp.value = a.text; inp.rows = Math.max(1, a.text.split('\n').length);
+  Object.assign(inp.style, { left: Math.max(4, r.left - 4) + 'px', top: Math.max(4, r.top - 4) + 'px', width: Math.max(180, r.width + 40) + 'px', fontFamily: 'inherit', resize: 'none' });
+  document.body.appendChild(inp); inp.focus(); inp.select();
+  let done = false;
+  const fin = ok => { if (done) return; done = true; if (ok) a.text = inp.value; inp.remove(); buildInsp(); updAnnStd(); redraw(); };
+  inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); fin(true); } if (ev.key === 'Escape') fin(false); };
+  inp.oninput = () => { inp.rows = Math.max(1, inp.value.split('\n').length); };
+  inp.onblur = () => fin(true);
+}
+
+/* ---------- Rückgängig / Wiederholen (Stil und Diagramm, nicht der Text im Datenfeld) ---------- */
+const undoStack = [], redoStack = [];
+let undoCur = null;
+function noteUndo() {
+  const s = JSON.stringify({ S, P });
+  if (undoCur == null || s === undoCur) { undoCur = s; return; }
+  undoStack.push(undoCur); if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0; undoCur = s; updUndoUI();
+}
+function applySnap(s) {
+  const o = JSON.parse(s);
+  S = { ...DEF, ...o.S }; P = sanitizeP(o.P); seriesSig = '';
+  parseSrc(); syncUI(); renderNow(); buildInsp();
+  undoCur = JSON.stringify({ S, P }); updUndoUI();   // nach dem Rendern, falls die Pipeline P noch angepasst hat
+}
+function undo() { noteUndo(); if (!undoStack.length) return; redoStack.push(undoCur); applySnap(undoStack.pop()); }
+function redo() { if (!redoStack.length) return; undoStack.push(undoCur); applySnap(redoStack.pop()); }
+function updUndoUI() { $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length; }
+$('#btnUndo').onclick = undo;
+$('#btnRedo').onclick = redo;
+
 /* ---------- UI-Bindung ---------- */
 function syncUI() {
   $$('[data-k]').forEach(el => { const v = S[el.dataset.k]; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; });
@@ -2659,7 +3274,10 @@ function swatches() {
   $('#palSw').innerHTML = palColors(S.palette).map(c => `<span style="background:${c}"></span>`).join('');
   $('#seqSw').innerHTML = Array.from({ length: 24 }, (_, i) => `<span style="background:${seqColor(i / 23)}"></span>`).join('');
 }
-$$('[data-k]').forEach(el => {
+// Steuerelement auf einen Wert setzen; Kopien desselben Schlüssels (links und rechts) gleich halten
+function setCtl(el, v) { if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? ''; }
+function mirrorK(k, except) { $$(`[data-k="${k}"]`).forEach(o => { if (o !== except) setCtl(o, S[k]); }); }
+function bindK(el) {
   const h = () => {
     const k = el.dataset.k;
     let v = el.type === 'checkbox' ? el.checked : (el.type === 'number' || el.dataset.num) ? parseFloat(el.value) : el.value;
@@ -2671,12 +3289,15 @@ $$('[data-k]').forEach(el => {
       const ratio = S.figH / S.figW;
       if (k === 'figW') { S.figW = v; S.figH = r2(v * ratio); } else { S.figH = v; S.figW = r2(v / ratio); }
       syncUI();
-    } else S[k] = v;
+    } else { S[k] = v; mirrorK(k, el); }
     if (['palette', 'seqPal', 'seqRev'].includes(k)) swatches();
+    if (AN_KEYS.includes(k)) updAnnStd();
     render();
   };
   el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', h);
-});
+}
+buildAnnStd();
+$$('[data-k]').forEach(bindK);
 $$('[data-p]').forEach(el => {
   const h = () => {
     const k = el.dataset.p;
@@ -2903,9 +3524,9 @@ $('#btnDirSave').onclick = async () => {
 };
 $('#btnReset').onclick = () => {
   if (!confirm('Alle Einstellungen und Diagramm-Zuordnungen zurücksetzen?')) return;
-  S = { ...DEF }; P = freshP(); seriesSig = '';
+  S = { ...DEF }; P = freshP(); seriesSig = ''; sel = null;
   projName = ''; projHandle = null; projSnap = '';
-  parseSrc(); syncUI(); render();
+  parseSrc(); syncUI(); render(); buildInsp();
 };
 
 /* ---------- Bild-Export: PNG, SVG, PDF, Word ---------- */
@@ -3098,13 +3719,59 @@ function pythonCode() {
   }
   const loc = { best: 'best', ur: 'upper right', ul: 'upper left', lr: 'lower right', ll: 'lower left' }[S.legendPos];
   if (S.legendPos === 'none') L.push('if ax.get_legend(): ax.get_legend().remove()');
-  else if (S.legendPos === 'outR') L.push('if ax.get_legend(): sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5), frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
-  else if (S.legendPos === 'outB') L.push('if ax.get_legend(): sns.move_legend(ax, "upper center", bbox_to_anchor=(0.5, -0.15), ncol=4, frameon=' + (S.legendFrame ? 'True' : 'False') + ')');
-  else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, frameon=${S.legendFrame ? 'True' : 'False'})`);
+  const fr = S.legendFrame ? `frameon=True, framealpha=${S.legendAlpha}, edgecolor=${py(S.legendFrameColor)}` : 'frameon=False';
+  if (S.legendPos === 'outR') L.push(`if ax.get_legend(): sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5), ${fr})`);
+  else if (S.legendPos === 'outB') L.push(`if ax.get_legend(): sns.move_legend(ax, "upper center", bbox_to_anchor=(0.5, -0.15), ncol=4, ${fr})`);
+  else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, ${fr})`);
+  if (S.legendFrame && S.legendPos !== 'none' && t !== 'heatmap') L.push(`if ax.get_legend(): ax.get_legend().get_frame().set_linewidth(${S.legendFrameW})`);
   if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
+  pyAnnots(L, cf);
   L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent ? ', transparent=True' : ''})`, 'plt.show()', '');
   void res2;
   return L.join('\n').replace(/<sub>(.*?)<\/sub>/gi, '$$_{\\\\mathrm{$1}}$$').replace(/<sup>(.*?)<\/sup>/gi, '$$^{\\\\mathrm{$1}}$$');
+}
+// Annotationen als matplotlib-Aufrufe; Daten-Bezug in Achsenwerten, Abbildungs-Bezug als "figure fraction" (y von unten)
+function pyAnnots(L, cf) {
+  if (!P.ann.length || !R || !R.plot.geo) return;
+  const g = R.plot.geo, imp = new Set(), out = ['', '# Annotationen'];
+  const cv = (v, kind) => kind === 'date' ? (imp.add('dates'), `mdates.date2num(pd.Timestamp(${Math.round(v)}, unit="ms"))`) : pyNum(r12(v));
+  const LS = { solid: '"-"', dashed: '"--"', dotted: '":"', dashdot: '"-."', longdash: '(0, (8, 3))', dashdotdot: '(0, (5, 1.5, 1, 1.5, 1, 1.5))' };
+  const hexA = (c, a) => c + Math.round(clamp(a, 0, 1) * 255).toString(16).padStart(2, '0');
+  const txt = s => py(String(s).replace(/\*\*|`/g, ''));
+  for (const a of P.ann) {
+    const v = k => av(a, k), w = r2(v('annW')), col = py(v('annColor')), ls = LS[v('annDash')] || '"-"', fig = a.ref === 'fig';
+    const X = q => fig ? pyNum(r12(q[0])) : cv(q[0], g.xKind), Y = q => fig ? pyNum(r12(1 - q[1])) : cv(q[1], g.yKind);
+    const tr = fig ? 'fig.transFigure' : 'ax.transData', crd = fig ? '"figure fraction"' : '"data"';
+    const font = `fontsize=${r2(v('annSize') * cf)}, color=${py(v('annTextColor'))}${v('annBold') ? ', fontweight="bold"' : ''}`;
+    const [q1, q2] = [a.p[0], a.p[1] || a.p[0]];
+    if (a.type === 'arrow') {
+      const hd = v('annHead'), hs = v('annHeadStyle'), hl = (4 + 2.5 * v('annW')) * v('annHeadSize');
+      const style = hd === 'none' || hs === 'dot' ? '-' : hs === 'bar' ? { end: '|-|,widthA=0,widthB=0.42', start: '|-|,widthA=0.42,widthB=0', both: '|-|,widthA=0.42,widthB=0.42' }[hd]
+        : (hs === 'open' ? { end: '->', start: '<-', both: '<->' } : { end: '-|>', start: '<|-', both: '<|-|>' })[hd];
+      out.push(`ax.annotate("", xy=(${X(q2)}, ${Y(q2)}), xytext=(${X(q1)}, ${Y(q1)}), xycoords=${crd}, textcoords=${crd}, annotation_clip=False,`,
+        `            arrowprops=dict(arrowstyle=${py(style)}, color=${col}, lw=${w}, linestyle=${ls}, shrinkA=0, shrinkB=0, mutation_scale=${r2(hs === 'bar' ? hl : hl / 0.4)}))`);
+      if (hs === 'dot' && hd !== 'none') for (const q of { end: [q2], start: [q1], both: [q1, q2] }[hd])
+        out.push(`ax.plot(${X(q)}, ${Y(q)}, "o", color=${col}, ms=${r2(hl * 0.6)}, transform=${tr}, clip_on=False)`);
+    } else if (isShape(a)) {
+      imp.add('patches');
+      const fa = v('annFillAlpha'), kw = `transform=${tr}, fc=${fa > 0 ? py(hexA(v('annFill'), fa)) : '"none"'}, ec=${w > 0 ? col : '"none"'}, lw=${w}, linestyle=${ls}, clip_on=False`;
+      out.push(a.type === 'rect' ? `ax.add_patch(Rectangle((${X(q1)}, ${Y(q1)}), ${X(q2)} - ${X(q1)}, ${Y(q2)} - ${Y(q1)}, ${kw}))`
+        : `ax.add_patch(Ellipse(((${X(q1)} + ${X(q2)}) / 2, (${Y(q1)} + ${Y(q2)}) / 2), abs(${X(q2)} - ${X(q1)}), abs(${Y(q2)} - ${Y(q1)}), ${kw}))`);
+    } else if (a.type === 'text') {
+      const bbox = v('annBox') ? `, bbox=dict(boxstyle="square,pad=0.3", fc=${v('annBoxAlpha') > 0 ? py(hexA(v('annBoxColor'), v('annBoxAlpha'))) : '"none"'}, ec=${v('annBoxW') > 0 ? py(v('annBoxStroke')) : '"none"'}, lw=${r2(v('annBoxW'))})` : '';
+      out.push(`ax.text(${X(q1)}, ${Y(q1)}, ${txt(a.text)}, transform=${tr}, ha="left", va="top", ${font}${bbox}, clip_on=False)`);
+    } else {   // Bezugslinien immer in Achsenwerten
+      const hz = a.type === 'hline', q = fig ? g.fromFig('data', q1[0] * g.W, q1[1] * g.H) : q1;
+      const val = hz ? cv(q[1], g.yKind) : cv(q[0], g.xKind);
+      out.push(`ax.ax${hz ? 'h' : 'v'}line(${val}, color=${col}, lw=${w}, linestyle=${ls})`);
+      if (a.text && a.text.trim()) out.push(hz ? `ax.text(0.99, ${val}, ${txt(a.text)}, transform=ax.get_yaxis_transform(), ha="right", va="bottom", ${font})`
+        : `ax.text(${val}, 0.99, ${txt(a.text)}, transform=ax.get_xaxis_transform(), ha="left", va="top", ${font})`);
+    }
+  }
+  const at = L.indexOf('from matplotlib.ticker import FuncFormatter') + 1;
+  if (imp.has('patches')) L.splice(at, 0, 'from matplotlib.patches import Rectangle, Ellipse');
+  if (imp.has('dates')) L.splice(at, 0, 'import matplotlib.dates as mdates');
+  L.push(...out);
 }
 $('#btnPyCopy').onclick = () => copyText(pythonCode(), 'Python-Code kopiert');
 $('#btnPySave').onclick = () => download(new Blob([pythonCode()], { type: 'text/x-python' }), safeName() + '.py');
@@ -3116,10 +3783,21 @@ function saveSoon() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     updateProjUI();
+    if (!drag) noteUndo();
     try { localStorage.setItem(STORE, JSON.stringify({ S, P, src: $('#src').value, tIdx, projName, projClean: !!projName && !projDirty })); } catch { }
   }, 400);
 }
 function saveUI() { try { localStorage.setItem(STORE + '.ui', JSON.stringify({ fit: $('#fit').checked, zoom, tips: $('#tips').checked, lock: $('#lockAspect').checked })); } catch { } }
+// Annotation aus Datei oder Speicher prüfen: bekannter Typ, endliche Punkte, nur gültige Stilwerte
+function sanitizeAnn(a) {
+  if (!a || typeof a !== 'object' || !ANAME[a.type] || !Array.isArray(a.p)) return null;
+  const p = a.p.filter(q => Array.isArray(q) && q.length === 2 && q.every(v => typeof v === 'number' && isFinite(v))).slice(0, 2).map(q => [q[0], q[1]]);
+  if (!p.length) return null;
+  if ((a.type === 'arrow' || isShape(a)) && p.length < 2) p.push(p[0].slice());
+  const st = {}, ok = a.st && typeof a.st === 'object' ? sanitizeStyle(a.st) : {};
+  for (const k of AN_KEYS) if (k in ok) st[k] = ok[k];
+  return { id: typeof a.id === 'string' && a.id ? a.id.slice(0, 40) : newId(), type: a.type, ref: a.ref === 'fig' ? 'fig' : 'data', p, text: typeof a.text === 'string' ? a.text : '', st };
+}
 // Gespeicherten Plot-Zustand gegen die Standardwerte prüfen
 function sanitizeP(o) {
   const p = freshP();
@@ -3127,7 +3805,8 @@ function sanitizeP(o) {
   for (const k of Object.keys(p)) {
     const d = p[k], v = o[k];
     if (v == null) continue;
-    if (Array.isArray(d)) { if (Array.isArray(v)) p[k] = k === 'filters' ? v.filter(f => f && typeof f.col === 'string').map(f => ({ col: f.col, op: OPS.some(x => x[0] === f.op) ? f.op : '=', val: String(f.val ?? '') })) : v.filter(x => typeof x === 'string'); }
+    if (Array.isArray(d)) { if (Array.isArray(v)) p[k] = k === 'filters' ? v.filter(f => f && typeof f.col === 'string').map(f => ({ col: f.col, op: OPS.some(x => x[0] === f.op) ? f.op : '=', val: String(f.val ?? '') }))
+      : k === 'ann' ? v.map(sanitizeAnn).filter(Boolean) : v.filter(x => typeof x === 'string'); }
     else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm', 'errCols'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
     else if (typeof v === typeof d) p[k] = v;
   }
@@ -3178,11 +3857,11 @@ function updateProjUI() {
 function loadProject(o, file, handle) {
   S = { ...DEF, ...sanitizeStyle(o.S) };
   if (o.S) NON_STYLE.forEach(k => { if (typeof o.S[k] === typeof DEF[k]) S[k] = o.S[k]; });
-  P = sanitizeP(o.P);
+  P = sanitizeP(o.P); sel = null;
   $('#src').value = o.src; tIdx = +o.tIdx || 0; wb = null; $('#sheetSel').hidden = true; seriesSig = '';
   projName = ''; projHandle = handle || null;
   setProjName(file);
-  parseSrc(); syncUI(); renderNow();
+  parseSrc(); syncUI(); renderNow(); buildInsp();
   projSnap = stateStr(); updateProjUI();
   if (projHandle) idb.set('projHandle', projHandle).catch(() => { });
 }
@@ -3224,11 +3903,29 @@ $('#btnProjOpen').onclick = openProject;
 $('#btnProjSave').onclick = () => saveProject(false);
 $('#btnProjSaveAs').onclick = () => saveProject(true);
 $('#projFile').onchange = e => { const f = e.target.files[0]; if (f) openProjectFile(f, null); e.target.value = ''; };
+let nudgeT = null;
 document.addEventListener('keydown', e => {
-  if (!(e.ctrlKey || e.metaKey)) return;
-  const k = e.key.toLowerCase();
-  if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); }
-  else if (k === 'o') { e.preventDefault(); openProject(); }
+  const typing = !!(e.target.closest && e.target.closest('input:not([type=checkbox]):not([type=color]),textarea,select,[contenteditable]'));
+  if (e.ctrlKey || e.metaKey) {
+    const k = e.key.toLowerCase();
+    if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); }
+    else if (k === 'o') { e.preventDefault(); openProject(); }
+    else if (typing) return;   // im Eingabefeld: Rückgängig des Browsers
+    else if (k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    else if (k === 'y') { e.preventDefault(); redo(); }
+    else if (k === 'd' && selAnn()) { e.preventDefault(); dupAnn(selAnn()); }
+    return;
+  }
+  if (typing || e.altKey || drag) return;
+  if (e.key === 'Escape') { if (tool !== 'select') setTool('select'); else if (sel) setSel(null); return; }
+  const a = selAnn(); if (!a || !R) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); delAnn(a); }
+  else if (e.key.startsWith('Arrow')) {
+    e.preventDefault();
+    const st = e.shiftKey ? 10 : 1, dx = { ArrowLeft: -st, ArrowRight: st }[e.key] || 0, dy = { ArrowUp: -st, ArrowDown: st }[e.key] || 0;
+    setAnnPx(a, figPts(a).map(q => [q[0] + dx, q[1] + dy])); redraw();
+    clearTimeout(nudgeT); nudgeT = setTimeout(buildInsp, 300);
+  }
 });
 window.addEventListener('beforeunload', e => { if (projName && stateStr() !== projSnap) { e.preventDefault(); e.returnValue = ''; } });
 // Nach dem Neustart: Projektname und Dateizugriff wiederherstellen (Strg+S schreibt wieder in dieselbe Datei)
@@ -3241,9 +3938,8 @@ async function projInit(st) {
 
 $('#lockAspect').onchange = saveUI;
 
-/* ---------- Seitenleiste verbreitern ---------- */
-(() => {
-  const aside = $('aside'), sp = $('#splitter'), KEY = STORE + '.asideW';
+/* ---------- Seitenleisten: verbreitern, rechts einklappen, Bereiche links zuklappen ---------- */
+function splitter(aside, sp, KEY, dir) {   // dir: +1 = Leiste links vom Splitter, -1 = rechts davon
   const setW = w => { aside.style.width = Math.max(260, Math.min(window.innerWidth * 0.75, w)) + 'px'; };
   try { const w = +localStorage.getItem(KEY); if (w) setW(w); } catch { }
   let start = null;
@@ -3252,16 +3948,41 @@ $('#lockAspect').onchange = saveUI;
     start = { x: e.clientX, w: aside.getBoundingClientRect().width };
     sp.classList.add('active'); document.body.classList.add('resizing');
   });
-  sp.addEventListener('pointermove', e => { if (start) setW(start.w + e.clientX - start.x); });
+  sp.addEventListener('pointermove', e => { if (start) setW(start.w + dir * (e.clientX - start.x)); });
   const end = () => {
     if (!start) return;
     start = null; sp.classList.remove('active'); document.body.classList.remove('resizing');
     try { localStorage.setItem(KEY, Math.round(aside.getBoundingClientRect().width)); } catch { }
-    render();
   };
   sp.addEventListener('pointerup', end);
   sp.addEventListener('pointercancel', end);
-  sp.addEventListener('dblclick', () => { aside.style.width = ''; try { localStorage.removeItem(KEY); } catch { } render(); });
+  sp.addEventListener('dblclick', () => { aside.style.width = ''; try { localStorage.removeItem(KEY); } catch { } });
+}
+splitter($('#left'), $('#splitter'), STORE + '.asideW', 1);
+splitter($('#right'), $('#splitterR'), STORE + '.rightW', -1);
+// Vorschau neu einpassen, wann immer sich ihr Platz ändert (Splitter, Einklappen, Fenster)
+new ResizeObserver(() => { if ($('#fit').checked) render(); }).observe($('#view'));
+// Rechts: Auswahl-Bereich ein-/ausklappen. Öffnet sich bewusst nicht von selbst – sonst springt die Vorschau beim Anklicken.
+(() => {
+  const r = $('#right'), KEY = STORE + '.rightOpen';
+  const set = open => { r.classList.toggle('collapsed', !open); $('#btnRight').textContent = open ? '»' : '«'; $('#splitterR').hidden = !open; try { localStorage.setItem(KEY, open ? '1' : '0'); } catch { } };
+  try { set(localStorage.getItem(KEY) !== '0'); } catch { set(true); }
+  $('#btnRight').onclick = e => { e.stopPropagation(); set(r.classList.contains('collapsed')); };
+  r.addEventListener('click', () => { if (r.classList.contains('collapsed')) set(true); });
+})();
+// Links: alle Bereiche zu-/aufklappen, Alt + Klick = nur diesen offen lassen; offene Bereiche werden gemerkt
+(() => {
+  const secs = $$('#left > details'), btn = $('#btnFold'), KEY = STORE + '.open';
+  const name = d => d.querySelector('summary').textContent.trim();
+  try { const o = JSON.parse(localStorage.getItem(KEY)); if (o) for (const d of secs) if (name(d) in o) d.open = o[name(d)]; } catch { }
+  const upd = () => { btn.textContent = secs.some(d => d.open) ? '⊟ alle zuklappen' : '⊞ alle aufklappen'; };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(secs.map(d => [name(d), d.open])))); } catch { } };
+  for (const d of secs) {
+    d.addEventListener('toggle', () => { upd(); save(); });
+    d.querySelector('summary').addEventListener('click', e => { if (!e.altKey) return; e.preventDefault(); for (const x of secs) x.open = x === d; });
+  }
+  btn.onclick = () => { const open = !secs.some(d => d.open); for (const d of secs) d.open = open; };
+  upd();
 })();
 
 let toastT;
@@ -3271,7 +3992,10 @@ const restored = restore();
 syncUI();
 refreshUserPresets();
 dirInit();
+setTool('select');
 renderNow();
+buildInsp();
+undoCur = JSON.stringify({ S, P });
 projInit(restored);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 
