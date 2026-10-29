@@ -1,7 +1,7 @@
 // Service Worker: hält die App offline verfügbar, sobald sie installiert ist.
 // Bei jeder Änderung an den Dateien VERSION erhöhen, damit alte Caches verworfen werden.
 'use strict';
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = 'diagramm-designer-' + VERSION;
 const FILES = [
   './',
@@ -15,8 +15,9 @@ const FILES = [
   './icons/icon-maskable-512.png'
 ];
 
+// cache: 'reload' umgeht den HTTP-Cache (GitHub Pages: max-age=600), sonst landet die alte Fassung im neuen Cache
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -25,9 +26,16 @@ self.addEventListener('activate', e => {
     .then(() => self.clients.claim()));
 });
 
-// Sofort aus dem Cache antworten und im Hintergrund aktualisieren (stale-while-revalidate).
+// Seiten (die App selbst): zuerst aus dem Netz, damit Updates sofort ankommen; offline aus dem Cache.
+// Übrige Dateien: sofort aus dem Cache antworten und im Hintergrund aktualisieren (stale-while-revalidate).
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  if (e.request.mode === 'navigate') {
+    e.respondWith(caches.open(CACHE).then(c => fetch(e.request, { cache: 'no-cache' })
+      .then(r => { if (r.ok) c.put(e.request, r.clone()); return r; })
+      .catch(async () => (await c.match(e.request, { ignoreSearch: true })) || c.match('./PlotTransformer.html'))));
+    return;
+  }
   e.respondWith(caches.open(CACHE).then(async c => {
     const hit = await c.match(e.request, { ignoreSearch: true });
     const net = fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(() => hit);
