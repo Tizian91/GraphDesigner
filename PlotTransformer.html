@@ -354,6 +354,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Rahmen Farbe / Breite (pt)</span><input type="color" data-k="legendFrameColor"><input type="number" step="0.25" min="0" data-k="legendFrameW"></div>
     <div class="row"><span>Deckkraft Hintergrund</span><input type="number" step="0.05" min="0" max="1" data-k="legendAlpha"></div>
     <div class="row"><span>Titel der Legende</span><input class="wide" data-k="legendTitle" placeholder="automatisch"></div>
+    <div id="legTitles"></div>
   </details>
 
   <details open>
@@ -585,6 +586,7 @@ const freshP = () => ({
   levels: { hue: {}, style: {}, size: {}, extra: {} },
   order: { hue: [], style: [], size: [], extra: [], x: [] },
   series: {},
+  legTitles: {},                                 // Titel der Legenden-Abschnitte je Zuordnung (hue/style/size): '' = Spaltenname, ' ' = keiner
   ann: []                                        // Annotationen: { id, type, ref: 'data'|'fig', p: [[x, y], …], text, st }
 });
 
@@ -1757,7 +1759,7 @@ function buildPlot(res, preview) {
   const hueNum = res.dims.hue && res.dims.hue.kind === 'num' ? res.dims.hue : null;
   let cbar = null;
   if (t === 'heatmap' && vVals.y.length) { const [a, b] = [minOf(vVals.y), maxOf(vVals.y)]; cbar = { min: a, max: b > a ? b : a + 1, title: ysName, date: false }; }
-  else if (hueNum) cbar = { min: hueNum.min, max: hueNum.max, title: hueNum.label, date: !!hueNum.isDate };
+  else if (hueNum) cbar = { min: hueNum.min, max: hueNum.max, title: legT('hue', hueNum.label), date: !!hueNum.isDate };
 
   /* --- 4. Layout: Ränder aus Textmaßen --- */
   const pad = F.base * PT * 0.5, gap = F.base * PT * 0.4;
@@ -2291,6 +2293,8 @@ function decimate(px) {
 }
 
 /* ---------- Legende ---------- */
+// Titel eines Legenden-Abschnitts: eigener Titel (ein Leerzeichen = keiner), sonst der Spaltenname
+const legT = (d, auto) => { const v = (P.legTitles || {})[d]; return v == null || v === '' ? auto : v.trim() === '' ? '' : v; };
 function legendModel(res, preview) {
   const { sp, dims, series } = res, t = sp.t;
   const patch = ['bar', 'area', 'hist', 'box', 'violin'].includes(t);
@@ -2308,14 +2312,14 @@ function legendModel(res, preview) {
     const sz = dims.size;
     if (!sz || sz.kind !== 'num' || sz.split) return null;
     const vals = niceTicks(sz.min, sz.max, 4).ticks.filter(v => v >= sz.min && v <= sz.max);
-    return { title: sz.label, items: vals.map(v => {
+    return { title: legT('size', sz.label), items: vals.map(v => {
       const f = (v - sz.min) / (sz.max - sz.min);
       return { label: fmtNum(v, -1), h: { marker: 'o', ms: Math.sqrt(S.sizeMin ** 2 + f * (S.sizeMax ** 2 - S.sizeMin ** 2)), color: neutral, markerEdge: S.markerEdge } };
     }) };
   };
   if (mode === 'combined' || !splitDims.length) {
     if (list.length < 2 && !(dims.size && dims.size.kind === 'num' && !dims.size.split)) return null;
-    const ttl = userTitle ?? [...new Set(splitDims.filter(d => sp.m[d] !== VAR).map(d => dims[d].label))].join(', ');
+    const ttl = userTitle ?? [...new Set(splitDims.map(d => legT(d, sp.m[d] !== VAR ? dims[d].label : '')).filter(Boolean))].join(', ');
     if (list.length >= 2) sections.push({ title: ttl, items: list.map(s => ({ label: s.legend, h: handle(s.look), sk: s.key, hidden: s.hidden })) });
     const ss = sizeNumSection(); if (ss) sections.push(ss);
     return { sections };
@@ -2334,7 +2338,7 @@ function legendModel(res, preview) {
       const lab = d === 'hue' && list.length === di.levels.length ? s.legend : l;
       return { label: lab, h, lv: d + '\uE000' + l, hidden: ((P.levels[d] || {})[l] || {}).hidden };
     }).filter(Boolean);
-    sections.push({ title: di.name === VAR ? '' : di.label, items });
+    sections.push({ title: legT(d, di.name === VAR ? '' : di.label), items });
   }
   const ss = sizeNumSection(); if (ss && mode !== 'hue') sections.push(ss);
   if (sections.length === 1 && userTitle != null) sections[0].title = userTitle;
@@ -2957,6 +2961,7 @@ function buildInsp() {
     box.appendChild(row);
   });
   addRows(spec.rows);
+  if (k === 'legend' && R) { const h = legTitleRows(R.res); if (h) { box.insertAdjacentHTML('beforeend', '<div class="sub">Titel der Abschnitte</div>' + h); bindLegTitles(box); } }
   if (spec.shared) { box.insertAdjacentHTML('beforeend', '<div class="sub">Gilt für alle Achsen</div>'); addRows(spec.shared); }
   if (!sel) box.insertAdjacentHTML('beforeend', `<div class="sub">Annotationen</div><div class="chips">${annChips() || '<span class="hint">noch keine</span>'}</div>
     <p class="hint">Werkzeuge über der Vorschau: ➝ Pfeil, ╱ Linie, ▭ Rechteck, ◯ Ellipse, T Text, ― und ⏐ Bezugslinien. Ziehen zum Zeichnen (Shift = 45° bzw. Quadrat/Kreis), Esc zurück zu ↖. Eine gewählte Annotation an den Griffen umformen; Pfeiltasten verschieben, Entf löscht, Strg+D dupliziert.</p>`);
@@ -3134,7 +3139,26 @@ function setSel(s) {
   sel = s || null; buildInsp(); updAnnStd(); redraw();
 }
 // Nach jedem Rendern: Auswahl prüfen (Reihe/Annotation kann verschwunden sein), rechte Seite ggf. neu aufbauen
+// Legende: je Zuordnung (Farbe, Stil, Größe) ein Feld für den Abschnittstitel, links unter „Legende“ und rechts bei der Legende
+const LT_NAME = { hue: 'Farbe', style: 'Stil', size: 'Größe', extra: 'Gruppe' };
+const legTitleDims = res => ['hue', 'style', 'size', 'extra'].filter(d => res.dims[d] && (res.dims[d].split || res.dims[d].kind === 'num') && res.sp.t !== 'heatmap')
+  .map(d => ({ d, auto: res.dims[d].name === VAR ? '' : res.dims[d].label }));
+const legTitleRows = res => legTitleDims(res).map(({ d, auto }) => `<div class="row" title="leer = Spaltenname, ein Leerzeichen = kein Titel"><span>Titel ${LT_NAME[d]}${auto ? ` („${esc(plainRich(auto))}“)` : ''}</span><input class="wide" data-lt="${d}" value="${esc(P.legTitles[d] || '')}" placeholder="${esc(plainRich(auto) || 'kein Titel')}"></div>`).join('');
+function bindLegTitles(box) {
+  box.querySelectorAll('[data-lt]').forEach(inp => inp.addEventListener('input', () => {
+    P.legTitles[inp.dataset.lt] = inp.value;
+    $$(`[data-lt="${inp.dataset.lt}"]`).forEach(o => { if (o !== inp) o.value = inp.value; });
+    render();
+  }));
+}
+let ltSig = '';
+function updLegTitles(res) {
+  const sig = JSON.stringify(legTitleDims(res));
+  if (sig !== ltSig) { ltSig = sig; $('#legTitles').innerHTML = legTitleRows(res); bindLegTitles($('#legTitles')); if (sel && sel.kind === 'legend') inspDirty = true; }
+  else $$('[data-lt]').forEach(o => { if (document.activeElement !== o) o.value = P.legTitles[o.dataset.lt] || ''; });
+}
 function afterRender(res) {
+  updLegTitles(res);
   const gone = sel && ((sel.kind === 'ann' && !selAnn()) || (sel.kind === 'series' && !res.series.some(s => s.key === sel.key)) || (sel.kind === 'y2' && !R.plot.regions.some(r => r.sel === 'y2')));
   if (gone) sel = null;
   if (gone || inspDirty) buildInsp();
@@ -3743,6 +3767,10 @@ function pythonCode() {
   else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, ${fr})`);
   if (S.legendFrame && S.legendPos !== 'none' && t !== 'heatmap') L.push(`if ax.get_legend(): ax.get_legend().get_frame().set_linewidth(${S.legendFrameW})`);
   if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
+  // eigene Abschnittstitel: seaborn schreibt die Spaltennamen als Titel bzw. Zwischenüberschriften in die Legende
+  const ren = Object.entries(P.legTitles || {}).filter(([d, v]) => v && res.dims[d] && m[d] && m[d] !== VAR);
+  if (ren.length && S.legendPos !== 'none' && t !== 'heatmap') L.push('if ax.get_legend():', `    namen = {${ren.map(([d, v]) => `${py(nm(m[d]))}: ${pyText(v.trim())}`).join(', ')}}`,
+    '    for txt in [ax.get_legend().get_title(), *ax.get_legend().get_texts()]:', '        txt.set_text(namen.get(txt.get_text(), txt.get_text()))');
   pyAnnots(L, cf);
   if (S.transparent !== S.plotTransparent) L.push('', S.transparent ? 'fig.patch.set_alpha(0)   # nur die Abbildung durchsichtig' : 'ax.patch.set_alpha(0)   # nur der Plotbereich durchsichtig');
   L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent && S.plotTransparent ? ', transparent=True' : ''})`, 'plt.show()', '');
@@ -3832,6 +3860,7 @@ function sanitizeP(o) {
   if (!TYPE_INFO[p.type]) p.type = 'line';
   for (const k of ['hue', 'style', 'size', 'extra', 'x']) if (!Array.isArray(p.order[k])) p.order[k] = [];
   for (const k of ['hue', 'style', 'size', 'extra']) if (!p.levels[k] || typeof p.levels[k] !== 'object') p.levels[k] = {};
+  p.legTitles = Object.fromEntries(Object.entries(p.legTitles && typeof p.legTitles === 'object' ? p.legTitles : {}).filter(([k, v]) => LT_NAME[k] && typeof v === 'string'));
   return p;
 }
 function restore() {

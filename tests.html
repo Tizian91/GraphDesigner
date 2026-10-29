@@ -160,6 +160,19 @@ document.getElementById('app').onload = async () => {
     check('ältere Stile: andere Plotfarbe bleibt sichtbar', ev(`sanitizeStyle({transparent:true,bg:'#ffffff',plotBg:'#eaeaf2'}).plotTransparent`), undefined);
     check('Python: nur Abbildung durchsichtig', ev(`S.transparent=true;S.plotTransparent=false;pythonCode().includes('fig.patch.set_alpha(0)') && !pythonCode().includes('transparent=True')`), true);
     ev(`S.transparent=false;S.plotTransparent=false`);
+    // Legende: Abschnittstitel umbenennen (leer = Spaltenname, Leerzeichen = keiner)
+    ev(`S={...DEF};P=freshP();seriesSig='';$('#src').value=${JSON.stringify(await text('samples/gruppen.csv'))};parseSrc();
+      Object.assign(P,{type:'line',x:'Zeit',ys:['Wert'],hue:'Gruppe',style:'Bedingung'});S.legendMode='separate';renderNow();`);
+    const legSecs = () => ev('legendModel(R.res, false).sections.map(s => s.title)');
+    check('Legende: Abschnitte heißen wie die Spalten', legSecs(), ['Gruppe', 'Bedingung']);
+    ev(`P.legTitles={hue:'Probe'};renderNow()`);
+    check('Legende: Abschnittstitel umbenannt, der andere bleibt', legSecs(), ['Probe', 'Bedingung']);
+    check('Legende: Feld für den Abschnittstitel links', ev(`[...$$('#legTitles [data-lt]')].map(i => i.dataset.lt)`), ['hue', 'style']);
+    check('Legende: Felder auch rechts, wenn die Legende gewählt ist', ev(`sel={kind:'legend'};buildInsp();const r=[...$$('#insp [data-lt]')].map(i => i.value);sel=null;buildInsp();r`), ['Probe', '']);
+    ev(`P.legTitles={hue:' '};renderNow()`);
+    check('Legende: Leerzeichen = kein Titel', legSecs()[0], '');
+    check('Python: Abschnittstitel umbenannt', ev(`P.legTitles={hue:'Probe'};pythonCode().includes('namen = {"Gruppe": "Probe"}')`), true);
+    check('Projekt: Abschnittstitel gespeichert', ev(`sanitizeP(JSON.parse(JSON.stringify(P))).legTitles.hue`), 'Probe');
     // Achsen: Umkehrfunktion (Bildschirm → Datenwert) für das Ziehen von Annotationen
     const axInv = (o, v) => ev(`(() => { const a = makeAxis(${JSON.stringify({ len: 300, tickPt: 10, ...o })}); return a.inv(a.f(${v})); })()`);
     check('Achse: Umkehrfunktion linear', axInv({ kind: 'lin', d0: 2, d1: 12 }, 7.5), 7.5);
