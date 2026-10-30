@@ -26,7 +26,7 @@ Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](htt
 - **Projekte:** Daten, Diagramm-Einstellungen und Stil als Projektdatei (`.diagramm`) speichern und später weiterbearbeiten (Strg+S, Strg+O, Speichern unter …)
 - **Stile:** eigene Stile im Browser oder in einem Ordner speichern, als JSON exportieren/importieren
 - **Export:** PNG mit DPI-Angabe (150/300/600 dpi), SVG, PDF über Drucken, „Für Word kopieren“ in Originalgröße, Python-Code (pandas, matplotlib, seaborn)
-- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel und Texte per Doppelklick bearbeiten
+- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel und Texte per Doppelklick bearbeiten. Strg + Mausrad zoomt auf den Mauszeiger (nie den Browser), verschoben wird mit dem Mausrad (Shift = waagerecht), der mittleren Maustaste oder Leertaste + Ziehen
 
 ## Als App installieren (Microsoft Edge)
 
