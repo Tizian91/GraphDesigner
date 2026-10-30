@@ -173,6 +173,19 @@ document.getElementById('app').onload = async () => {
     check('Legende: Leerzeichen = kein Titel', legSecs()[0], '');
     check('Python: Abschnittstitel umbenannt', ev(`P.legTitles={hue:'Probe'};pythonCode().includes('namen = {"Gruppe": "Probe"}')`), true);
     check('Projekt: Abschnittstitel gespeichert', ev(`sanitizeP(JSON.parse(JSON.stringify(P))).legTitles.hue`), 'Probe');
+    // Legende frei verschieben
+    ev(`P.legTitles={};S.legendPos='free';S.legendX=0.25;S.legendY=0.5;renderNow()`);
+    const lgBox = () => ev(`R.plot.regions.find(r => r.sel === 'legend').box.slice(0, 2).map(v => Math.round(v))`);
+    check('Legende frei: Lage als Anteil des Plotbereichs', lgBox(), ev(`(() => { const p = R.plot.rect; return [Math.round(p.x0 + 0.25 * (p.x1 - p.x0)), Math.round(p.y0 + 0.5 * (p.y1 - p.y0))]; })()`));
+    const wide = ev(`R.plot.rect.x1 - R.plot.rect.x0`);
+    ev(`S.legendX=0.9;S.legendY=0.1;renderNow()`);
+    check('Legende frei: halb im Plot, halb außen, der Plot macht Platz', ev(`(() => { const b = R.plot.regions.find(r => r.sel === 'legend').box, p = R.plot.rect; return [b[0] < p.x1, b[0] + b[2] > p.x1, Math.round(b[0] + b[2]) <= R.plot.W, p.x1 - p.x0 < ${wide}]; })()`), [true, true, true, true]);
+    ev(`S.legendX=2;S.legendY=2;renderNow()`);
+    check('Legende frei: bleibt in der Abbildung', ev(`(() => { const b = R.plot.regions.find(r => r.sel === 'legend').box; return Math.round(b[0] + b[2]) <= R.plot.W && Math.round(b[1] + b[3]) <= R.plot.H; })()`), true);
+    check('Legende frei: im Stil gültig', ev(`sanitizeStyle({legendPos:'free',legendX:0.3,legendY:0.4})`), { legendPos: 'free', legendX: 0.3, legendY: 0.4 });
+    ev(`S.legendX=0.25;S.legendY=0.5`);
+    check('Python: freie Legende', ev(`pythonCode().includes('bbox_to_anchor=(0.25, 0.5), borderaxespad=0')`), true);
+    ev(`S.legendPos='best'`);
     // Achsen: Umkehrfunktion (Bildschirm → Datenwert) für das Ziehen von Annotationen
     const axInv = (o, v) => ev(`(() => { const a = makeAxis(${JSON.stringify({ len: 300, tickPt: 10, ...o })}); return a.inv(a.f(${v})); })()`);
     check('Achse: Umkehrfunktion linear', axInv({ kind: 'lin', d0: 2, d1: 12 }, 7.5), 7.5);

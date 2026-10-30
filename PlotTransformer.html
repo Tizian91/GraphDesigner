@@ -122,7 +122,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 #wrap.tool,#wrap.tool *{cursor:crosshair!important}
 #view.pan,#view.pan *{cursor:grab!important}
 #view.panning,#view.panning *{cursor:grabbing!important}
-#wrap{touch-action:none}
+#wrap{touch-action:none;user-select:none}
 #tip{position:fixed;pointer-events:none;background:rgba(25,28,35,.94);color:#fff;font-size:12px;padding:5px 8px;border-radius:5px;white-space:pre;z-index:9;display:none;line-height:1.35}
 #editBox{position:fixed;z-index:9;font:inherit;padding:2px 4px;border:2px solid var(--accent);border-radius:4px;background:var(--panel);color:var(--text)}
 #status{padding:4px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);background:var(--panel)}
@@ -350,7 +350,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><label><input type="checkbox" data-k="math"> Formeln darstellen ($…$ wie LaTeX)</label></div>
     <p class="hint">**fett** und *kursiv* sind möglich. Eine neue Zeile beginnt mit Enter oder \n (z. B. Zugversuch\nProbe A), in Achsentiteln mit \n. Ein zentrierter Titel bricht an der Breite des Plotbereichs um. Formeln in $…$, z. B. $\sigma_y$ (MPa): griechische Buchstaben (\alpha), Indizes (_y, ^2), \mathrm{…}, \text{…}, \frac, \sqrt, \pm, \cdot, ^\circ usw. Das gilt auch für Spaltennamen und Kategorien aus der Tabelle; \$ ergibt ein Dollarzeichen. Leere Achsentitel = Spaltenname, ein einzelnes Leerzeichen = kein Titel. In der Vorschau lassen sich Titel und Achsentitel per Doppelklick bearbeiten.</p>
     <div class="sub">Legende</div>
-    <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
+    <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="free">frei (in der Vorschau ziehen)</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
     <div class="row"><span>Spalten</span><input type="number" min="0" max="12" data-k="legendCols" title="0 = automatisch"><label><input type="checkbox" data-k="legendFrame"> Rahmen</label></div>
     <div class="row"><span>Rahmen Farbe / Breite (pt)</span><input type="color" data-k="legendFrameColor"><input type="number" step="0.25" min="0" data-k="legendFrameW"></div>
@@ -510,7 +510,7 @@ const DEF = {
   yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
   y2Scale: 'linear', y2Dec: -1,
   titleAlign: 'center', titleBold: false, math: true, labelBold: false, tickBold: false, legendBold: false,
-  legendPos: 'best', legendMode: 'separate', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
+  legendPos: 'best', legendX: 0.6, legendY: 0.1, legendMode: 'separate', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
   annColor: '#000000', annW: 1, annDash: 'solid', annHead: 'end', annHeadStyle: 'filled', annHeadSize: 1, annFill: '#ffffff', annFillAlpha: 0,
   annSize: 10, annTextColor: '#000000', annBold: false, annBox: false, annBoxColor: '#ffffff', annBoxAlpha: 0.8, annBoxStroke: '#000000', annBoxW: 0.5,
   title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
@@ -1791,8 +1791,18 @@ function buildPlot(res, preview) {
   let rect = { x0: pad + 3 * F.base * PT, x1: W - pad - rightRes - F.base * PT, y0: top + F.tick.px * 0.6, y1: bottom - bottomRes - 3 * F.base * PT };
   let AX = {};
   const rot = { x: 0 };
-  for (let it = 0; it < 3; it++) {
+  // Freie Legende: Lage als Anteil des Plotbereichs (auch über ihn hinaus); ragt sie aus der Abbildung, rückt der Plot zur Seite
+  const freeLeg = legBox && S.legendPos === 'free';
+  const baseR = rightRes, baseB = bottomRes, resMax = Math.min(W, H) * 0.6;
+  let resL = 0, resR = 0, resT = 0, resB = 0;
+  for (let it = 0; it < (freeLeg ? 6 : 3); it++) {
     const pw = Math.max(20, rect.x1 - rect.x0), ph = Math.max(20, rect.y1 - rect.y0);
+    if (freeLeg && !manual) {
+      const lx = rect.x0 + S.legendX * pw, ly = rect.y0 + S.legendY * ph;
+      resL = clamp(resL + pad - lx, 0, resMax); resR = clamp(resR + lx + legBox.w - (W - pad), 0, resMax);
+      resT = clamp(resT + pad - ly, 0, resMax); resB = clamp(resB + ly + legBox.h - (H - pad), 0, resMax);
+      rightRes = baseR + resR; bottomRes = baseB + resB;
+    }
     AX.x = makeAxis({ ...roles.x, len: pw, tickPt: S.tickSize * cf, vertical: false, minor: S.minor || S.grid === 'both' });
     AX.y = makeAxis({ ...roles.y, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor || S.grid === 'both' });
     if (useY2) AX.y2 = makeAxis({ ...roles.y2, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor });
@@ -1809,7 +1819,7 @@ function buildPlot(res, preview) {
     const xLabH = r === 0 ? fh : r === 90 ? maxOf(xw) : maxOf(xw) * Math.SQRT1_2 + fh * Math.SQRT1_2;
     const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
     const y2LabW = useY2 && AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
-    let left = pad + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
+    let left = pad + resL + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
     let right = W - pad - rightRes - (useY2 ? y2LabW + tickOut + tickPad + (y2TB ? y2TB.h + labelPad : 0) : 0);
     // überstehende X-Beschriftungen am Rand
     if (r === 0 && xw.length) {
@@ -1818,7 +1828,7 @@ function buildPlot(res, preview) {
       right = Math.min(right, W - pad - rightRes - xw[xw.length - 1] / 2 + (1 - fx1) * pw);
     } else if (r === 45 && xw.length) left = Math.max(left, pad + xw[0] * Math.SQRT1_2 - AX.x.f(AX.x.ticks[0].v) * pw);
     const bot = bottom - bottomRes - (xLabH + tickOut + tickPad + (xTB ? xTB.h + labelPad : 0));
-    rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + 20, bot) };
+    rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + resT + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + resT + 20, bot) };
   }
   const pw = rect.x1 - rect.x0, ph = rect.y1 - rect.y0;
   // an der endgültigen Plotbreite nachziehen, solange sich die Zeilenzahl (und damit das Layout) nicht ändert
@@ -2145,6 +2155,7 @@ function buildPlot(res, preview) {
     let lx, ly;
     if (outR) { lx = W - pad - legBox.w; ly = rect.y0; if (cbar) lx -= 0; }
     else if (outB) { lx = rect.x0 + (pw - legBox.w) / 2; ly = H - pad - (nBlk ? nBlk.h + gap : 0) - legBox.h; }
+    else if (freeLeg) { lx = clamp(rect.x0 + S.legendX * pw, 0, Math.max(0, W - legBox.w)); ly = clamp(rect.y0 + S.legendY * ph, 0, Math.max(0, H - legBox.h)); }
     else {
       const m = F.legend.px * 0.5;
       const corners = { ur: [rect.x1 - legBox.w - m, rect.y0 + m], ul: [rect.x0 + m, rect.y0 + m], ll: [rect.x0 + m, rect.y1 - legBox.h - m], lr: [rect.x1 - legBox.w - m, rect.y1 - legBox.h - m] };
@@ -2864,8 +2875,8 @@ $('#wrap').addEventListener('pointermove', e => {
   if (!R) return;
   const p = figPos(e); if (!p) return;
   if (drag) { tip.style.display = 'none'; dragMove(e, p); return; }
-  const hh = hitHandle(p), ha = !hh && tool === 'select' && hitAnn(p);
-  $('#wrap').style.cursor = hh ? (hh.a.type === 'arrow' ? 'crosshair' : RESIZE_CUR[hh.k]) : ha ? 'move' : '';
+  const hh = hitHandle(p), ha = !hh && tool === 'select' && hitAnn(p), lg = !hh && !ha && tool === 'select' && legendAt(p);
+  $('#wrap').style.cursor = hh ? (hh.a.type === 'arrow' ? 'crosshair' : RESIZE_CUR[hh.k]) : ha || lg ? 'move' : '';
   if (!$('#tips').checked || hh || ha || tool !== 'select' || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
   const best = hitAt(p);
   if (!best) { tip.style.display = 'none'; return; }
@@ -3179,6 +3190,8 @@ $$('#atools [data-at]').forEach(b => b.onclick = () => setTool(b.dataset.at));
 const figPts = (a, g = R.plot.geo) => a.p.map(q => g.toFig(a.ref, q));
 const setAnnPx = (a, pts, g = R.plot.geo) => { a.p = pts.map(q => g.fromFig(a.ref, q[0], q[1])); };
 const TOL = () => 6 / zoom + 1;
+const legendAt = pt => R.plot.regions.find(r => r.sel === 'legend' && inBox(pt, r.box));
+const r4 = v => Math.round(v * 1e4) / 1e4;
 function segDist(p, a, b) {
   const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
   const t = L2 ? clamp(((p.x - a[0]) * dx + (p.y - a[1]) * dy) / L2, 0, 1) : 0;
@@ -3225,7 +3238,12 @@ $('#wrap').addEventListener('pointerdown', e => {
     drag = ['text', 'hline', 'vline'].includes(tool) ? { t: 'move', a, created: true } : { t: 'create', a };
     buildInsp(); updAnnStd();
   } else {
-    const g = hitAnn(pt); if (!g) return;
+    const g = hitAnn(pt);
+    if (!g) {   // Legende: erst das Ziehen verschiebt sie, ein Klick blendet weiter Einträge aus. Bis dahin nichts neu zeichnen, sonst geht der Klick verloren
+      const lg = legendAt(pt);
+      if (lg) drag = { t: 'legend', box: lg.box.slice(), rect: { ...R.plot.rect }, start: pt, moved: false };
+      return;
+    }
     if (!(sel && sel.id === g.a.id)) setSel({ kind: 'ann', id: g.a.id });
     drag = { t: 'move', a: g.a };
   }
@@ -3239,6 +3257,18 @@ function dragMove(e, p) {
   const d = drag, a = d.a;
   let dx = p.x - d.start.x, dy = p.y - d.start.y;
   if (!d.moved && Math.hypot(dx, dy) * zoom < 3) return;
+  if (d.t === 'legend') {
+    if (!d.moved) { try { $('#wrap').setPointerCapture(e.pointerId); } catch { } sel = { kind: 'legend' }; }
+    d.moved = true;
+    if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    // gegen den Plot beim Ziehbeginn gerechnet: er rückt beim Ziehen zur Seite, das darf nicht zurückwirken
+    const r0 = d.rect;
+    S.legendPos = 'free';
+    S.legendX = r4(clamp((d.box[0] + dx - r0.x0) / (r0.x1 - r0.x0), -1, 2));
+    S.legendY = r4(clamp((d.box[1] + dy - r0.y0) / (r0.y1 - r0.y0), -1, 2));
+    mirrorK('legendPos'); redraw();
+    return;
+  }
   d.moved = true;
   let pts;
   if (d.t === 'move') {
@@ -3260,6 +3290,7 @@ function dragMove(e, p) {
 }
 function endDrag() {
   const d = drag; drag = null; if (!d) return;
+  if (d.t === 'legend' && !d.moved) return;   // nur geklickt: der Klick auf die Legende läuft normal weiter
   skipClick = true; setTimeout(() => { skipClick = false; }, 0);
   if (d.t === 'create' && !d.moved) {   // nur geklickt: Standardgröße
     const [x, y] = d.f0[0];
@@ -3807,6 +3838,7 @@ function pythonCode() {
   const fr = S.legendFrame ? `frameon=True, framealpha=${S.legendAlpha}, edgecolor=${py(S.legendFrameColor)}` : 'frameon=False';
   if (S.legendPos === 'outR') L.push(`if ax.get_legend(): sns.move_legend(ax, "center left", bbox_to_anchor=(1, 0.5), ${fr})`);
   else if (S.legendPos === 'outB') L.push(`if ax.get_legend(): sns.move_legend(ax, "upper center", bbox_to_anchor=(0.5, -0.15), ncol=4, ${fr})`);
+  else if (S.legendPos === 'free' && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, "upper left", bbox_to_anchor=(${r2(S.legendX)}, ${r2(1 - S.legendY)}), borderaxespad=0, ${fr})`);
   else if (loc && t !== 'heatmap') L.push(`if ax.get_legend(): sns.move_legend(ax, ${py(loc)}, ${fr})`);
   if (S.legendFrame && S.legendPos !== 'none' && t !== 'heatmap') L.push(`if ax.get_legend(): ax.get_legend().get_frame().set_linewidth(${S.legendFrameW})`);
   if (S.legendBold) L.push('if ax.get_legend(): plt.setp(ax.get_legend().get_texts(), fontweight="bold")');
