@@ -1791,18 +1791,8 @@ function buildPlot(res, preview) {
   let rect = { x0: pad + 3 * F.base * PT, x1: W - pad - rightRes - F.base * PT, y0: top + F.tick.px * 0.6, y1: bottom - bottomRes - 3 * F.base * PT };
   let AX = {};
   const rot = { x: 0 };
-  // Freie Legende: Lage als Anteil des Plotbereichs (auch über ihn hinaus); ragt sie aus der Abbildung, rückt der Plot zur Seite
-  const freeLeg = legBox && S.legendPos === 'free';
-  const baseR = rightRes, baseB = bottomRes, resMax = Math.min(W, H) * 0.6;
-  let resL = 0, resR = 0, resT = 0, resB = 0;
-  for (let it = 0; it < (freeLeg ? 6 : 3); it++) {
+  for (let it = 0; it < 3; it++) {
     const pw = Math.max(20, rect.x1 - rect.x0), ph = Math.max(20, rect.y1 - rect.y0);
-    if (freeLeg && !manual) {
-      const lx = rect.x0 + S.legendX * pw, ly = rect.y0 + S.legendY * ph;
-      resL = clamp(resL + pad - lx, 0, resMax); resR = clamp(resR + lx + legBox.w - (W - pad), 0, resMax);
-      resT = clamp(resT + pad - ly, 0, resMax); resB = clamp(resB + ly + legBox.h - (H - pad), 0, resMax);
-      rightRes = baseR + resR; bottomRes = baseB + resB;
-    }
     AX.x = makeAxis({ ...roles.x, len: pw, tickPt: S.tickSize * cf, vertical: false, minor: S.minor || S.grid === 'both' });
     AX.y = makeAxis({ ...roles.y, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor || S.grid === 'both' });
     if (useY2) AX.y2 = makeAxis({ ...roles.y2, len: ph, tickPt: S.tickSize * cf, vertical: true, minor: S.minor });
@@ -1819,7 +1809,7 @@ function buildPlot(res, preview) {
     const xLabH = r === 0 ? fh : r === 90 ? maxOf(xw) : maxOf(xw) * Math.SQRT1_2 + fh * Math.SQRT1_2;
     const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
     const y2LabW = useY2 && AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
-    let left = pad + resL + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
+    let left = pad + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
     let right = W - pad - rightRes - (useY2 ? y2LabW + tickOut + tickPad + (y2TB ? y2TB.h + labelPad : 0) : 0);
     // überstehende X-Beschriftungen am Rand
     if (r === 0 && xw.length) {
@@ -1828,9 +1818,18 @@ function buildPlot(res, preview) {
       right = Math.min(right, W - pad - rightRes - xw[xw.length - 1] / 2 + (1 - fx1) * pw);
     } else if (r === 45 && xw.length) left = Math.max(left, pad + xw[0] * Math.SQRT1_2 - AX.x.f(AX.x.ticks[0].v) * pw);
     const bot = bottom - bottomRes - (xLabH + tickOut + tickPad + (xTB ? xTB.h + labelPad : 0));
-    rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + resT + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + resT + 20, bot) };
+    rect = { x0: left, x1: Math.max(left + 20, right - (useY2 ? 0 : F.tick.px * 0.2)), y0: top + (AX.y.kind === 'cat' ? 0 : F.tick.px * 0.6), y1: Math.max(top + 20, bot) };
   }
   const pw = rect.x1 - rect.x0, ph = rect.y1 - rect.y0;
+  // Freie Legende: Lage als Anteil des Plotbereichs. Ragt sie aus der Abbildung, wächst das Bild auf dieser Seite und der Plot
+  // bleibt gleich groß; bei manuellen Rändern bleibt sie im Bild
+  const free = legBox && S.legendPos === 'free' ? { x: rect.x0 + S.legendX * pw, y: rect.y0 + S.legendY * ph } : null, grow = { l: 0, r: 0, t: 0, b: 0 };
+  if (free && manual) { free.x = clamp(free.x, 0, Math.max(0, W - legBox.w)); free.y = clamp(free.y, 0, Math.max(0, H - legBox.h)); }
+  else if (free) {
+    grow.l = Math.ceil(Math.max(0, pad - free.x)); grow.r = Math.ceil(Math.max(0, free.x + legBox.w + pad - W));
+    grow.t = Math.ceil(Math.max(0, pad - free.y)); grow.b = Math.ceil(Math.max(0, free.y + legBox.h + pad - H));
+  }
+  const W2 = W + grow.l + grow.r, H2 = H + grow.t + grow.b;
   // an der endgültigen Plotbreite nachziehen, solange sich die Zeilenzahl (und damit das Layout) nicht ändert
   if (centerT) {
     const [t2, s2] = titleBlocks(pw), same = (a, b) => (a ? a.lines.length : 0) === (b ? b.lines.length : 0);
@@ -1847,7 +1846,7 @@ function buildPlot(res, preview) {
   defs.push(`<clipPath id="${clipId}"><rect x="${f2(rect.x0)}" y="${f2(rect.y0)}" width="${f2(pw)}" height="${f2(ph)}"/></clipPath>`);
 
   /* --- 5. Zeichnen --- */
-  if (!S.transparent) out.push(el('rect', { x: 0, y: 0, width: W, height: H, fill: S.bg }));
+  if (!S.transparent) out.push(el('rect', { x: -grow.l, y: -grow.t, width: W2, height: H2, fill: S.bg }));
   if (!S.plotTransparent) out.push(el('rect', { x: rect.x0, y: rect.y0, width: pw, height: ph, fill: S.plotBg }));
 
   // Gitter
@@ -2155,7 +2154,7 @@ function buildPlot(res, preview) {
     let lx, ly;
     if (outR) { lx = W - pad - legBox.w; ly = rect.y0; if (cbar) lx -= 0; }
     else if (outB) { lx = rect.x0 + (pw - legBox.w) / 2; ly = H - pad - (nBlk ? nBlk.h + gap : 0) - legBox.h; }
-    else if (freeLeg) { lx = clamp(rect.x0 + S.legendX * pw, 0, Math.max(0, W - legBox.w)); ly = clamp(rect.y0 + S.legendY * ph, 0, Math.max(0, H - legBox.h)); }
+    else if (free) { lx = free.x; ly = free.y; }
     else {
       const m = F.legend.px * 0.5;
       const corners = { ur: [rect.x1 - legBox.w - m, rect.y0 + m], ul: [rect.x0 + m, rect.y0 + m], ll: [rect.x0 + m, rect.y1 - legBox.h - m], lr: [rect.x1 - legBox.w - m, rect.y1 - legBox.h - m] };
@@ -2223,9 +2222,10 @@ function buildPlot(res, preview) {
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W * 0.75)}pt" height="${f2(H * 0.75)}pt" viewBox="0 0 ${W} ${H}">` +
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W2 * 0.75)}pt" height="${f2(H2 * 0.75)}pt" viewBox="${-grow.l} ${-grow.t} ${W2} ${H2}">` +
     (defs.length ? `<defs>${defs.join('')}</defs>` : '') + out.join('') + '</svg>';
-  return { svg, W, H, hits, rect, notes, geo, annGeo, regions };
+  // W, H = Größe des Bildes; ox, oy = Ursprung, falls es nach links oder oben gewachsen ist
+  return { svg, W: W2, H: H2, ox: -grow.l, oy: -grow.t, grown: W2 !== W || H2 !== H, hits, rect, notes, geo, annGeo, regions };
 }
 
 /* ---------- Annotationen zeichnen ---------- */
@@ -2827,7 +2827,7 @@ function renderNow() {
   showPlot(plot);
   $('#wrap').classList.toggle('checker', S.transparent || S.plotTransparent);
   const u = S.figUnit === 'in' ? 'Zoll' : S.figUnit, sc = (+S.dpi || 300) / 96;
-  const st = [`${r2(S.figW)} × ${r2(S.figH)} ${u}`, `PNG ${Math.round(plot.W * sc)} × ${Math.round(plot.H * sc)} px bei ${S.dpi} dpi`,
+  const st = [plot.grown ? `${r2(fromPx(plot.W, S.figUnit))} × ${r2(fromPx(plot.H, S.figUnit))} ${u} (eingestellt ${r2(S.figW)} × ${r2(S.figH)}, durch die Legende größer)` : `${r2(S.figW)} × ${r2(S.figH)} ${u}`, `PNG ${Math.round(plot.W * sc)} × ${Math.round(plot.H * sc)} px bei ${S.dpi} dpi`,
     `${res.nRows ?? 0} von ${D.n} Zeilen`, `${res.series.length} ${res.series.length === 1 ? 'Reihe' : 'Reihen'}`];
   if (!D.cols.length) st.unshift('Keine Tabelle gefunden');
   else if (!res.series.length) st.unshift('Keine Werte zum Zeichnen – Y-Spalte wählen');
@@ -2860,7 +2860,7 @@ $('#zoom').oninput = e => { $('#fit').checked = false; zoom = e.target.value / 1
 
 /* ---------- Vorschau: Tooltips, Legende anklicken, Titel bearbeiten ---------- */
 const tip = $('#tip');
-function figPos(e) { const svg = $('#wrap svg'); if (!svg) return null; const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom }; }
+function figPos(e) { const svg = $('#wrap svg'); if (!svg) return null; const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom + (R ? R.plot.ox : 0), y: (e.clientY - r.top) / zoom + (R ? R.plot.oy : 0) }; }
 // Datenpunkt oder Balken unter dem Mauszeiger (Punkte haben Vorrang vor Fl\u00E4chen)
 function hitAt(p) {
   let best = null, bd = 10 / zoom + 3;
@@ -3241,7 +3241,7 @@ $('#wrap').addEventListener('pointerdown', e => {
     const g = hitAnn(pt);
     if (!g) {   // Legende: erst das Ziehen verschiebt sie, ein Klick blendet weiter Einträge aus. Bis dahin nichts neu zeichnen, sonst geht der Klick verloren
       const lg = legendAt(pt);
-      if (lg) drag = { t: 'legend', box: lg.box.slice(), rect: { ...R.plot.rect }, start: pt, moved: false };
+      if (lg) drag = { t: 'legend', box: lg.box.slice(), rect: { ...R.plot.rect }, start: pt, cx: e.clientX, cy: e.clientY, moved: false };
       return;
     }
     if (!(sel && sel.id === g.a.id)) setSel({ kind: 'ann', id: g.a.id });
@@ -3260,8 +3260,8 @@ function dragMove(e, p) {
   if (d.t === 'legend') {
     if (!d.moved) { try { $('#wrap').setPointerCapture(e.pointerId); } catch { } sel = { kind: 'legend' }; }
     d.moved = true;
+    dx = (e.clientX - d.cx) / zoom; dy = (e.clientY - d.cy) / zoom;   // am Bildschirm gemessen: das Bild wächst beim Ziehen und rückt dadurch selbst
     if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-    // gegen den Plot beim Ziehbeginn gerechnet: er rückt beim Ziehen zur Seite, das darf nicht zurückwirken
     const r0 = d.rect;
     S.legendPos = 'free';
     S.legendX = r4(clamp((d.box[0] + dx - r0.x0) / (r0.x1 - r0.x0), -1, 2));
@@ -3296,7 +3296,9 @@ function endDrag() {
     const [x, y] = d.f0[0];
     setAnnPx(d.a, d.a.type === 'arrow' ? [[x - 45, y - 30], [x, y]] : [[x - 30, y - 20], [x + 30, y + 20]], d.geo);
   }
-  buildInsp(); updAnnStd(); redrawNow();
+  buildInsp(); updAnnStd();
+  if (d.t === 'legend') { renderNow(); return; }   // Bildgröße kann sich geändert haben: neu einpassen, Status aktualisieren
+  redrawNow();
   if (d.created && hasText(d.a) && !d.moved && d.a.type === 'text') editAnnText(d.a);
 }
 $('#wrap').addEventListener('pointerup', endDrag);
@@ -3325,7 +3327,7 @@ function zoomView(z, at) {
   $('#zoom').value = Math.round(z * 100); $('#zoomLbl').textContent = Math.round(z * 100) + ' %';
   svg.style.width = (R.plot.W * z) + 'px'; svg.style.height = (R.plot.H * z) + 'px';
   const s = svg.getBoundingClientRect();
-  view.scrollLeft += s.left + p.x * z - q.clientX; view.scrollTop += s.top + p.y * z - q.clientY;
+  view.scrollLeft += s.left + (p.x - R.plot.ox) * z - q.clientX; view.scrollTop += s.top + (p.y - R.plot.oy) * z - q.clientY;
   saveUI(); redraw();
 }
 // Strg+Mausrad zoomt nie den Browser, auch nicht über den Leisten. Strg+0, Strg+Plus und Strg+Minus bleiben beim Browser
@@ -3848,7 +3850,7 @@ function pythonCode() {
     '    for txt in [ax.get_legend().get_title(), *ax.get_legend().get_texts()]:', '        txt.set_text(namen.get(txt.get_text(), txt.get_text()))');
   pyAnnots(L, cf);
   if (S.transparent !== S.plotTransparent) L.push('', S.transparent ? 'fig.patch.set_alpha(0)   # nur die Abbildung durchsichtig' : 'ax.patch.set_alpha(0)   # nur der Plotbereich durchsichtig');
-  L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent && S.plotTransparent ? ', transparent=True' : ''})`, 'plt.show()', '');
+  L.push('', `fig.savefig(${py(safeName() + '.png')}, dpi=${S.dpi}${S.transparent && S.plotTransparent ? ', transparent=True' : ''}${R && R.plot.grown ? ', bbox_inches="tight"' : ''})`, 'plt.show()', '');
   void res2;
   return L.join('\n').replace(/<sub>(.*?)<\/sub>/gi, '$$_{\\\\mathrm{$1}}$$').replace(/<sup>(.*?)<\/sup>/gi, '$$^{\\\\mathrm{$1}}$$');
 }
