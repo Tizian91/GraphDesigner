@@ -321,11 +321,13 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="row"><span>Ticks: Anzahl / Abstand</span><input type="number" min="0" max="30" data-k="yTicks" title="0 = automatisch"><input data-k="yStep" placeholder="auto" style="width:70px"></div>
     <div class="row"><span>Nachkommastellen</span><select data-k="yDec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><label><input type="checkbox" data-k="ySci"> wiss.</label></div>
     <div class="row"><span>Datumsformat</span><select data-k="yDate" class="dateFmt"></select></div>
+    <div class="row" title="Bei versetzten Reihen (Versatz im Reihen-Panel) sagen die Zahlen der Y-Achse meist nichts mehr aus"><span>Ticks anzeigen</span><select data-k="yTickShow"><option value="all">Striche + Zahlen</option><option value="marks">nur Striche</option><option value="none">ausblenden</option></select></div>
     <div class="sub">Rechte Y-Achse</div>
     <p class="hint">Im Reihen-Panel einzelne Reihen der rechten Achse zuordnen.</p>
     <div class="row"><span>Titel</span><input class="wide" data-k="y2Title"></div>
     <div class="row"><span>Min / Max</span><input data-k="y2Min" placeholder="auto" style="width:70px"><input data-k="y2Max" placeholder="auto" style="width:70px"></div>
     <div class="row"><span>Skala</span><select data-k="y2Scale"><option value="linear">linear</option><option value="log">logarithmisch</option></select></div>
+    <div class="row"><span>Ticks anzeigen</span><select data-k="y2TickShow"><option value="all">Striche + Zahlen</option><option value="marks">nur Striche</option><option value="none">ausblenden</option></select></div>
     <div class="row"><span>Nachkommastellen</span><select data-k="y2Dec" data-num="1"><option value="-1">automatisch</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
     <div class="sub">Zahlen</div>
     <div class="row"><span>Dezimaltrennzeichen</span><select data-k="decSep"><option value=",">Komma (1,5)</option><option value=".">Punkt (1.5)</option></select></div>
@@ -507,8 +509,8 @@ const DEF = {
   grid: 'none', gridX: true, gridY: true, gridColor: '#b0b0b0', gridStyle: 'solid', gridW: 0.8,
   decSep: ',', thousands: false,
   xScale: 'linear', xTicks: 0, xDec: -1, xSci: false, xDate: 'auto', xRot: 'auto',
-  yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto',
-  y2Scale: 'linear', y2Dec: -1,
+  yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto', yTickShow: 'all',
+  y2Scale: 'linear', y2Dec: -1, y2TickShow: 'all',
   titleAlign: 'center', titleBold: false, math: true, labelBold: false, tickBold: false, legendBold: false,
   legendPos: 'best', legendX: 0.6, legendY: 0.1, legendMode: 'separate', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
   annColor: '#000000', annW: 1, annDash: 'solid', annHead: 'end', annHeadStyle: 'filled', annHeadSize: 1, annFill: '#ffffff', annFillAlpha: 0,
@@ -1202,15 +1204,17 @@ function isHidden(s) {
 }
 
 // Werte, die eine einzelne Reihe überschreiben kann (P.series[key]); alles andere folgt dem Stil
-const SERIES_PROPS = ['color', 'dash', 'marker', 'lw', 'ms', 'alpha', 'hatch', 'kind', 'axis',
+const SERIES_PROPS = ['color', 'dash', 'marker', 'lw', 'ms', 'alpha', 'hatch', 'kind', 'axis', 'offset',
   'markerEdge', 'barAlpha', 'barEdge', 'barEdgeColor', 'barEdgeW', 'errW', 'bandAlpha', 'areaAlpha'];
+// Diagrammtypen, deren Reihen (bei Balken: nur als Linie dargestellte) sich senkrecht versetzen lassen
+const OFFSET_TYPES = ['line', 'scatter', 'linept', 'area', 'bar'];
 // Aussehen: Farbe aus hue, Strich/Marker/Schraffur aus style, Größe aus size, dann Overrides der Reihe
 function styleSeries(out) {
   const { sp, dims } = out, t = sp.t, pal = palColors(S.palette);
   const markers = t === 'scatter' || t === 'linept';
   const sizeIsMarker = t === 'scatter' || t === 'linept';
   out.series.forEach((s, i) => {
-    const L = { color: pal[0], dash: 'solid', marker: markers ? 'o' : 'none', lw: S.lineW, ms: S.markerSize, alpha: S.alpha, hatch: '', kind: t === 'bar' ? 'bar' : 'line', axis: 'y',
+    const L = { color: pal[0], dash: 'solid', marker: markers ? 'o' : 'none', lw: S.lineW, ms: S.markerSize, alpha: S.alpha, hatch: '', kind: t === 'bar' ? 'bar' : 'line', axis: 'y', offset: 0,
       markerEdge: S.markerEdge, barAlpha: S.barAlpha, barEdge: S.barEdge, barEdgeColor: S.barEdgeColor, barEdgeW: S.barEdgeW, errW: S.errW, bandAlpha: S.bandAlpha, areaAlpha: S.areaAlpha };
     const h = dims.hue;
     if (h) {
@@ -1244,6 +1248,8 @@ function styleSeries(out) {
     L.errColor = ov.errColor || (S.errColorMode === 'series' ? darker(L.color, 0.2) : S.errColor);
     if (t !== 'bar') L.kind = 'line';
     if (!['line', 'scatter', 'linept', 'area', 'bar'].includes(t)) L.axis = 'y';
+    if (!OFFSET_TYPES.includes(t) || L.kind !== 'line' || !isFinite(+L.offset)) L.offset = 0;   // Versatz nur für Linien/Punkte/Flächen
+    else L.offset = +L.offset;
     s.look = L;
     s.legend = ov.label || s.label;
     s.hidden = isHidden(s);
@@ -1646,6 +1652,10 @@ function buildPlot(res, preview) {
   const base = isFinite(+P.bar.base) ? +P.bar.base : 0;
   const nCat = res.cats.length;
   const sameHueX = sp.m.hue && sp.m.hue === sp.x;
+  // Versatz einer Reihe (vergleichende Darstellung): alle Werte senkrecht verschieben; p.off merkt ihn für den Tooltip.
+  // Flächen bekommen ihre eigene Grundlinie auf Höhe des Versatzes
+  const shiftPts = (pts, o, area) => !o ? pts : pts.map(p => ({ ...p, off: o, y: p.y != null ? p.y + o : p.y,
+    lo: p.lo != null ? p.lo + o : p.lo, hi: p.hi != null ? p.hi + o : p.hi, y0: p.y0 != null ? p.y0 + o : area ? o : p.y0 }));
   if (t === 'bar') {
     const bs = vis.filter(s => s.look.kind === 'bar'), mode = P.bar.mode;
     const nS = mode === 'dodge' && !sameHueX ? Math.max(1, bs.length) : 1, bw = S.barWidth, slot = bw / nS;
@@ -1670,8 +1680,9 @@ function buildPlot(res, preview) {
     if (P.bar.zero || mode !== 'dodge') { sticky.y = mode === 'stack100' ? 0 : base; if (bs.some(s => s.look.axis === 'y2')) sticky.y2 = sticky.y; }
     else if (bs.length) notes.push('Achse beginnt nicht bei der Bezugslinie – Balkenlängen können täuschen');
     for (const s of vis.filter(s => s.look.kind === 'line')) {
-      marks.push({ m: 'line', s, pts: s.pts.filter(p => p.y != null) });
-      for (const p of s.pts) vVals[s.look.axis].push(p.y, p.lo, p.hi);
+      const pts = shiftPts(s.pts.filter(p => p.y != null), s.look.offset);
+      marks.push({ m: 'line', s, pts });
+      for (const p of pts) vVals[s.look.axis].push(p.y, p.lo, p.hi);
     }
   } else if (t === 'hist') {
     const mode = P.hist.multiple, acc = [];
@@ -1707,6 +1718,7 @@ function buildPlot(res, preview) {
         const v = P.bar.mode === 'stack100' ? 100 * p.y / (tot.get(p.x) || 1) : p.y, a = acc.get(p.x) || 0;
         p.y0 = a; p.y = a + v; p.lo = p.hi = null; acc.set(p.x, p.y);
       }
+      pts = shiftPts(pts, s.look.offset, t === 'area');
       marks.push({ m: 'line', s, pts, area: t === 'area' });
       for (const p of pts) { vVals[s.look.axis].push(p.y); if (P.err !== 'none') vVals[s.look.axis].push(p.lo, p.hi); if (p.y0 != null) vVals[s.look.axis].push(p.y0); if (p.y != null) xVals.push(p.x); }
     }
@@ -1717,7 +1729,7 @@ function buildPlot(res, preview) {
   if (P.trend && ['line', 'scatter', 'linept'].includes(t)) for (const s of vis) {
     const pts = s.pts.filter(p => p.y != null && p.x != null).map(p => [p.x, p.y]);
     const lr = linReg(pts);
-    if (lr) trends.push({ s, ...lr, x0: minOf(pts.map(p => p[0])), x1: maxOf(pts.map(p => p[0])) });
+    if (lr) trends.push({ s, ...lr, off: s.look.offset, x0: minOf(pts.map(p => p[0])), x1: maxOf(pts.map(p => p[0])) });
   }
 
   /* --- 2. Achsen festlegen --- */
@@ -1774,6 +1786,10 @@ function buildPlot(res, preview) {
   let top = topOf();
   let bottom = H - pad - (nBlk ? nBlk.h + gap : 0);
   const tickOut = S.tickDir === 'out' ? lw(S.tickLen) : 0, tickPad = lw(3.5), labelPad = lw(4);
+  // Y-Achsen: Ticks ganz oder nur ihre Zahlen ausblenden; sideW = Platz für Strich, Abstand und Zahlen neben dem Plotbereich
+  const yShow = S.yTickShow || 'all', y2Show = S.y2TickShow || 'all';
+  const yOut = yShow === 'none' ? 0 : tickOut, y2Out = y2Show === 'none' ? 0 : tickOut;
+  const sideW = (ax, show, o) => o + (show === 'all' ? tickPad + (ax.ticks.length ? maxOf(ax.ticks.map(k => tw(k.label, F.tick))) : 0) : 0);
   const lblFont = fontObj(S.labelSize * cf, S.labelBold);
   const xTB = axTitle.x ? textBlock(axTitle.x, S.labelSize * cf, S.labelBold, false, W) : null;
   const yTB = axTitle.y ? textBlock(axTitle.y, S.labelSize * cf, S.labelBold, false, H) : null;
@@ -1807,10 +1823,8 @@ function buildPlot(res, preview) {
     }
     rot.x = r;
     const xLabH = r === 0 ? fh : r === 90 ? maxOf(xw) : maxOf(xw) * Math.SQRT1_2 + fh * Math.SQRT1_2;
-    const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
-    const y2LabW = useY2 && AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
-    let left = pad + yLabW + tickOut + tickPad + (yTB ? yTB.h + labelPad : 0);
-    let right = W - pad - rightRes - (useY2 ? y2LabW + tickOut + tickPad + (y2TB ? y2TB.h + labelPad : 0) : 0);
+    let left = pad + sideW(AX.y, yShow, yOut) + (yTB ? yTB.h + labelPad : 0);
+    let right = W - pad - rightRes - (useY2 ? sideW(AX.y2, y2Show, y2Out) + (y2TB ? y2TB.h + labelPad : 0) : 0);
     // überstehende X-Beschriftungen am Rand
     if (r === 0 && xw.length) {
       const fx0 = AX.x.f(AX.x.ticks[0].v), fx1 = AX.x.f(AX.x.ticks[AX.x.ticks.length - 1].v);
@@ -2014,8 +2028,9 @@ function buildPlot(res, preview) {
     }
     if (preview) for (const p of valid) {
       const [x, y] = ptCV(p.x, p.y, axis);
-      hits.push({ x, y, sk: mk.s.key, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 || 0)), -1)}` +
-        (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI', cols: 'Fehlerbereich' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo), -1)} … ${fmtNum(r12(p.hi), -1)}` : '') });
+      hits.push({ x, y, sk: mk.s.key, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 != null ? p.y0 : p.off || 0)), -1)}` +
+        (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI', cols: 'Fehlerbereich' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo - (p.off || 0)), -1)} … ${fmtNum(r12(p.hi - (p.off || 0)), -1)}` : '') +
+        (p.off ? `\nVersatz: ${fmtNum(r12(p.off), -1)}` : '') });
     }
   }
   if (decimated.length) notes.push(`Linien vereinfacht (zu viele Punkte für die Breite): ${[...new Set(decimated)].join(', ')}`);
@@ -2025,7 +2040,7 @@ function buildPlot(res, preview) {
   for (const tr of trends) {
     const w = lw(Math.max(1, tr.s.look.lw * 0.8)), axis = tr.s.look.axis;
     const n = AX.x.kind === 'log' ? 40 : 2, pts = [];
-    for (let i = 0; i < n; i++) { const x = tr.x0 + (tr.x1 - tr.x0) * i / (n - 1); pts.push(ptCV(x, tr.a * x + tr.b, axis)); }
+    for (let i = 0; i < n; i++) { const x = tr.x0 + (tr.x1 - tr.x0) * i / (n - 1); pts.push(ptCV(x, tr.a * x + tr.b + tr.off, axis)); }
     body.push(el('path', { d: pathD(pts), stroke: darker(tr.s.look.color, 0.15), 'stroke-width': w, 'stroke-dasharray': dashArr('dashed', w), fill: 'none' }));
     if (P.trendEq) {
       const xs = AX.x.kind === 'date' ? ' (x in Tagen)' : '', a = AX.x.kind === 'date' ? tr.a * DAY : tr.a;
@@ -2086,16 +2101,16 @@ function buildPlot(res, preview) {
   // Y links
   for (const k of AX.y.ticks) {
     const y = Y(k.v); if (y < rect.y0 - 1 || y > rect.y1 + 1) continue;
-    if (tdraw) tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl, y]]));
-    out.push(svgText(rect.x0 - tickOut - tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'end'));
+    if (tdraw && yShow !== 'none') tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl, y]]));
+    if (yShow === 'all') out.push(svgText(rect.x0 - tickOut - tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'end'));
   }
-  if (tdraw && S.minor) for (const v of AX.y.minor) { const y = Y(v); if (y >= rect.y0 && y <= rect.y1) tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl * 0.55, y]])); }
+  if (tdraw && S.minor && yShow !== 'none') for (const v of AX.y.minor) { const y = Y(v); if (y >= rect.y0 && y <= rect.y1) tk.push(pathD([[rect.x0, y], [rect.x0 - tdir * tl * 0.55, y]])); }
   // Y rechts
   if (useY2) {
     for (const k of AX.y2.ticks) {
       const y = Y2(k.v); if (y < rect.y0 - 1 || y > rect.y1 + 1) continue;
-      if (tdraw) tk.push(pathD([[rect.x1, y], [rect.x1 + tdir * tl, y]]));
-      out.push(svgText(rect.x1 + tickOut + tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'start'));
+      if (tdraw && y2Show !== 'none') tk.push(pathD([[rect.x1, y], [rect.x1 + tdir * tl, y]]));
+      if (y2Show === 'all') out.push(svgText(rect.x1 + tickOut + tickPad, y + baselineOff(F.tick), k.label, F.tick, tc, 'start'));
     }
   }
   if (tk.length) out.push(el('path', { d: tk.join(''), stroke: tickColor, 'stroke-width': sw, fill: 'none' }));
@@ -2107,14 +2122,12 @@ function buildPlot(res, preview) {
     const y0 = manual ? rect.y1 + tickOut + tickPad + xLabH + labelPad : rect.y1 + tickOut + tickPad + xLabH + labelPad;
     out.push(`<g${editAttr('xTitle')}>${svgBlock(xTB, rect.x0, pw, y0, 'center', tc)}</g>`);
   }
-  const yLabW = AX.y.ticks.length ? maxOf(AX.y.ticks.map(k => tw(k.label, F.tick))) : 0;
   if (yTB) {
-    const cx = rect.x0 - tickOut - tickPad - yLabW - labelPad - yTB.h;
+    const cx = rect.x0 - sideW(AX.y, yShow, yOut) - labelPad - yTB.h;
     out.push(`<g${editAttr('yTitle')} transform="translate(${f2(cx)} ${f2(rect.y1)}) rotate(-90)">${svgBlock(yTB, 0, ph, 0, 'center', tc)}</g>`);
   }
   if (useY2 && y2TB) {
-    const y2LabW = AX.y2.ticks.length ? maxOf(AX.y2.ticks.map(k => tw(k.label, F.tick))) : 0;
-    const cx = rect.x1 + tickOut + tickPad + y2LabW + labelPad + y2TB.h;
+    const cx = rect.x1 + sideW(AX.y2, y2Show, y2Out) + labelPad + y2TB.h;
     out.push(`<g${editAttr('y2Title')} transform="translate(${f2(cx)} ${f2(rect.y0)}) rotate(90)">${svgBlock(y2TB, 0, ph, 0, 'center', tc)}</g>`);
   }
 
@@ -2660,7 +2673,7 @@ TYPE_BTNS.forEach(([k, label]) => {
 });
 
 /* ---------- Reihen-Panel ---------- */
-let seriesSig = '';
+let seriesSig = '', offStep = '';
 const opts = (o, cur) => Object.entries(o).map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('');
 function updateSeriesPanel(res) {
   const sp = res.sp, t = sp.t;
@@ -2725,6 +2738,7 @@ function updateSeriesPanel(res) {
     if (patch && !(t === 'bar' && s.look.kind === 'line') && t !== 'violin') c2 += `<select data-s="${k}" data-prop="hatch" title="Schraffur">${opts(HATCH_LABEL)}</select>`;
     if (t === 'bar') c2 += `<select data-s="${k}" data-prop="kind" title="Darstellung">${opts({ bar: 'Balken', line: 'Linie' })}</select>`;
     if (['line', 'scatter', 'linept', 'area'].includes(t) || t === 'bar') c2 += `<select data-s="${k}" data-prop="axis" title="Y-Achse">${opts({ y: 'Achse links', y2: 'Achse rechts' })}</select>`;
+    if (OFFSET_TYPES.includes(t) && isLine) c2 += `<label title="Versatz: verschiebt die Reihe senkrecht um diesen Wert (in Einheiten der Y-Achse)">↕<input type="number" step="any" data-s="${k}" data-prop="offset" style="width:64px"></label>`;
     row.innerHTML = `<div class="row" style="margin:2px 0">${hueSeries ? '<span class="handle" draggable="true" title="Ziehen zum Umsortieren">⠿</span>' : ''}` +
       `<input type="checkbox" data-s="${k}" data-prop="visible" title="sichtbar">` +
       `<input data-s="${k}" data-prop="label" placeholder="${esc(plainRich(s.label))}" style="flex:1;min-width:60px" title="Name in der Legende">` +
@@ -2736,6 +2750,24 @@ function updateSeriesPanel(res) {
   if (res.series.length > 60) list.insertAdjacentHTML('beforeend', `<p class="hint">… ${res.series.length - 60} weitere Reihen</p>`);
   if (hueSeries) makeSortable(list, order => { P.order.hue = order; render(); });
   sec.appendChild(list); box.appendChild(sec);
+  // Alle sichtbaren Linien-Reihen gleichmäßig versetzen (1. Reihe 0, 2. Reihe Δ, 3. Reihe 2Δ …)
+  if (OFFSET_TYPES.includes(t) && res.series.filter(s => s.look.kind === 'line').length > 1) {
+    const offBox = document.createElement('div');
+    offBox.innerHTML = `<div class="sub">Versatz für den Vergleich</div>
+      <div class="row"><span>Je Reihe um</span><input type="number" step="any" id="offStep" value="${esc(offStep)}" style="width:80px"><button class="mini" id="offApply">Anwenden</button><button class="mini" id="offClear">Aufheben</button></div>
+      <p class="hint">Verschiebt die sichtbaren Reihen in ihrer Reihenfolge um 0, Δ, 2Δ … in Einheiten der Y-Achse (negativ = nach unten). Einzelwerte stehen bei ↕ an jeder Reihe. Die Zahlen der Y-Achse lassen sich unter Achsen › Y-Achse › Ticks anzeigen ausblenden.</p>`;
+    box.appendChild(offBox);
+    const setOff = d => {
+      res.series.filter(s => !s.hidden && s.look.kind === 'line').forEach((s, i) => {
+        const o = P.series[s.key] = P.series[s.key] || {};
+        if (d) o.offset = r12(i * d); else delete o.offset;
+      });
+      inspDirty = true; render();
+    };
+    offBox.querySelector('#offStep').oninput = e => { offStep = e.target.value; };
+    offBox.querySelector('#offApply').onclick = () => { const d = parseFloat(offStep); if (isFinite(d)) setOff(d); };
+    offBox.querySelector('#offClear').onclick = () => setOff(0);
+  }
   box.querySelectorAll('[data-s],[data-l]').forEach(inp => {
     const ev = inp.type === 'checkbox' || inp.tagName === 'SELECT' ? 'change' : 'input';
     inp.addEventListener(ev, () => onSeriesInput(inp));
@@ -2766,7 +2798,7 @@ function refreshSeriesInputs(res) {
     const p = inp.dataset.prop, ov = P.series[s.key] || {}, v = seriesVal(s, p, res.sp.t);
     if (p === 'visible') inp.checked = !ov.hidden;
     else if (p === 'label') inp.value = ov.label || '';
-    else inp.value = v != null ? (typeof v === 'number' ? r2(v) : v) : '';
+    else inp.value = v != null ? (typeof v === 'number' ? (p === 'offset' ? r12(v) : r2(v)) : v) : '';
     if (p === 'visible' || p === 'label') return;
     const own = ov[p] != null && ov[p] !== '', pv = inp.parentElement;
     inp.classList.toggle('own', own);
@@ -2942,8 +2974,8 @@ const INSP = {
   x: { name: 'X-Achse', rows: [['Titel', ['xTitle']], ['Min / Max', ['xMin', 'xMax']], ['Skala', ['xScale']], ['Ticks: Anzahl / Abstand', ['xTicks', 'xStep']], ['Nachkommastellen', ['xDec', 'xSci|wiss.']],
     ['Datumsformat', ['xDate']], ['Beschriftung drehen', ['xRot']], ['Gitterlinien', ['grid', 'gridX|senkrecht']]], shared: AXIS_SHARED },
   y: { name: 'Y-Achse', rows: [['Titel', ['yTitle']], ['Min / Max', ['yMin', 'yMax']], ['Skala', ['yScale']], ['Ticks: Anzahl / Abstand', ['yTicks', 'yStep']], ['Nachkommastellen', ['yDec', 'ySci|wiss.']],
-    ['Datumsformat', ['yDate']], ['Gitterlinien', ['grid', 'gridY|waagerecht']]], shared: AXIS_SHARED },
-  y2: { name: 'Rechte Y-Achse', rows: [['Titel', ['y2Title']], ['Min / Max', ['y2Min', 'y2Max']], ['Skala', ['y2Scale']], ['Nachkommastellen', ['y2Dec']]], shared: AXIS_SHARED },
+    ['Datumsformat', ['yDate']], ['Ticks anzeigen', ['yTickShow']], ['Gitterlinien', ['grid', 'gridY|waagerecht']]], shared: AXIS_SHARED },
+  y2: { name: 'Rechte Y-Achse', rows: [['Titel', ['y2Title']], ['Min / Max', ['y2Min', 'y2Max']], ['Skala', ['y2Scale']], ['Ticks anzeigen', ['y2TickShow']], ['Nachkommastellen', ['y2Dec']]], shared: AXIS_SHARED },
   legend: { name: 'Legende', rows: [['Position', ['legendPos']], ['Einträge', ['legendMode']], ['Spalten (0 = automatisch)', ['legendCols']], ['Titel der Legende', ['legendTitle']], ['Schrift (pt)', ['legendSize', 'legendBold|fett']],
     ['', ['legendFrame|Rahmen und Hintergrund']], ['Rahmen Farbe / Breite (pt)', ['legendFrameColor', 'legendFrameW']], ['Deckkraft Hintergrund', ['legendAlpha']]] },
   plot: { name: 'Plotbereich', rows: [['Hintergrund', ['plotBg', 'plotTransparent']], ['Achsenlinien', ['spines']], ['Farbe / Breite (pt)', ['spineColor', 'spineW']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']],
@@ -3013,12 +3045,13 @@ function seriesInsp(box) {
     patch && t !== 'violin' && ['Schraffur', [['hatch', ['sel', HATCH_LABEL]]]],
     err && ['Fehlerbalken Farbe / Breite (pt)', [['errColor', ['color']], ['errW', num(0.25, 0)]]],
     t === 'bar' && ['Darstellung', [['kind', ['sel', { bar: 'Balken', line: 'Linie' }]]]],
-    ['line', 'scatter', 'linept', 'area', 'bar'].includes(t) && ['Y-Achse', [['axis', ['sel', { y: 'links', y2: 'rechts' }]]]]
+    ['line', 'scatter', 'linept', 'area', 'bar'].includes(t) && ['Y-Achse', [['axis', ['sel', { y: 'links', y2: 'rechts' }]]]],
+    OFFSET_TYPES.includes(t) && asLine && ['Versatz in Y', [['offset', num('any')]]]
   ].filter(Boolean);
   const field = (p, [ty, a, b, c]) => {
     const own = ov[p] != null && ov[p] !== '', v = seriesVal(s, p, t), attr = `data-s="${k}" data-prop="${p}"`;
     const inner = ty === 'color' ? `<input type="color" ${attr} value="${esc(v)}">` : ty === 'sel' ? `<select ${attr}>${opts(a, v)}</select>`
-      : `<input type="number" step="${a}" min="${b}"${c != null ? ` max="${c}"` : ''} ${attr} value="${v != null ? r2(v) : ''}" style="width:60px">`;
+      : `<input type="number" step="${a}"${b != null ? ` min="${b}"` : ''}${c != null ? ` max="${c}"` : ''} ${attr} value="${v != null ? (p === 'offset' ? r12(v) : r2(v)) : ''}" style="width:60px">`;
     return `<span class="pv ${own ? 'own' : 'inh'}" title="${own ? 'eigener Wert – gilt nur für diese Reihe' : 'folgt dem Stil bzw. der Zuordnung links'}">${inner}</span>`;
   };
   const nOwn = SERIES_PROPS.concat('errColor').filter(p => ov[p] != null && ov[p] !== '').length;
@@ -3769,6 +3802,20 @@ function pythonCode() {
   const order = sp.xCat && TYPE_INFO[t].cat ? `[${res.cats.map(py).join(', ')}]` : null;
   const common = { data: 'df', hue: H && py(H), hue_order: hueOrder };
   const horiz = t === 'bar' && P.bar.orient === 'h';
+  // Versatz einzelner Reihen: die Werte der Reihe vor dem Zeichnen verschieben (Reihe = Kombination ihrer kategorialen Stufen)
+  const offS = OFFSET_TYPES.includes(t) && t !== 'bar' && !sp.countMode ? res.series.filter(s => s.look.offset && !s.hidden) : [];
+  if (offS.length && t === 'area' && P.bar.mode !== 'dodge') L.push('# Versatz einzelner Reihen ist bei gestapelten Flächen hier nicht enthalten', '');
+  else if (offS.length) {
+    L.push('# Versatz einzelner Reihen für den Vergleich');
+    const cols = [Y, ...(ec && ec.mode !== 'delta' ? [ec.hi, ec.lo].filter(Boolean) : [])].map(py).join(', ');
+    for (const s of offS) {
+      const lv = Object.entries(s.lv || {}).filter(([d]) => m[d]);
+      if (lv.some(([d]) => !res.dims[d] || res.dims[d].kind !== 'cat')) { L.push(`# Versatz ${pyNum(s.look.offset)} für ${plainRich(s.legend)} bitte von Hand ergänzen`); continue; }
+      const mask = lv.map(([d, l]) => `(df[${py(nm(m[d]))}] == ${py(l)})`).join(' & ');
+      L.push(`df.loc[${mask || ':'}, [${cols}]] += ${pyNum(s.look.offset)}`);
+    }
+    L.push('');
+  }
   if (ec) {
     // Fehlergrenzen stehen in der Tabelle: mit matplotlib zeichnen (yerr), nicht von seaborn schätzen lassen
     const hc = ec.hi || ec.lo, lc = ec.lo || ec.hi;
@@ -3830,6 +3877,8 @@ function pythonCode() {
   if (S.spines === 'lb') L.push('sns.despine(ax=ax)');
   if (S.labelBold) L.push('ax.xaxis.label.set_fontweight("bold")', 'ax.yaxis.label.set_fontweight("bold")');
   if (S.tickBold) L.push('plt.setp(ax.get_xticklabels() + ax.get_yticklabels(), fontweight="bold")');
+  if (S.yTickShow === 'marks') L.push('ax.tick_params(axis="y", which="both", labelleft=False)   # Y-Ticks ohne Zahlen');
+  else if (S.yTickShow === 'none') L.push('ax.tick_params(axis="y", which="both", left=False, labelleft=False)   # Y-Ticks ausgeblendet');
   if (S.decSep === ',') {
     L.push('komma = FuncFormatter(lambda v, p: f"{v:g}".replace(".", ","))');
     if (!sp.xCat || horiz) L.push('ax.xaxis.set_major_formatter(komma)');
