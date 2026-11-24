@@ -201,6 +201,14 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
       </div>
       <div class="row" id="rowLineOpts"><label><input type="checkbox" data-p="sortX"> X sortieren</label><label><input type="checkbox" data-p="connectGaps"> Lücken verbinden</label></div>
       <div class="row" id="rowTrend"><label><input type="checkbox" data-p="trend"> Trendlinie (linear)</label><label><input type="checkbox" data-p="trendEq"> Gleichung und R²</label></div>
+      <div id="normBox">
+        <div class="sub">Normierung</div>
+        <div class="row"><span>Jede Reihe normieren</span><select data-p="norm.mode"><option value="none">aus</option><option value="x">an einem X-Wert</option><option value="max">auf ihr Maximum</option></select></div>
+        <div class="row" id="rowNormX"><span>bei X =</span><input type="number" step="any" data-p="norm.x" style="width:80px" title="Stelle auf der X-Achse, an der alle Reihen denselben Wert bekommen">
+          <span title="0 = Wert genau an dieser Stelle (zwischen zwei Messpunkten linear interpoliert). Größer 0 = Mittelwert aller Punkte von X − Breite bis X + Breite, gut bei verrauschten Daten">±</span><input type="number" step="any" min="0" data-p="norm.w" style="width:60px" title="0 = Wert genau an dieser Stelle (zwischen zwei Messpunkten linear interpoliert). Größer 0 = Mittelwert aller Punkte von X − Breite bis X + Breite, gut bei verrauschten Daten"></div>
+        <div class="row" id="rowNormTo"><span>auf den Wert</span><input type="number" step="any" data-p="norm.to" style="width:80px"></div>
+        <p class="hint" id="normInfo"></p>
+      </div>
     </div>
     <div id="barBox">
       <div class="sub">Balken</div>
@@ -593,6 +601,7 @@ const freshP = () => ({
   roleCol: '',                                   // '' = automatisch erkennen, '-' = aus
   fileCols: 'merge',                             // eigene Messwert-Spalten zusammengeführter Dateien: 'merge' = zu „Wert“, 'separate' = getrennt
   errCols: { mode: 'bounds', hi: '', lo: '' },   // Fehler aus Spalten: Grenzen oder Abstände
+  norm: { mode: 'none', x: 0, w: 0, to: 1 },     // Normierung je Reihe: 'none' / 'x' (bei X = x, Mittel über ± w) / 'max', Zielwert to
   filters: [], types: {},
   levels: { hue: {}, style: {}, size: {}, extra: {} },
   order: { hue: [], style: [], size: [], extra: [], x: [] },
@@ -1258,6 +1267,7 @@ function pipeline() {
     if (t !== 'hist' && (sp.xCat || P.sortX)) s.pts.sort((a, b) => a.x - b.x);
     out.series.push(s);
   }
+  if (P.norm.mode !== 'none' && NORM_TYPES.includes(t) && !sp.countMode) normalizeSeries(out, sp);
 
   // Histogramm: gemeinsame Klassen für alle Gruppen
   if (t === 'hist') {
@@ -1277,6 +1287,35 @@ function pipeline() {
   }
   styleSeries(out);
   return out;
+}
+
+/* ---------- Normierung: jede Reihe so skalieren, dass sie an einer Stelle denselben Wert hat ---------- */
+const NORM_TYPES = ['line', 'scatter', 'linept', 'area'];
+// Bezugswert einer Reihe: ihr Maximum, das Mittel aller Punkte in x0 ± w oder der Wert bei x0 (zwischen den
+// Nachbarpunkten linear interpoliert). null, wenn es dort keine Daten gibt.
+function normRef(pts, mode, x0, w) {
+  const ps = pts.filter(p => p.y != null && isFinite(p.y) && isFinite(p.x)).sort((a, b) => a.x - b.x);
+  if (!ps.length) return null;
+  if (mode === 'max') return maxOf(ps.map(p => p.y));
+  if (w > 0) { const ys = ps.filter(p => Math.abs(p.x - x0) <= w).map(p => p.y); return ys.length ? mean(ys) : null; }
+  if (x0 < ps[0].x || x0 > ps[ps.length - 1].x) return null;
+  const i = ps.findIndex(p => p.x >= x0), b = ps[i];
+  if (b.x === x0 || i === 0) return b.y;
+  const a = ps[i - 1];
+  return a.y + (b.y - a.y) * (x0 - a.x) / (b.x - a.x);
+}
+// Werte, Streuung und Fehler jeder Reihe mit Zielwert / Bezugswert malnehmen; s.norm merkt den Faktor
+function normalizeSeries(out, sp) {
+  const { mode, x: x0, to } = P.norm, w = Math.max(0, +P.norm.w || 0);
+  if (mode === 'x' && (sp.xCat || !sp.xc || sp.xc.type !== 'num')) { out.notes.push('Normierung an einem X-Wert nur mit Zahlen auf der X-Achse'); return; }
+  const miss = [];
+  for (const s of out.series) {
+    const ref = normRef(s.pts, mode, x0, w);
+    if (ref == null || !isFinite(ref) || ref === 0) { miss.push(s.label); continue; }
+    s.norm = to / ref;
+    for (const p of s.pts) for (const k of ['y', 'lo', 'hi']) if (p[k] != null) p[k] *= s.norm;
+  }
+  if (miss.length) out.notes.push(`nicht normiert (${mode === 'x' ? `kein Wert bei X = ${fmtNum(x0, -1)}${w > 0 ? ` ± ${fmtNum(w, -1)}` : ''}` : 'Maximum'} oder 0): ${miss.join(', ')}`);
 }
 
 // Ist eine Reihe ausgeblendet (selbst oder über eine ihrer Stufen)?
@@ -1818,7 +1857,7 @@ function buildPlot(res, preview) {
   const useY2 = vis.some(s => s.look.axis === 'y2') && t !== 'heatmap';
   const ysName = sp.ys.length === 1 ? sp.ys[0] : 'Wert';
   const valTitle = sp.countMode ? (P.bar.stat === 'percent' ? 'Prozent' : 'Anzahl') : t === 'hist' ? { count: 'Anzahl', density: 'Dichte', percent: 'Prozent' }[P.hist.stat]
-    : (t === 'bar' || t === 'area') && P.bar.mode === 'stack100' ? 'Anteil (%)' : ysName;
+    : (t === 'bar' || t === 'area') && P.bar.mode === 'stack100' ? 'Anteil (%)' : ysName + (res.series.some(s => s.norm != null) ? ' (normiert)' : '');
   const catTitle = sp.x && sp.x !== VAR ? sp.x : '';
   let roles;   // physische Achsen: bottom (x), left (y), right (y2)
   const xKind = sp.xc && sp.xc.type === 'date' ? 'date' : 'lin';
@@ -2112,7 +2151,7 @@ function buildPlot(res, preview) {
       const [x, y] = ptCV(p.x, p.y, axis);
       hits.push({ x, y, sk: mk.s.key, tip: tipBase(mk.s) + `${xName}: ${xLabelOf(p)}\n${mk.s.look.axis === 'y2' ? axTitle.y2 || 'y' : yName}: ${fmtNum(r12(p.y - (p.y0 != null ? p.y0 : p.off || 0)), -1)}` +
         (p.n > 1 ? `\nn = ${p.n}` : '') + (p.lo != null ? `\n${{ sd: 'SD', se: 'SE', ci: '95-%-KI', cols: 'Fehlerbereich' }[P.err] || 'Streuung'}: ${fmtNum(r12(p.lo - (p.off || 0)), -1)} … ${fmtNum(r12(p.hi - (p.off || 0)), -1)}` : '') +
-        (p.off ? `\nVersatz: ${fmtNum(r12(p.off), -1)}` : '') });
+        (p.off ? `\nVersatz: ${fmtNum(r12(p.off), -1)}` : '') + (mk.s.norm != null ? `\nNormiert: × ${fmtNum(+mk.s.norm.toPrecision(4), -1)}` : '') });
     }
   }
   if (decimated.length) notes.push(`Linien vereinfacht (zu viele Punkte für die Breite): ${[...new Set(decimated)].join(', ')}`);
@@ -2714,6 +2753,9 @@ function updateVisibility() {
   show('#statBox', !['hist', 'box', 'violin'].includes(t) && !(t === 'bar' && P.bar.stat !== 'value'));
   show('#rowLineOpts', xy);
   show('#rowTrend', ['line', 'scatter', 'linept'].includes(t));
+  show('#normBox', NORM_TYPES.includes(t));
+  show('#rowNormX', P.norm.mode === 'x');
+  show('#rowNormTo', P.norm.mode !== 'none');
   show('#rowBins', P.hist.binMode === 'n');
   show('#rowBinW', P.hist.binMode === 'w');
   show('#rowMargins', S.marginMode === 'manual');
@@ -2929,6 +2971,13 @@ $('#btnResetSeries').onclick = () => { P.series = {}; P.levels = { hue: {}, styl
 
 /* ---------- Rendern ---------- */
 let rafPending = false;
+// Unter der Normierung: was sie tut bzw. die berechneten Faktoren je Reihe
+function showNormInfo(res) {
+  const fs = res.series.filter(s => s.norm != null && !s.hidden);
+  $('#normInfo').textContent = P.norm.mode === 'none'
+    ? 'Skaliert jede Reihe so, dass alle an einem X-Wert (oder an ihrem Maximum) denselben Wert haben, z. B. 1 – zum Vergleich von Kurven mit unterschiedlicher Intensität.'
+    : fs.length ? 'Faktoren: ' + fs.map(s => `${plainRich(s.legend)} × ${fmtNum(+s.norm.toPrecision(4), -1)}`).join(' · ') : 'Keine Reihe normiert.';
+}
 function render() {
   if (rafPending) return;
   rafPending = true;
@@ -2942,6 +2991,7 @@ function renderNow() {
   catch (err) { console.error(err); $('#status').textContent = 'Fehler beim Zeichnen: ' + err.message; return; }
   R = { res, plot };
   updateSeriesPanel(res);
+  showNormInfo(res);
   const view = $('#view');
   if ($('#fit').checked) {
     const z = clamp(Math.min((view.clientWidth - 64) / plot.W, (view.clientHeight - 64) / plot.H), 0.25, 4);
@@ -3967,17 +4017,33 @@ function pythonCode() {
   const order = sp.xCat && TYPE_INFO[t].cat ? `[${res.cats.map(py).join(', ')}]` : null;
   const common = { data: 'df', hue: H && py(H), hue_order: hueOrder };
   const horiz = t === 'bar' && P.bar.orient === 'h';
-  // Versatz einzelner Reihen: die Werte der Reihe vor dem Zeichnen verschieben (Reihe = Kombination ihrer kategorialen Stufen)
+  // Zeilen einer Reihe (= Kombination ihrer kategorialen Stufen) als pandas-Maske; null, wenn eine Stufe nicht kategorial ist
+  const maskOf = s => {
+    const lv = Object.entries(s.lv || {}).filter(([d]) => m[d]);
+    if (lv.some(([d]) => !res.dims[d] || res.dims[d].kind !== 'cat')) return null;
+    return lv.map(([d, l]) => `(df[${py(nm(m[d]))}] == ${py(l)})`).join(' & ') || ':';
+  };
+  // Normierung: Faktoren wie in der Vorschau berechnet; Fehler (Grenzen und Abstände) werden mit skaliert
+  const normS = res.series.filter(s => s.norm != null && !s.hidden);
+  if (normS.length) {
+    const n = P.norm, w = Math.max(0, +n.w || 0);
+    L.push(`# Normierung: jede Reihe ${n.mode === 'max' ? 'an ihrem Maximum' : `bei ${plainRich(X || 'x')} = ${pyNum(n.x)}${w > 0 ? ` (Mittel über ± ${pyNum(w)})` : ''}`} auf ${pyNum(n.to)}`);
+    const cols = [Y, ...(ec ? [ec.hi, ec.lo].filter(Boolean) : [])].map(py).join(', ');
+    for (const s of normS) {
+      const mask = maskOf(s);
+      L.push(mask ? `df.loc[${mask}, [${cols}]] *= ${pyNum(s.norm)}` : `# Faktor ${pyNum(s.norm)} für ${plainRich(s.legend)} bitte von Hand ergänzen`);
+    }
+    L.push('');
+  }
+  // Versatz einzelner Reihen: die Werte der Reihe vor dem Zeichnen verschieben (nach der Normierung, wie in der Vorschau)
   const offS = OFFSET_TYPES.includes(t) && t !== 'bar' && !sp.countMode ? res.series.filter(s => s.look.offset && !s.hidden) : [];
   if (offS.length && t === 'area' && P.bar.mode !== 'dodge') L.push('# Versatz einzelner Reihen ist bei gestapelten Flächen hier nicht enthalten', '');
   else if (offS.length) {
     L.push('# Versatz einzelner Reihen für den Vergleich');
     const cols = [Y, ...(ec && ec.mode !== 'delta' ? [ec.hi, ec.lo].filter(Boolean) : [])].map(py).join(', ');
     for (const s of offS) {
-      const lv = Object.entries(s.lv || {}).filter(([d]) => m[d]);
-      if (lv.some(([d]) => !res.dims[d] || res.dims[d].kind !== 'cat')) { L.push(`# Versatz ${pyNum(s.look.offset)} für ${plainRich(s.legend)} bitte von Hand ergänzen`); continue; }
-      const mask = lv.map(([d, l]) => `(df[${py(nm(m[d]))}] == ${py(l)})`).join(' & ');
-      L.push(`df.loc[${mask || ':'}, [${cols}]] += ${pyNum(s.look.offset)}`);
+      const mask = maskOf(s);
+      L.push(mask ? `df.loc[${mask}, [${cols}]] += ${pyNum(s.look.offset)}` : `# Versatz ${pyNum(s.look.offset)} für ${plainRich(s.legend)} bitte von Hand ergänzen`);
     }
     L.push('');
   }
@@ -4145,11 +4211,13 @@ function sanitizeP(o) {
     if (v == null) continue;
     if (Array.isArray(d)) { if (Array.isArray(v)) p[k] = k === 'filters' ? v.filter(f => f && typeof f.col === 'string').map(f => ({ col: f.col, op: OPS.some(x => x[0] === f.op) ? f.op : '=', val: String(f.val ?? '') }))
       : k === 'ann' ? v.map(sanitizeAnn).filter(Boolean) : v.filter(x => typeof x === 'string'); }
-    else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm', 'errCols'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
+    else if (typeof d === 'object') { if (typeof v === 'object') p[k] = ['bar', 'hist', 'box', 'hm', 'errCols', 'norm'].includes(k) ? { ...d, ...Object.fromEntries(Object.entries(v).filter(([kk, vv]) => kk in d && typeof vv === typeof d[kk])) } : v; }
     else if (typeof v === typeof d) p[k] = v;
   }
   if (!TYPE_INFO[p.type]) p.type = 'line';
   if (!['merge', 'separate'].includes(p.fileCols)) p.fileCols = 'merge';
+  if (!['none', 'x', 'max'].includes(p.norm.mode)) p.norm.mode = 'none';
+  for (const k of ['x', 'w', 'to']) if (!isFinite(p.norm[k])) p.norm[k] = freshP().norm[k];
   for (const k of ['hue', 'style', 'size', 'extra', 'x']) if (!Array.isArray(p.order[k])) p.order[k] = [];
   for (const k of ['hue', 'style', 'size', 'extra']) if (!p.levels[k] || typeof p.levels[k] !== 'object') p.levels[k] = {};
   p.legTitles = Object.fromEntries(Object.entries(p.legTitles && typeof p.legTitles === 'object' ? p.legTitles : {}).filter(([k, v]) => LT_NAME[k] && typeof v === 'string'));
