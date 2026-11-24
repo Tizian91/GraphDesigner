@@ -165,13 +165,14 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     </div>
     <div class="row"><label><input type="checkbox" data-p="useHeader"> Erste Zeile ist Kopfzeile</label></div>
     <div class="row" title="Lange Form: Eine Spalte nennt, was der Wert ist (z. B. Mean, Upper, Lower). Ihre Werte werden zu eigenen Spalten."><span>Kennungsspalte (lange Form)</span><select data-p="roleCol" id="roleSel"></select></div>
+    <div class="row" id="rowFileCols" hidden title="Zusammengeführte Dateien, in denen jede Datei eigene Messwert-Spalten hat (z. B. nach der Probe benannt). Zusammenlegen: eine Spalte „Wert“, die Spalte „Datei“ trennt die Reihen, die Legende zeigt die Dateinamen. Getrennt lassen: jede Spalte ist eine Reihe, die Legende zeigt die Spaltennamen. Das Eingabefeld behält immer die getrennten Spalten"><span>Messwert-Spalten der Dateien</span><select data-p="fileCols"><option value="merge">zu „Wert“ zusammenlegen</option><option value="separate">getrennt lassen</option></select></div>
     <div id="dataInfo" class="hint"></div>
     <div id="preview"></div>
     <div class="sub">Zeilen filtern</div>
     <div id="filters"></div>
     <div class="btns"><button id="btnAddFilter">+ Filter</button></div>
     <p class="hint">Markdown-Tabellen, CSV/TSV (Trennzeichen wird erkannt), aus Excel kopierte Zellen und .xlsx-Dateien, auch per Drag &amp; Drop. Deutsche Zahlen wie 1.234,5 werden erkannt. Den Typ einer Spalte kannst du in der Vorschau ändern.</p>
-    <p class="hint">Mehrere Dateien (z. B. eine CSV pro Messung) auf einmal öffnen, hineinziehen oder mit „+ Anhängen…“ ergänzen: Sie werden untereinander zu einer Tabelle zusammengeführt, gleichnamige Spalten passen zusammen. Die neue Spalte „Datei“ enthält den Dateinamen und wird als Farbe (hue) verwendet, so steht jede Messung als eigene Reihe im Plot.</p>
+    <p class="hint">Mehrere Dateien (z. B. eine CSV pro Messung) auf einmal öffnen, hineinziehen oder mit „+ Anhängen…“ ergänzen: Sie werden untereinander zu einer Tabelle zusammengeführt, gleichnamige Spalten passen zusammen. Die neue Spalte „Datei“ enthält den Dateinamen und wird als Farbe (hue) verwendet, so steht jede Messung als eigene Reihe im Plot. Hat jede Datei eigene Messwert-Spalten (z. B. nach der Probe benannt), werden sie zur Spalte „Wert“ zusammengelegt; mit „getrennt lassen“ ist stattdessen jede Spalte eine Reihe.</p>
   </details>
 
   <details open>
@@ -590,6 +591,7 @@ const freshP = () => ({
   box: { fliers: true, inner: 'box', norm: 'area' },
   hm: { annot: true, dec: -1 },
   roleCol: '',                                   // '' = automatisch erkennen, '-' = aus
+  fileCols: 'merge',                             // eigene Messwert-Spalten zusammengeführter Dateien: 'merge' = zu „Wert“, 'separate' = getrennt
   errCols: { mode: 'bounds', hi: '', lo: '' },   // Fehler aus Spalten: Grenzen oder Abstände
   filters: [], types: {},
   levels: { hue: {}, style: {}, size: {}, extra: {} },
@@ -740,6 +742,37 @@ function combineTables(parts) {
     for (const r of p.rows.slice(1)) out.push([...idx.map(i => i < 0 ? '' : String(r[i] ?? '')), si < 0 ? p.name : String(r[si] ?? '')]);
   });
   return out;
+}
+// Hat jede Datei eigene Messwert-Spalten (z. B. nach der Probe benannt, gemeinsam etwa nur die X-Spalte), stehen sie nach
+// dem Zusammenführen getrennt und sind je zur Hälfte leer. Hier werden sie je Datei nach ihrer Position zu „Wert“
+// (bzw. „Wert 1“, „Wert 2“ …) zusammengelegt, wie pd.concat nach dem Umbenennen. Die Spalte „Datei“ trennt dann die
+// Reihen. Ergebnis null, wenn es nichts zusammenzulegen gibt (z. B. gleiche Spalten in allen Dateien).
+function mergeFileCols(d) {
+  const src = d.cols.find(c => c.name === SRC_COL); if (!src) return null;
+  const own = new Map([...new Set(src.raw.filter(s => !isNA(s)))].map(f => [f, []])), shared = [];
+  for (const c of d.cols) {
+    if (c === src) continue;
+    const fs = new Set(); c.raw.forEach((s, r) => { if (!isNA(s)) fs.add(src.raw[r]); });
+    const f = fs.size === 1 ? [...fs][0] : null;
+    if (f != null && own.has(f)) own.get(f).push(c); else shared.push(c);
+  }
+  const groups = [...own.values()].filter(g => g.length), k = groups.length ? groups[0].length : 0;
+  if (groups.length < 2 || groups.some(g => g.length !== k)) return null;
+  const taken = shared.map(c => c.name);
+  const names = Array.from({ length: k }, (_, j) => {
+    const nm = k > 1 ? `Wert ${j + 1}` : 'Wert';
+    let n = nm, i = 2; while (taken.includes(n)) n = `${nm} (${i++})`;
+    taken.push(n); return n;
+  });
+  // Gemeinsame Spalten bleiben, die zusammengelegten stehen an der Stelle der ersten Messwert-Spalte, „Datei“ hinten
+  const first = d.cols.findIndex(c => c !== src && !shared.includes(c));
+  const before = shared.filter(c => d.cols.indexOf(c) < first), after = shared.filter(c => d.cols.indexOf(c) > first);
+  const rows = [[...before.map(c => c.name), ...names, ...after.map(c => c.name), SRC_COL]];
+  for (let r = 0; r < d.n; r++) {
+    const g = own.get(src.raw[r]) || [];
+    rows.push([...before.map(c => c.raw[r]), ...names.map((_, j) => g[j] ? g[j].raw[r] : ''), ...after.map(c => c.raw[r]), src.raw[r]]);
+  }
+  return { rows, names, cols: groups.flat().map(c => c.name), x: shared.length ? shared[0].name : '' };
 }
 // Namen für die Spalte „Datei“: ohne Endung, gleiche Namen bekommen „(2)“, „(3)“ …
 function fileLabels(fileNames, used = []) {
@@ -1175,7 +1208,13 @@ function pipeline() {
   }
   const hueNum = dims.hue && dims.hue.kind === 'num' ? dims.hue : null, sizeNum = dims.size && dims.size.kind === 'num' ? dims.size : null;
   const total = recs.length;
+  const srcC = sp.countMode || t === 'hist' ? null : colByName(SRC_COL);
   for (const g of gl) {
+    // Zusammengeführte Dateien: Zeilen einer Datei, die diese Y-Spalte gar nicht hat, sind keine Lücken in der Linie
+    if (srcC) {
+      const has = new Set(g.recs.filter(rc => rc.y != null).map(rc => srcC.val[rc.r]));
+      if (has.size) g.recs = g.recs.filter(rc => rc.y != null || has.has(srcC.val[rc.r]));
+    }
     const s = { key: g.key, lv: g.lv, parts: g.parts, label: [...new Set(g.parts)].join(', ') || g.key, pts: [] };
     if (t === 'hist') { s.vals = g.recs.map(rc => rc.y).filter(v => v != null); }
     else if (t === 'box' || t === 'violin') {
@@ -2528,6 +2567,7 @@ const SAMPLES = {
 const DEFAULT_SAMPLE = 'Messreihe (CSV, Dezimalkomma)';
 
 /* ---------- Daten-Eingabe ---------- */
+let fileMerge = null;   // mergeFileCols(D) der aktuellen Daten, null = nichts zusammenzulegen
 function parseSrc() {
   tables = parseInput($('#src').value);
   if (tIdx >= tables.length) tIdx = 0;
@@ -2543,6 +2583,10 @@ function rebuildData() {
   const pv = roleUsed ? pivotRoles(D0, roleUsed) : null;
   if (!pv) roleUsed = '';
   D = pv ? buildData(pv, true) : D0;
+  // Eigene Messwert-Spalten zusammengeführter Dateien: wahlweise zu „Wert“ zusammenlegen (die Eingabe bleibt unverändert)
+  fileMerge = mergeFileCols(D);
+  $('#rowFileCols').hidden = !fileMerge;
+  if (fileMerge && P.fileCols !== 'separate') D = buildData(fileMerge.rows, true);
   fixSelection();
   buildDataPanel();
   buildColumnSelects();
@@ -2566,11 +2610,14 @@ function fixSelection() {
       seriesSig = '';
     } else {
       const nums = D.cols.filter(c => c.type === 'num' && c.name !== P.x).map(c => c.name);
-      P.ys = nums.slice(0, 8);
+      // Getrennte Messwert-Spalten zusammengeführter Dateien: alle als Reihen, auch mehr als 8
+      P.ys = fileMerge && P.fileCols === 'separate' ? fileMerge.cols.filter(n => nums.includes(n)) : nums.slice(0, 8);
     }
   }
   if (P.err === 'cols') for (const k of ['hi', 'lo']) if (P.errCols[k] && !names.includes(P.errCols[k])) P.errCols[k] = '';
   for (const k of ['hue', 'style', 'size']) if (P[k] && !valid(P[k])) P[k] = '';
+  // Zusammengelegte Messwerte ohne Farbe würden alle Dateien zu einer Linie verbinden
+  if (fileMerge && P.fileCols !== 'separate' && ![P.hue, P.style, P.size].includes(SRC_COL) && (!P.hue || P.hue === VAR)) P.hue = SRC_COL;
   P.filters = P.filters.filter(f => names.includes(f.col));
 }
 const TYPE_NAMES = { num: 'Zahl', date: 'Datum', cat: 'Text' };
@@ -2601,6 +2648,7 @@ function buildDataPanel() {
   });
   const info = [`${D.n} Zeilen × ${cols.length} Spalten`];
   if (roleUsed) info.push(`lange Form umgeformt: Werte aus „${roleUsed}“ sind jetzt Spalten (Vorschau zeigt das Ergebnis)`);
+  if (fileMerge && P.fileCols !== 'separate') info.push(`${fileMerge.cols.length} Messwert-Spalten der Dateien zu „${fileMerge.names.join('“, „')}“ zusammengelegt (Vorschau zeigt das Ergebnis)`);
   const pct = cols.filter(c => c.pct).map(c => c.name);
   if (pct.length) info.push(`Prozentangaben als Zahlen gelesen (%-Zeichen entfernt): ${pct.join(', ')}`);
   const bad = cols.filter(c => c.bad > 0).map(c => `${c.name} (${c.bad})`);
@@ -3495,6 +3543,7 @@ $$('[data-p]').forEach(el => {
     if (typeof v === 'number' && isNaN(v)) return;
     setPath(P, k, v);
     if (k === 'useHeader' || k === 'roleCol') { if (k === 'roleCol') P.ys = []; seriesSig = ''; rebuildData(); }
+    if (k === 'fileCols') { P.ys = []; fileHue(true); seriesSig = ''; rebuildData(); }
     if (k === 'err' && v === 'cols' && !P.errCols.hi && !P.errCols.lo) { const g = guessErrCols(D); if (g) P.errCols = g; }
     if (['x', 'hue', 'style', 'size', 'bar.stat', 'bar.mode', 'bar.orient', 'hist.binMode'].includes(k)) buildColumnSelects();
     if (k === 'bar.order' || k === 'hue' || k === 'style' || k === 'size') seriesSig = '';
@@ -3585,10 +3634,20 @@ async function loadFiles(files, append) {
   $('#src').value = toTSV(rows);
   P.useHeader = true;
   if (!P.types[SRC_COL]) P.types[SRC_COL] = 'cat';   // Dateinamen wie „1“, „2“ sind Namen, keine Zahlen
-  if (!P.hue || !rows[0].includes(P.hue)) P.hue = SRC_COL;
-  tIdx = 0; seriesSig = ''; parseSrc(); syncUI(); render();
+  tIdx = 0; seriesSig = ''; parseSrc();
+  if (fileMerge) { P.ys = []; if (fileMerge.x) P.x = fileMerge.x; }   // Y passend zur Darstellung neu wählen
+  fileHue(!!fileMerge);
+  rebuildData(); render();
   toast(`${nOk} Datei${nOk === 1 ? '' : 'en'} ${append ? 'angehängt' : 'zusammengeführt'} (${rows.length - 1} Zeilen)` +
+    (!fileMerge || P.fileCols !== 'separate' ? ' · eine Reihe je Datei' : ' · eigene Messwert-Spalten getrennt, je Spalte eine Reihe') +
     (skipped.length ? ` · übersprungen: ${skipped.join(', ')}` : ''));
+}
+// Farbe passend zur Darstellung: Messwerte in gemeinsamen Spalten → Farbe nach „Datei“; eigene Messwert-Spalten
+// getrennt gelassen → jede Spalte ist schon eine Reihe, eine Farbe nach „Datei“ würde sie nur doppelt aufteilen.
+function fileHue(ownCols) {
+  if (ownCols) for (const k of ['style', 'size']) if (P[k] === SRC_COL || P[k] === VAR) P[k] = '';
+  if (ownCols && P.fileCols === 'separate') { if (P.hue === SRC_COL) P.hue = ''; }
+  else if (!P.hue || P.hue === VAR || !colByName(P.hue)) P.hue = SRC_COL;
 }
 let xlsxP = null;
 function loadSheetJS() {
@@ -4088,6 +4147,7 @@ function sanitizeP(o) {
     else if (typeof v === typeof d) p[k] = v;
   }
   if (!TYPE_INFO[p.type]) p.type = 'line';
+  if (!['merge', 'separate'].includes(p.fileCols)) p.fileCols = 'merge';
   for (const k of ['hue', 'style', 'size', 'extra', 'x']) if (!Array.isArray(p.order[k])) p.order[k] = [];
   for (const k of ['hue', 'style', 'size', 'extra']) if (!p.levels[k] || typeof p.levels[k] !== 'object') p.levels[k] = {};
   p.legTitles = Object.fromEntries(Object.entries(p.legTitles && typeof p.legTitles === 'object' ? p.legTitles : {}).filter(([k, v]) => LT_NAME[k] && typeof v === 'string'));

@@ -132,6 +132,30 @@ document.getElementById('app').onload = async () => {
     ev(`S={...DEF};P=freshP();seriesSig='';srcName='versuch.csv';$('#src').value='Zeit;Spannung\\n0;1';parseSrc();`);
     await w.loadFiles([csvFile('b.csv', 'Zeit;Spannung\n0;2')], true);
     check('Anhängen an einzelne Datei: deren Name in „Datei“', ev(`D.cols.find(c => c.name === 'Datei').val`), ['versuch', 'b']);
+    ev(`S={...DEF};P=freshP();seriesSig='';$('#src').value='';parseSrc();`);
+    await w.loadFiles([csvFile('N0.csv', 'Energy loss (eV),"Netto S · ROI"\n63.9,\n64.1,1.5\n64.3,2.5'), csvFile('N50.csv', 'Energy loss (eV),"Netto Mo · ROI"\n63.0,\n63.2,7.5\n63.4,8.5')], false);
+    ev('renderNow()');
+    const fileView = () => ev(`[D.cols.map(c => c.name), P.x, P.ys, P.hue, legendModel(R.res, false).sections.flatMap(s => s.items.map(i => i.label)), R.res.series.map(s => s.pts.filter(p => p.y != null).length), $('#rowFileCols').hidden]`);
+    check('Eigene Y-Spalte je Datei: standardmäßig zu „Wert“ zusammengelegt, Farbe nach „Datei“',
+      fileView(), [['Energy loss (eV)', 'Wert', 'Datei'], 'Energy loss (eV)', ['Wert'], 'Datei', ['N0', 'N50'], [2, 2], false]);
+    check('Eigene Y-Spalte je Datei: Eingabe behält die Originalspalten', ev(`$('#src').value.split('\\n')[0].split('\\t')`), ['Energy loss (eV)', 'Netto S · ROI', 'Netto Mo · ROI', 'Datei']);
+    ev(`(s => { s.value = 'separate'; s.dispatchEvent(new Event('change')); })($('[data-p="fileCols"]'));renderNow()`);
+    check('Umschalten auf getrennt: jede Spalte eine Reihe, keine Farbe nach „Datei“',
+      fileView(), [['Energy loss (eV)', 'Netto S · ROI', 'Netto Mo · ROI', 'Datei'], 'Energy loss (eV)', ['Netto S · ROI', 'Netto Mo · ROI'], '', ['Netto S · ROI', 'Netto Mo · ROI'], [2, 2], false]);
+    ev(`(s => { s.value = 'merge'; s.dispatchEvent(new Event('change')); })($('[data-p="fileCols"]'));renderNow()`);
+    check('Zurückschalten: wieder „Wert“ und Farbe nach „Datei“', fileView()[2].concat(fileView()[3]), ['Wert', 'Datei']);
+    check('Gespeicherter Zustand ohne Farbe: beim Zusammenlegen Farbe nach „Datei“', ev(`P.hue='';P.ys=['Netto S · ROI'];rebuildData();[P.hue, P.ys]`), ['Datei', ['Wert']]);
+    check('Projekt: Einstellung gültig, Unbekanntes wird verworfen', ev(`[sanitizeP({fileCols:'separate'}).fileCols, sanitizeP({fileCols:'x'}).fileCols]`), ['separate', 'merge']);
+    check('Gleiche Spalten in allen Dateien: nichts zusammenzulegen', w.mergeFileCols(ev(`buildData([['t','U','Datei'],['0','1','a'],['0','2','b']], true)`)), null);
+    check('Zwei eigene Spalten je Datei: „Wert 1“, „Wert 2“ nach Position',
+      w.mergeFileCols(ev(`buildData([['t','Ua','Ia','Ub','Ib','Datei'],['0','1','2','','','a'],['0','','','3','4','b']], true)`)).rows,
+      [['t', 'Wert 1', 'Wert 2', 'Datei'], ['0', '1', '2', 'a'], ['0', '3', '4', 'b']]);
+    // Versetzte X-Raster (getrennte Spalten): die Zeilen der anderen Datei dürfen die Linie nicht unterbrechen, echte Lücken bleiben
+    ev(`P.fileCols='separate'`);
+    await w.loadFiles([csvFile('A.csv', 'x;Probe A\n0;1\n2;2\n4;\n6;4\n8;5'), csvFile('B.csv', 'x;Probe B\n1;7\n3;8\n5;9')], false);
+    ev('renderNow()');
+    check('Versetzte X-Raster: nur echte Lücken bleiben', ev(`R.res.series.map(s => s.pts.map(p => p.y))`), [[1, 2, null, 4, 5], [7, 8, 9]]);
+    check('Versetzte X-Raster: Linien werden gezeichnet', (ev('buildPlot(R.res, false).svg').match(/<path d="M[^"]*L/g) || []).length >= 3, true);
     ev(`S={...DEF};P=freshP();P.useHeader=false;seriesSig='';$('#src').value='';parseSrc();`);
     await w.loadFiles([csvFile('a.csv', '0;1\n1;2'), csvFile('b.csv', '0;3')], false);
     check('Ohne Kopfzeile: nach Position zusammengeführt', ev(`[P.useHeader, D.cols.map(c => c.name), D.n]`), [true, ['Spalte 1', 'Spalte 2', 'Datei'], 3]);
