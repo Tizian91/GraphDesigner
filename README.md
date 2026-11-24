@@ -13,6 +13,7 @@ Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](htt
 ## Funktionen
 
 - **Eingabe:** Markdown-Tabellen, CSV/TSV (Trennzeichen wird erkannt), aus Excel kopierte Zellen, `.xlsx`/`.xls`-Dateien mit Auswahl des Tabellenblatts, per Öffnen-Dialog oder Drag & Drop
+- **Mehrere Dateien kombinieren:** z. B. eine CSV pro Messung. Mehrere Dateien auf einmal öffnen oder hineinziehen, oder mit **+ Anhängen…** an die aktuellen Daten hängen. Die Tabellen werden untereinander zusammengeführt (wie `pd.concat`), gleichnamige Spalten passen zusammen, fehlende bleiben leer. Die neue Spalte `Datei` enthält den Dateinamen und wird als Farbe (`hue`) gesetzt, so erscheint jede Messung als eigene Reihe im selben Plot
 - **Daten:** Typerkennung (Zahl, Datum, Text) mit deutschen Zahlenformaten wie `1.234,5`, Typ je Spalte änderbar, Zeilen filtern
 - **Diagramme:** Linie, Punkte, Linie + Punkte, Fläche, Balken (vertikal, horizontal, gestapelt, 100 %), Häufigkeiten, Histogramm, Boxplot, Violin, Heatmap
 - **Gruppierung wie in seaborn:** Farbe (`hue`), Stil (`style`) und Größe (`size`), kategorial oder numerisch (Farbleiste, Blasendiagramm); mehrere Y-Spalten werden wie mit `pd.melt` in die lange Form gebracht
@@ -26,7 +27,7 @@ Das Gegenstück für Tabellen ist der [TableTransformer (Tabellen-Designer)](htt
 - **Projekte:** Daten, Diagramm-Einstellungen und Stil als Projektdatei (`.diagramm`) speichern und später weiterbearbeiten (Strg+S, Strg+O, Speichern unter …)
 - **Stile:** eigene Stile im Browser oder in einem Ordner speichern, als JSON exportieren/importieren
 - **Export:** PNG mit DPI-Angabe (150/300/600 dpi), SVG, PDF über Drucken, „Für Word kopieren“ in Originalgröße, Python-Code (pandas, matplotlib, seaborn)
-- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden, Titel und Texte per Doppelklick bearbeiten. Strg + Mausrad zoomt auf den Mauszeiger (nie den Browser), verschoben wird mit dem Mausrad (Shift = waagerecht), der mittleren Maustaste oder Leertaste + Ziehen
+- **Vorschau:** Werte beim Überfahren, Reihen per Klick auf die Legende aus- und einblenden (abgewählte Reihen fehlen im Export in der Legende; in der Vorschau wahlweise ausgegraut oder ebenfalls weggelassen), Titel und Texte per Doppelklick bearbeiten. Strg + Mausrad zoomt auf den Mauszeiger (nie den Browser), verschoben wird mit dem Mausrad (Shift = waagerecht), der mittleren Maustaste oder Leertaste + Ziehen
 
 ## Als App installieren (Microsoft Edge)
 
@@ -42,7 +43,7 @@ In Chrome funktioniert es genauso (Menü **⋮ → Streamen, speichern und teile
 ### Dateien aus dem Explorer öffnen
 
 Die installierte App meldet sich bei Windows als Programm für `.md`, `.markdown`, `.csv`, `.tsv`, `.txt`, `.xlsx`, `.xls` und Projektdateien (`.diagramm`) an:
-im Explorer Rechtsklick auf die Datei → **Öffnen mit** → **Diagramm-Designer**. Beim ersten Mal fragt Edge einmalig, ob die App Dateien öffnen darf.
+im Explorer Rechtsklick auf die Datei → **Öffnen mit** → **Diagramm-Designer**. Beim ersten Mal fragt Edge einmalig, ob die App Dateien öffnen darf. Werden mehrere Datendateien markiert und gemeinsam geöffnet, führt die App sie zu einer Tabelle zusammen.
 
 ### Deinstallieren
 

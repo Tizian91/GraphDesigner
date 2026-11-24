@@ -111,6 +111,30 @@ document.getElementById('app').onload = async () => {
     check('Kategorien als Spalten: Balken und Fehlergrenzen', bars(r), expBars);
     check('Fehlerbalken werden gezeichnet', (ev('buildPlot(pipeline(), false).svg').match(/<path d="M[^"]*" stroke="#424242"/g) || []).length, 4);
     check('Normale Tabellen bleiben unverändert', (load('a;b\n1;2\n3;4'), ev('[roleUsed, P.err]')), ['', 'none']);
+    // Mehrere Dateien zusammenführen (eine CSV pro Messung)
+    check('Zusammenführen: Spalten nach Namen, fehlende leer, Spalte „Datei“ hinten',
+      w.combineTables([{ name: 'm1', rows: [['t', 'U'], ['0', '1,5']] }, { name: 'm2', rows: [['t', 'I', 'U'], ['1', '7', '2,5']] }]),
+      [['t', 'U', 'I', 'Datei'], ['0', '1,5', '', 'm1'], ['1', '2,5', '7', 'm2']]);
+    check('Zusammenführen: vorhandene Spalte „Datei“ bleibt', w.combineTables([{ name: '', rows: [['t', 'Datei'], ['0', 'alt']] }, { name: 'neu', rows: [['t'], ['1']] }]), [['t', 'Datei'], ['0', 'alt'], ['1', 'neu']]);
+    check('Dateinamen ohne Endung, doppelte mit (2)', w.fileLabels(['m.csv', 'm.tsv', 'a.b.csv'], ['m']), ['m (2)', 'm (3)', 'a.b']);
+    check('Tabulator-Text mit Anführungszeichen wird gleich gelesen', w.parseInput(ev('toTSV')([['a', 'b'], ['"x"', '1\t2']]))[0].rows, [['a', 'b'], ['"x"', '1 2']]);
+    const csvFile = (n, t) => new w.File([t], n);
+    ev(`S={...DEF};P=freshP();seriesSig='';srcName='';$('#src').value='';parseSrc();`);
+    await w.loadFiles([csvFile('messung10.csv', 'Zeit;Spannung\n0;3,5\n1;3,6'), csvFile('messung2.csv', 'Zeit;Spannung\n0;1,5\n1;1,6')], false);
+    check('Mehrere CSV: natürlich sortiert, Spalte „Datei“ als Text und Farbe',
+      ev(`[D.cols.map(c => c.name + ':' + c.type), D.cols[2].val, D.cols[1].val, P.hue, P.x, P.ys]`),
+      [['Zeit:num', 'Spannung:num', 'Datei:cat'], ['messung2', 'messung2', 'messung10', 'messung10'], [1.5, 1.6, 3.5, 3.6], 'Datei', 'Zeit', ['Spannung']]);
+    check('Mehrere CSV: eine Reihe je Datei', ev(`pipeline().series.map(s => s.key).sort()`), ['messung10', 'messung2']);
+    await w.loadFiles([csvFile('messung2.csv', 'Zeit;Spannung;Strom\n0;5,5;1')], true);
+    check('Anhängen: neue Spalte ergänzt, gleicher Dateiname bekommt (2)',
+      ev(`[D.n, D.cols.map(c => c.name), [...new Set(D.cols.find(c => c.name === 'Datei').val)]]`),
+      [5, ['Zeit', 'Spannung', 'Strom', 'Datei'], ['messung2', 'messung10', 'messung2 (2)']]);
+    ev(`S={...DEF};P=freshP();seriesSig='';srcName='versuch.csv';$('#src').value='Zeit;Spannung\\n0;1';parseSrc();`);
+    await w.loadFiles([csvFile('b.csv', 'Zeit;Spannung\n0;2')], true);
+    check('Anhängen an einzelne Datei: deren Name in „Datei“', ev(`D.cols.find(c => c.name === 'Datei').val`), ['versuch', 'b']);
+    ev(`S={...DEF};P=freshP();P.useHeader=false;seriesSig='';$('#src').value='';parseSrc();`);
+    await w.loadFiles([csvFile('a.csv', '0;1\n1;2'), csvFile('b.csv', '0;3')], false);
+    check('Ohne Kopfzeile: nach Position zusammengeführt', ev(`[P.useHeader, D.cols.map(c => c.name), D.n]`), [true, ['Spalte 1', 'Spalte 2', 'Datei'], 3]);
     // Formeln (LaTeX in $…$) und Markdown-Escapes
     const runs = s => w.texRuns(s).map(r => [r.t, r.sc < 1 ? (r.sh > 0 ? 'hoch' : 'tief') : 'normal', r.i ? 'kursiv' : 'gerade']);
     check('Formel: \\sigma_y', runs('\\sigma_y'), [['σ', 'normal', 'gerade'], ['y', 'tief', 'kursiv']]);
@@ -173,6 +197,18 @@ document.getElementById('app').onload = async () => {
     check('Legende: Leerzeichen = kein Titel', legSecs()[0], '');
     check('Python: Abschnittstitel umbenannt', ev(`P.legTitles={hue:'Probe'};pythonCode().includes('namen = {"Gruppe": "Probe"}')`), true);
     check('Projekt: Abschnittstitel gespeichert', ev(`sanitizeP(JSON.parse(JSON.stringify(P))).legTitles.hue`), 'Probe');
+    // Abgewählte Reihen: im Export nie in der Legende, in der Vorschau ausgegraut oder weggelassen
+    ev(`P.legTitles={};P.style='';P.levels.hue={A:{hidden:true}};renderNow();`);
+    const legItems = pv => ev(`legendModel(R.res, ${pv}).sections.flatMap(s => s.items.map(i => i.label + (i.hidden ? ' (aus)' : '')))`);
+    check('Abgewählte Reihe: Vorschau ausgegraut', legItems(true), ['A (aus)', 'B', 'C']);
+    check('Abgewählte Reihe: Export ohne sie', legItems(false), ['B', 'C']);
+    ev(`S.legendHidden='hide';renderNow()`);
+    check('Abgewählte Reihe: Vorschau ausblenden wie im Export', legItems(true), ['B', 'C']);
+    check('Abgewählte Reihe: ausgeblendet auch rechts einstellbar', ev(`sel={kind:'legend'};buildInsp();const v=$('#insp [data-k="legendHidden"]').value;sel=null;buildInsp();v`), 'hide');
+    ev(`P.levels.hue={};P.series={B:{hidden:true}};S.legendMode='combined';renderNow()`);
+    check('Abgewählte Reihe (kombiniert): Vorschau ausblenden', legItems(true), ['A', 'C']);
+    check('Stil: Einstellung gültig', ev(`sanitizeStyle({legendHidden:'hide'}).legendHidden`), 'hide');
+    ev(`P.series={};S.legendHidden='dim';S.legendMode='separate';P.style='Bedingung';renderNow()`);
     // Legende frei verschieben
     ev(`P.legTitles={};S.legendPos='free';S.legendX=0.25;S.legendY=0.5;renderNow()`);
     const lgBox = () => ev(`R.plot.regions.find(r => r.sel === 'legend').box.slice(0, 2).map(v => Math.round(v))`);
@@ -236,6 +272,9 @@ document.getElementById('app').onload = async () => {
     check('Excel: zwei Tabellenblätter', ev('wb.SheetNames'), ['Temperatur', 'Niederschlag']);
     check('Excel: Datumsspalte erkannt', ev('D.cols.map(c => c.type)'), ['date', 'num', 'num', 'num']);
     check('Excel: erstes Datum', ev('D.cols[0].val[0]'), Date.UTC(2025, 0, 1));
+    const nXl = ev('D.n'), xl = await (await fetch('samples/zeitreihe.xlsx')).blob();
+    await w.loadFiles([new w.File([xl], 'a.xlsx'), new w.File([xl], 'b.xlsx')], false);
+    check('Excel: mehrere Dateien zusammengeführt (erstes Blatt)', ev(`[D.n, D.cols[0].type, D.cols.at(-1).name]`), [2 * nXl, 'date', 'Datei']);
   } catch (err) { nFail++; out.insertAdjacentHTML('beforeend', `<li class="fail">FEHLER – Ausnahme: ${err.stack || err}</li>`); }
   const sum = document.getElementById('sum');
   sum.textContent = nFail ? `${nFail} FEHLER, ${nOk} OK` : `Alle ${nOk} Tests OK`;

@@ -59,6 +59,7 @@ body.resizing{cursor:col-resize;user-select:none}
 details{border-bottom:1px solid var(--border);padding:4px 0 8px}
 summary{font-weight:600;cursor:pointer;padding:6px 0;user-select:none}
 .row{display:flex;align-items:center;gap:6px;margin:5px 0}
+#btnOpen,#btnAddFiles{white-space:nowrap;flex:none}#sampleSel{min-width:0}
 .row>label:first-child,.row>span:first-child{flex:1}
 .hint{color:var(--muted);font-size:12px;margin:4px 0}
 .sub{font-weight:600;font-size:12px;color:var(--muted);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.03em}
@@ -153,8 +154,10 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <summary>Daten</summary>
     <textarea id="src" spellcheck="false" placeholder="Zeit;Messwert&#10;0;1,5&#10;1;2,3"></textarea>
     <div class="row">
-      <input type="file" id="file" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls,.diagramm,.json" hidden>
-      <button id="btnOpen">Datei öffnen…</button>
+      <input type="file" id="file" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls,.diagramm,.json" multiple hidden>
+      <input type="file" id="fileAdd" accept=".md,.markdown,.csv,.tsv,.txt,.xlsx,.xls" multiple hidden>
+      <button id="btnOpen" title="Eine Datei öffnen oder mehrere auf einmal auswählen (Strg/Umschalt + Klick): sie werden zu einer Tabelle mit der Spalte „Datei“ zusammengeführt">Datei öffnen…</button>
+      <button id="btnAddFiles" title="Weitere Dateien an die aktuellen Daten anhängen, z. B. eine Messung pro Datei. Die Spalte „Datei“ sagt, woher jede Zeile stammt">+ Anhängen…</button>
       <select id="sheetSel" hidden title="Tabellenblatt"></select>
       <select id="tblSel" hidden title="Tabelle"></select>
       <span style="flex:1"></span>
@@ -168,6 +171,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div id="filters"></div>
     <div class="btns"><button id="btnAddFilter">+ Filter</button></div>
     <p class="hint">Markdown-Tabellen, CSV/TSV (Trennzeichen wird erkannt), aus Excel kopierte Zellen und .xlsx-Dateien, auch per Drag &amp; Drop. Deutsche Zahlen wie 1.234,5 werden erkannt. Den Typ einer Spalte kannst du in der Vorschau ändern.</p>
+    <p class="hint">Mehrere Dateien (z. B. eine CSV pro Messung) auf einmal öffnen, hineinziehen oder mit „+ Anhängen…“ ergänzen: Sie werden untereinander zu einer Tabelle zusammengeführt, gleichnamige Spalten passen zusammen. Die neue Spalte „Datei“ enthält den Dateinamen und wird als Farbe (hue) verwendet, so steht jede Messung als eigene Reihe im Plot.</p>
   </details>
 
   <details open>
@@ -354,6 +358,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
     <div class="sub">Legende</div>
     <div class="row"><span>Position</span><select data-k="legendPos"><option value="best">automatisch</option><option value="free">frei (in der Vorschau ziehen)</option><option value="ur">oben rechts</option><option value="ul">oben links</option><option value="lr">unten rechts</option><option value="ll">unten links</option><option value="outR">außen rechts</option><option value="outB">außen unten</option><option value="none">aus</option></select></div>
     <div class="row"><span>Einträge</span><select data-k="legendMode"><option value="combined">kombiniert</option><option value="separate">getrennt nach Zuordnung</option><option value="hue">nur Farbe (hue)</option></select></div>
+    <div class="row" title="Abgewählte Reihen fehlen im Export immer in der Legende. Hier wird festgelegt, ob die Vorschau sie ausgegraut zeigt (Klick blendet sie wieder ein) oder wie im Export weglässt (wieder einblenden über das Häkchen der Reihe)"><span>Abgewählte Reihen in der Legende</span><select data-k="legendHidden"><option value="dim">ausgegraut</option><option value="hide">ausblenden</option></select></div>
     <div class="row"><span>Spalten</span><input type="number" min="0" max="12" data-k="legendCols" title="0 = automatisch"><label><input type="checkbox" data-k="legendFrame"> Rahmen</label></div>
     <div class="row"><span>Rahmen Farbe / Breite (pt)</span><input type="color" data-k="legendFrameColor"><input type="number" step="0.25" min="0" data-k="legendFrameW"></div>
     <div class="row"><span>Deckkraft Hintergrund</span><input type="number" step="0.05" min="0" max="1" data-k="legendAlpha"></div>
@@ -512,7 +517,7 @@ const DEF = {
   yScale: 'linear', yTicks: 0, yDec: -1, ySci: false, yDate: 'auto', yTickShow: 'all',
   y2Scale: 'linear', y2Dec: -1, y2TickShow: 'all',
   titleAlign: 'center', titleBold: false, math: true, labelBold: false, tickBold: false, legendBold: false,
-  legendPos: 'best', legendX: 0.6, legendY: 0.1, legendMode: 'separate', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
+  legendPos: 'best', legendX: 0.6, legendY: 0.1, legendMode: 'separate', legendHidden: 'dim', legendCols: 1, legendFrame: true, legendFrameColor: '#cccccc', legendFrameW: 0.8, legendAlpha: 0.8,
   annColor: '#000000', annW: 1, annDash: 'solid', annHead: 'end', annHeadStyle: 'filled', annHeadSize: 1, annFill: '#ffffff', annFillAlpha: 0,
   annSize: 10, annTextColor: '#000000', annBold: false, annBox: false, annBoxColor: '#ffffff', annBoxAlpha: 0.8, annBoxStroke: '#000000', annBoxW: 0.5,
   title: '', subtitle: '', note: '', xTitle: '', yTitle: '', y2Title: '', legendTitle: '',
@@ -712,6 +717,42 @@ function parseInput(text) {
   while (rows.length > 2 && w > 1 && rows[0].length < 2) rows.shift();   // Titelzeilen vor der Tabelle
   return rows.length ? [{ rows }] : [];
 }
+
+/* ---------- Mehrere Dateien zu einer Tabelle zusammenführen (lange Form, wie pd.concat mit Spalte „Datei“) ---------- */
+const SRC_COL = 'Datei';
+// parts: [{ name, rows }], erste Zeile = Kopfzeile. Spalten werden über ihren Namen zugeordnet (Reihenfolge des ersten
+// Auftretens), fehlende bleiben leer. Hinten kommt die Spalte „Datei“ mit dem Namen des Teils; hat ein Teil sie schon
+// (z. B. bereits zusammengeführte Daten beim Anhängen), bleiben ihre Werte erhalten.
+function combineTables(parts) {
+  const hdrs = parts.map(p => {
+    const w = Math.max(...p.rows.map(r => r.length)), seen = [];
+    return Array.from({ length: w }, (_, c) => {   // Namen wie in buildData: leer → „Spalte n“, doppelt → „x (2)“
+      const nm = String(p.rows[0][c] ?? '').trim() || `Spalte ${c + 1}`;
+      let k = nm, i = 2; while (seen.includes(k)) k = `${nm} (${i++})`;
+      seen.push(k); return k;
+    });
+  });
+  const names = [];
+  hdrs.forEach(h => h.forEach(n => { if (n !== SRC_COL && !names.includes(n)) names.push(n); }));
+  const out = [[...names, SRC_COL]];
+  parts.forEach((p, k) => {
+    const idx = names.map(n => hdrs[k].indexOf(n)), si = hdrs[k].indexOf(SRC_COL);
+    for (const r of p.rows.slice(1)) out.push([...idx.map(i => i < 0 ? '' : String(r[i] ?? '')), si < 0 ? p.name : String(r[si] ?? '')]);
+  });
+  return out;
+}
+// Namen für die Spalte „Datei“: ohne Endung, gleiche Namen bekommen „(2)“, „(3)“ …
+function fileLabels(fileNames, used = []) {
+  const taken = new Set(used);
+  return fileNames.map(f => {
+    const nm = f.replace(/\.[^./\\]+$/, '') || f;
+    let k = nm, i = 2; while (taken.has(k)) k = `${nm} (${i++})`;
+    taken.add(k); return k;
+  });
+}
+// Zeilen als Tabulator-Text fürs Eingabefeld (wird von parseInput wieder genauso gelesen)
+const tsvCell = v => { const s = String(v ?? '').replace(/[\t\r\n]+/g, ' '); return s.startsWith('"') ? `"${s.replace(/"/g, '""')}"` : s; };
+const toTSV = rows => rows.map(r => r.map(tsvCell).join('\t')).join('\n');
 
 /* ---------- Zahlen und Datum erkennen ---------- */
 const NA_RE = /^(|na|n\/a|nan|null|none|-|–|—|#n\/a|#nv)$/i;
@@ -2328,7 +2369,8 @@ function legendModel(res, preview) {
   const handle = (L, over) => ({ patch: patch && !(t === 'bar' && L.kind === 'line'), line: !patch && t !== 'scatter' || L.kind === 'line' && t === 'bar', color: L.color, dash: L.dash,
     marker: L.marker, lw: L.lw, ms: L.ms, hatch: L.hatch, alpha: L.alpha,
     markerEdge: L.markerEdge, barAlpha: L.barAlpha, barEdge: L.barEdge, barEdgeColor: L.barEdgeColor, barEdgeW: L.barEdgeW, ...over });
-  const list = preview ? series : series.filter(s => !s.hidden);
+  // Abgewählte Reihen: im Export nie, in der Vorschau ausgegraut (anklickbar) oder wie im Export weggelassen
+  const list = preview && S.legendHidden !== 'hide' ? series : series.filter(s => !s.hidden);
   const sections = [];
   const userTitle = S.legendTitle === '' ? null : S.legendTitle.trim();
   const mode = S.legendMode;
@@ -2976,7 +3018,7 @@ const INSP = {
   y: { name: 'Y-Achse', rows: [['Titel', ['yTitle']], ['Min / Max', ['yMin', 'yMax']], ['Skala', ['yScale']], ['Ticks: Anzahl / Abstand', ['yTicks', 'yStep']], ['Nachkommastellen', ['yDec', 'ySci|wiss.']],
     ['Datumsformat', ['yDate']], ['Ticks anzeigen', ['yTickShow']], ['Gitterlinien', ['grid', 'gridY|waagerecht']]], shared: AXIS_SHARED },
   y2: { name: 'Rechte Y-Achse', rows: [['Titel', ['y2Title']], ['Min / Max', ['y2Min', 'y2Max']], ['Skala', ['y2Scale']], ['Ticks anzeigen', ['y2TickShow']], ['Nachkommastellen', ['y2Dec']]], shared: AXIS_SHARED },
-  legend: { name: 'Legende', rows: [['Position', ['legendPos']], ['Einträge', ['legendMode']], ['Spalten (0 = automatisch)', ['legendCols']], ['Titel der Legende', ['legendTitle']], ['Schrift (pt)', ['legendSize', 'legendBold|fett']],
+  legend: { name: 'Legende', rows: [['Position', ['legendPos']], ['Einträge', ['legendMode']], ['Abgewählte Reihen', ['legendHidden']], ['Spalten (0 = automatisch)', ['legendCols']], ['Titel der Legende', ['legendTitle']], ['Schrift (pt)', ['legendSize', 'legendBold|fett']],
     ['', ['legendFrame|Rahmen und Hintergrund']], ['Rahmen Farbe / Breite (pt)', ['legendFrameColor', 'legendFrameW']], ['Deckkraft Hintergrund', ['legendAlpha']]] },
   plot: { name: 'Plotbereich', rows: [['Hintergrund', ['plotBg', 'plotTransparent']], ['Achsenlinien', ['spines']], ['Farbe / Breite (pt)', ['spineColor', 'spineW']], ['Ticks', ['tickDir', 'minor']], ['Tick-Länge (pt)', ['tickLen']],
     ['Gitterlinien', ['grid', 'gridX|X', 'gridY|Y']], ['Gitter Farbe / Stil', ['gridColor', 'gridStyle']], ['Gitter Breite (pt)', ['gridW']]] }
@@ -3468,7 +3510,7 @@ $$('.dateFmt').forEach(s => s.innerHTML = DATE_FMTS.map(([v, l]) => `<option val
 $('#sampleSel').innerHTML += Object.keys(SAMPLES).map(k => `<option>${esc(k)}</option>`).join('');
 $('#sampleSel').onchange = e => {
   const smp = SAMPLES[e.target.value]; e.target.value = ''; if (!smp) return;
-  $('#src').value = smp.text(); wb = null; $('#sheetSel').hidden = true;
+  $('#src').value = smp.text(); wb = null; $('#sheetSel').hidden = true; srcName = '';
   const keepBar = { ...P.bar };
   P = { ...P, ...smp.p, bar: { ...keepBar, ...(smp.p.bar || {}) }, filters: [], types: {}, series: {} };
   if (!smp.p.bar) P.bar.mode = 'dodge';
@@ -3485,11 +3527,68 @@ let srcTimer = null;
 $('#src').addEventListener('input', () => { clearTimeout(srcTimer); srcTimer = setTimeout(() => { wb = null; $('#sheetSel').hidden = true; parseSrc(); render(); }, 200); });
 $('#tblSel').addEventListener('change', e => { tIdx = +e.target.value; seriesSig = ''; rebuildData(); render(); });
 $('#btnOpen').onclick = () => $('#file').click();
-$('#file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+$('#file').onchange = e => { openFiles([...e.target.files]); e.target.value = ''; };
+$('#btnAddFiles').onclick = () => $('#fileAdd').click();
+$('#fileAdd').onchange = e => { loadFiles([...e.target.files], true); e.target.value = ''; };
+let srcName = '';   // Name der zuletzt einzeln geöffneten Datei, für die Spalte „Datei“ beim Anhängen
 function loadFile(f, handle) {
   if (/\.(diagramm|json)$/i.test(f.name)) { openProjectFile(f, handle); return; }
+  srcName = f.name;
   if (/\.xlsx?$/i.test(f.name)) { loadXlsx(f); return; }
   f.text().then(t => { wb = null; $('#sheetSel').hidden = true; $('#src').value = t; tIdx = 0; parseSrc(); render(); toast(`${f.name} geladen`); });
+}
+// Eine Datei wie bisher öffnen, mehrere zusammenführen (Projektdateien nur einzeln)
+function openFiles(files, handles = []) {
+  if (!files.length) return;
+  if (files.length === 1) { loadFile(files[0], handles[0]); return; }
+  const data = files.filter(f => !/\.(diagramm|json)$/i.test(f.name));
+  if (data.length < files.length) toast('Projektdateien lassen sich nur einzeln öffnen');
+  if (data.length) loadFiles(data, false);
+}
+// Eine Datei als Zeilen lesen: Text (CSV, TSV, Markdown) → erste Tabelle, Excel → erstes Tabellenblatt
+async function readFileRows(f) {
+  if (/\.xlsx?$/i.test(f.name)) {
+    await loadSheetJS();
+    const book = XLSX.read(await f.arrayBuffer(), { cellNF: true, cellDates: false });
+    return sheetRows(book, 0);
+  }
+  const t = parseInput(await f.text());
+  return t.length ? t[0].rows : [];
+}
+// Mehrere Dateien untereinander zu einer Tabelle zusammenführen; append = an die aktuellen Daten anhängen
+async function loadFiles(files, append) {
+  files = [...files].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));   // messung2 vor messung10
+  const header = P.useHeader;
+  const withHdr = rows => header ? rows : [Array.from({ length: Math.max(...rows.map(r => r.length)) }, (_, c) => `Spalte ${c + 1}`), ...rows];   // ohne Kopfzeile: nach Position
+  const parts = [], skipped = [];
+  let used = [];
+  const cur = append && tables[tIdx] && tables[tIdx].rows.length ? withHdr(tables[tIdx].rows) : null;
+  if (cur) {
+    // Bisherige Daten: vorhandene Spalte „Datei“ übernehmen, sonst nach der zuletzt geöffneten Datei benennen
+    const si = cur[0].findIndex(c => String(c).trim() === SRC_COL);
+    const name = si >= 0 ? '' : fileLabels([srcName || 'Daten'])[0];
+    used = si >= 0 ? [...new Set(cur.slice(1).map(r => String(r[si] ?? '')))] : [name];
+    parts.push({ name, rows: cur });
+  }
+  const labels = fileLabels(files.map(f => f.name), used);
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const rows = await readFileRows(files[i]);
+      if (rows.length > (header ? 1 : 0)) parts.push({ name: labels[i], rows: withHdr(rows) });
+      else skipped.push(files[i].name);
+    } catch (err) { console.error(err); skipped.push(files[i].name); }
+  }
+  const nOk = files.length - skipped.length;
+  if (!nOk) { toast(`Keine Tabelle gefunden in ${skipped.join(', ')}`); return; }
+  const rows = combineTables(parts);
+  wb = null; $('#sheetSel').hidden = true;
+  $('#src').value = toTSV(rows);
+  P.useHeader = true;
+  if (!P.types[SRC_COL]) P.types[SRC_COL] = 'cat';   // Dateinamen wie „1“, „2“ sind Namen, keine Zahlen
+  if (!P.hue || !rows[0].includes(P.hue)) P.hue = SRC_COL;
+  tIdx = 0; seriesSig = ''; parseSrc(); syncUI(); render();
+  toast(`${nOk} Datei${nOk === 1 ? '' : 'en'} ${append ? 'angehängt' : 'zusammengeführt'} (${rows.length - 1} Zeilen)` +
+    (skipped.length ? ` · übersprungen: ${skipped.join(', ')}` : ''));
 }
 let xlsxP = null;
 function loadSheetJS() {
@@ -3511,10 +3610,16 @@ async function loadXlsx(f) {
   showSheet(0);
   toast(`${f.name} geladen`);
 }
-// Tabellenblatt als Tabulator-Text ins Eingabefeld; Excel-Datumswerte als ISO-Datum
+// Tabellenblatt als Tabulator-Text ins Eingabefeld
 function showSheet(i) {
-  const ws = wb.Sheets[wb.SheetNames[i]]; if (!ws || !ws['!ref']) { $('#src').value = ''; parseSrc(); render(); return; }
-  const rg = XLSX.utils.decode_range(ws['!ref']), d1904 = !!(wb.Workbook && wb.Workbook.WBProps && wb.Workbook.WBProps.date1904);
+  const lines = sheetRows(wb, i);
+  $('#src').value = lines.map(r => r.join('\t')).join('\n');
+  tIdx = 0; seriesSig = ''; parseSrc(); render();
+}
+// Tabellenblatt als Zeilen; Excel-Datumswerte als ISO-Datum
+function sheetRows(book, i) {
+  const ws = book.Sheets[book.SheetNames[i]]; if (!ws || !ws['!ref']) return [];
+  const rg = XLSX.utils.decode_range(ws['!ref']), d1904 = !!(book.Workbook && book.Workbook.WBProps && book.Workbook.WBProps.date1904);
   const iso = serial => {
     const t = Math.round((serial - 25569 + (d1904 ? 1462 : 0)) * 86400) * 1000, d = new Date(t), p = v => String(v).padStart(2, '0');
     const day = `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
@@ -3538,14 +3643,13 @@ function showSheet(i) {
     lines.push(row);
   }
   while (lines.length && lines[lines.length - 1].every(v => !v)) lines.pop();
-  $('#src').value = lines.map(r => r.join('\t')).join('\n');
-  tIdx = 0; seriesSig = ''; parseSrc(); render();
+  return lines;
 }
 $('#sheetSel').addEventListener('change', e => { if (wb) showSheet(+e.target.value); });
 ['dragover', 'drop'].forEach(ev => document.addEventListener(ev, e => {
   if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
   e.preventDefault();
-  if (ev === 'drop' && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  if (ev === 'drop') openFiles([...e.dataTransfer.files]);
 }));
 
 /* ---------- Vorlagen ---------- */
@@ -4178,7 +4282,11 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 // Offline-Cache; Service Worker laufen nur über http(s), nicht bei file://.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
 // Im Explorer per „Öffnen mit“ an die installierte App übergebene Dateien laden (Excel über SheetJS).
-if ('launchQueue' in window) launchQueue.setConsumer(async p => { if (p.files && p.files[0]) loadFile(await p.files[0].getFile(), p.files[0]); });
+// Mehrere markierte Dateien kommen gemeinsam an und werden zusammengeführt.
+if ('launchQueue' in window) launchQueue.setConsumer(async p => {
+  if (!p.files || !p.files.length) return;
+  openFiles(await Promise.all(p.files.map(h => h.getFile())), p.files);
+});
 </script>
 </body>
 </html>
