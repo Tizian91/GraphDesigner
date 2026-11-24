@@ -1210,6 +1210,8 @@ function pipeline() {
   const total = recs.length;
   const srcC = sp.countMode || t === 'hist' ? null : colByName(SRC_COL);
   for (const g of gl) {
+    // Reihen ganz ohne Werte (z. B. Datei × Y-Spalte, die es in dieser Datei nicht gibt) weder zeichnen noch in die Legende
+    if (!sp.countMode && g.recs.every(rc => rc.y == null)) continue;
     // Zusammengeführte Dateien: Zeilen einer Datei, die diese Y-Spalte gar nicht hat, sind keine Lücken in der Linie
     if (srcC) {
       const has = new Set(g.recs.filter(rc => rc.y != null).map(rc => srcC.val[rc.r]));

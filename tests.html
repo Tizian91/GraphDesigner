@@ -142,6 +142,9 @@ document.getElementById('app').onload = async () => {
     ev(`(s => { s.value = 'separate'; s.dispatchEvent(new Event('change')); })($('[data-p="fileCols"]'));renderNow()`);
     check('Umschalten auf getrennt: jede Spalte eine Reihe, keine Farbe nach „Datei“',
       fileView(), [['Energy loss (eV)', 'Netto S · ROI', 'Netto Mo · ROI', 'Datei'], 'Energy loss (eV)', ['Netto S · ROI', 'Netto Mo · ROI'], '', ['Netto S · ROI', 'Netto Mo · ROI'], [2, 2], false]);
+    ev(`P.hue='Datei';S.legendMode='combined';renderNow()`);
+    check('Getrennt + Farbe nach „Datei“: leere Kombinationen fehlen (2 statt 4 Einträge)', ev(`[R.res.series.length, legendModel(R.res, false).sections.flatMap(s => s.items.map(i => i.label))]`), [2, ['N0, Netto S · ROI', 'N50, Netto Mo · ROI']]);
+    ev(`S.legendMode='separate'`);
     ev(`(s => { s.value = 'merge'; s.dispatchEvent(new Event('change')); })($('[data-p="fileCols"]'));renderNow()`);
     check('Zurückschalten: wieder „Wert“ und Farbe nach „Datei“', fileView()[2].concat(fileView()[3]), ['Wert', 'Datei']);
     check('Gespeicherter Zustand ohne Farbe: beim Zusammenlegen Farbe nach „Datei“', ev(`P.hue='';P.ys=['Netto S · ROI'];rebuildData();[P.hue, P.ys]`), ['Datei', ['Wert']]);
