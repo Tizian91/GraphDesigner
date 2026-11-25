@@ -343,7 +343,44 @@ document.getElementById('app').onload = async () => {
     ev(`$('#src').value='E (eV);y\\n0;1\\n1;3\\n2;2';tIdx=0;parseSrc();Object.assign(P,{x:'E (eV)',ys:['y'],hue:''})`);
     check('Methodentext: Einheit aus dem Spaltennamen hinter die Zahlen', normed({ mode: 'max', lo: '0', hi: '1,5' }) && ev(`normMethodText(R.res, 'de')`), 'Jede Kurve wurde auf ihr Maximum im Bereich E = 0–1,5 eV normiert (Maximum = 1).');
     ev(`$('#src').value='x;y;g\\n0;0;A\\n1;2;A\\n2;4;A\\n3;6;A\\n0;0;B\\n1;4;B\\n2;8;B\\n3;12;B';tIdx=0;parseSrc();Object.assign(P,{x:'x',ys:['y'],hue:'g'})`);
-    check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1, lo: '', hi: '' }, 'none']);
+    check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1, lo: '', hi: '', base: false, blo: '', bhi: '', same: {} }, 'none']);
+    // Nulllinie: erst das Mittel im Bereich abziehen, dann bis zum Bezugswert strecken
+    check('Nulllinie: Mittel zwischen X = 0 und 1 abgezogen, X = 3 → 1', normed({ mode: 'x', x: 3, w: 0, to: 1, lo: '', hi: '', base: true, blo: '0', bhi: '1' }),
+      [['A', 0.2, [-0.2, 0.2, 0.6, 1]], ['B', 0.1, [-0.2, 0.2, 0.6, 1]]]);
+    check('Nulllinie: Anzeige', ev(`$('#normInfo').textContent`), 'Nulllinie: Mittel zwischen X = 0 und 1. Faktoren: A − 1 × 0,2 · B − 2 × 0,1');
+    check('Nulllinie: Methodentext', ev(`normMethodText(R.res, 'de')`), 'Von jeder Kurve wurde zuerst der Mittelwert über x = 0–1 als Nulllinie abgezogen. Alle Kurven wurden bei x = 3 auf 1 normiert (geteilt durch den dort zwischen den Messpunkten linear interpolierten Wert).');
+    const pyB = ev('pythonCode()');
+    check('Nulllinie: Python', [pyB.includes('vorher Nulllinie (Mittel zwischen x = 0 und 1) abgezogen'), pyB.includes('df.loc[(df["g"] == "A"), ["y"]] = (df.loc[(df["g"] == "A"), ["y"]] - 1) * 0.2')], [true, true]);
+    check('Nulllinie auch beim Maximum', normed({ mode: 'max', lo: '', hi: '' }).map(s => s[1]), [0.2, 0.1]);
+    check('Nulllinie ohne zweite Grenze: Hinweis, normal normiert', [normed({ mode: 'x', blo: '' }).map(s => s[1]), ev(`R.res.notes.includes('Nulllinie: bitte beide Grenzen des X-Bereichs angeben')`)], [[1 / 6, 1 / 12], true]);
+    normed({ x: 0, blo: '3', bhi: '3' });
+    check('Nulllinie über dem Bezugswert → nicht normiert', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.some(n => n.startsWith('nicht normiert (Bezugswert liegt nicht über der Nulllinie): A, B'))`)], [[null, null], true]);
+    normed({ x: 3, blo: '7', bhi: '8' });
+    check('Nulllinie ohne Werte im Bereich → Hinweis', ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert für die Nulllinie zwischen X = 7 und 8): A, B'))`), true);
+    check('Min–Max ignoriert die Nulllinie', [normed({ mode: 'minmax', lo: '1', hi: '3', blo: '0', bhi: '1' }).map(s => s[1]), ev('R.res.normBase ?? null')], [[0.25, 0.125], null]);
+    // Gleiche Normierung wie eine andere Reihe (z. B. Fit wie Messkurve)
+    check('Gleiche Normierung: A übernimmt den Faktor von B', normed({ mode: 'x', x: 2, lo: '', hi: '', base: false, same: { A: 'B' } }), [['A', 0.125, [0, 0.25, 0.5, 0.75]], ['B', 0.125, [0, 0.5, 1, 1.5]]]);
+    check('Gleiche Normierung: Anzeige', ev(`$('#normInfo').textContent`), 'Faktoren: A × 0,125 (wie B) · B × 0,125');
+    check('Gleiche Normierung: Methodentext', ev(`normMethodText(R.res, 'de')`).endsWith(' A wurde mit demselben Faktor umgerechnet wie B.'), true);
+    const pyS = ev('pythonCode()');
+    check('Gleiche Normierung: Python', [pyS.includes('# A: gleiche Normierung wie B'), pyS.includes('df.loc[(df["g"] == "A"), ["y"]] *= 0.125')], [true, true]);
+    check('Gleiche Normierung mit Nulllinie', normed({ x: 3, base: true, blo: '0', bhi: '1' }).map(s => s[2]), [[-0.2, 0, 0.2, 0.4], [-0.2, 0.2, 0.6, 1]]);
+    check('Gleiche Normierung mit Nulllinie: Methodentext englisch', ev(`normMethodText(R.res, 'en')`).endsWith(' A was scaled with the same factor and baseline as B.'), true);
+    ev(`P.series.B={hidden:true}`);
+    check('Gleiche Normierung: Bezugsreihe darf ausgeblendet sein', normed({}).map(s => s[1]), [0.1, 0.1]);
+    ev(`delete P.series.B`);
+    normed({ x: 10, base: false });
+    check('Gleiche Normierung: Bezugsreihe nicht normiert → Hinweis', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.filter(n => n.startsWith('nicht normiert'))`)],
+      [[null, null], ['nicht normiert (kein Wert bei X = 10): B', 'nicht normiert (Bezugsreihe selbst nicht normiert): A (wie B)']]);
+    check('Gleiche Normierung im Kreis → keine', normed({ x: 2, same: { A: 'B', B: 'A' } }).map(s => s[1]), [null, null]);
+    check('Gleiche Normierung: fehlende Bezugsreihe → eigene', normed({ same: { A: 'Z' } }).map(s => s[1]), [0.25, 0.125]);
+    normed({ same: {} });
+    check('Gleiche Normierung: Auswahl je Reihe', ev(`const el = $('#normSame select[data-same="A"]'); el.value = 'B'; el.dispatchEvent(new Event('change', { bubbles: true })); renderNow();
+      [P.norm.same.A, R.res.series[0].norm, [...el.options].map(o => o.textContent)]`), ['B', 0.125, ['eigene', 'wie B']]);
+    check('Gleiche Normierung: zurück auf eigene', ev(`const el = $('#normSame select[data-same="A"]'); el.value = ''; el.dispatchEvent(new Event('change', { bubbles: true })); renderNow(); ['A' in P.norm.same, R.res.series[0].norm]`), [false, 0.25]);
+    check('Auswahl je Reihe aus, wenn nicht normiert', normed({ mode: 'none' }) && ev(`$('#normSameBox').hidden`), true);
+    check('Nulllinie und Bezugsreihen im Projekt geprüft', ev(`[sanitizeP({norm:{base:true,blo:'1',same:{A:'B',C:5,D:'D',E:''}}}).norm, sanitizeP({norm:{same:['A']}}).norm.same]`),
+      [{ mode: 'none', x: 0, w: 0, to: 1, lo: '', hi: '', base: true, blo: '1', bhi: '', same: { A: 'B' } }, {}]);
     ev(`P.norm=freshP().norm;renderNow()`);
     // X-Achse begrenzt: Y-Bereich nur aus dem sichtbaren Ausschnitt, an der Grenze interpoliert
     const yDom = () => ev(`renderNow();R.plot.yDom.map(v => +v.toFixed(6))`);
