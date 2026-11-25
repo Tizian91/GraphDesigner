@@ -276,6 +276,21 @@ document.getElementById('app').onload = async () => {
     check('Ungültige Annotationen werden verworfen', ev(`JSON.stringify(sanitizeP({ann:[{type:'x',p:[[1,2]]},{type:'arrow',p:[[1,'a']]},{type:'arrow',p:[[1,2]],st:{annW:'dick',annColor:'#123456'}}]}).ann.map(a => [a.p.length, a.st.annW ?? null, a.st.annColor]))`), '[[2,null,"#123456"]]');
     const pyc = ev('pythonCode()');
     check('Python: Rechteck, Text, Bezugslinie, Import', ['ax.add_patch(Rectangle(', 'ax.text(', 'ax.axhline(', 'from matplotlib.patches import Rectangle, Ellipse'].map(s => pyc.includes(s)), [true, true, true, true]);
+    // Beschriftung einer Bezugslinie: Lage entlang der Linie, Textrichtung, Ziehen
+    ev(`P.ann=[{id:'h1',type:'hline',ref:'data',p:[[0,12]],text:'Grenze',st:{}},{id:'v1',type:'vline',ref:'data',p:[[2,0]],text:'Kante',st:{}}];sel=null;renderNow()`);
+    const lab = id => ev(`(() => { const g = R.plot.annGeo.find(x => x.a.id === '${id}').lab, r = R.plot.rect; return { m: +g.m.toFixed(2), a0: +g.a0.toFixed(2), a1: +g.a1.toFixed(2), rot: g.rot, mid: +(((g.hz ? r.x0 + r.x1 : r.y0 + r.y1) / 2)).toFixed(2), c: +(g.hz ? g.xc : g.yc).toFixed(2) }; })()`);
+    const lh = lab('h1'), lv = lab('v1');
+    check('Bezugslinie: Standardlage wie bisher (waagerecht rechts, senkrecht oben)', [lh.m === lh.a1, lv.m === lv.a0, lh.rot, lv.rot], [true, true, false, false]);
+    ev(`P.ann[1].lpos=0.5;P.ann[1].lrot='v';renderNow()`);
+    const lv2 = lab('v1');
+    check('Senkrechte Linie: Beschriftung mittig und gedreht', [Math.abs(lv2.c - lv2.mid) < 1, lv2.rot, ev(`R.plot.svg.includes('rotate(-90')`)], [true, true, true]);
+    ev(`(() => { const g = R.plot.annGeo.find(x => x.a.id === 'v1'); drag = { t: 'label', a: g.a, lab: g.lab, start: { x: g.lab.xc, y: g.lab.yc }, moved: false }; dragMove({ shiftKey: false }, { x: g.lab.xc + 40, y: g.lab.a1 + 500 }); drag = null; })()`);
+    check('Beschriftung ziehen: nur entlang der Linie, am Ende begrenzt', [ev(`P.ann[1].lpos`), ev(`P.ann[1].p[0][0]`)], [1, 2]);
+    ev(`P.ann[1].lpos=0;P.ann[0].lpos=0.5;P.ann[0].lrot='v';renderNow()`);
+    const pyl = ev('pythonCode()');
+    check('Python: Lage und Drehung der Beschriftungen', [pyl.includes('xy=(0.5, 12), xycoords=ax.get_yaxis_transform(), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", rotation=90'), pyl.includes('xy=(2, 0.99), xycoords=ax.get_xaxis_transform(), xytext=(3, 0), textcoords="offset points", ha="left", va="top", rotation=90')], [true, true]);
+    check('Beschriftungslage im Projekt geprüft', ev(`sanitizeP({ann:[{type:'vline',p:[[1,2]],lpos:7,lrot:'v'},{type:'hline',p:[[1,2]],lpos:'x',lrot:'quer'},{type:'text',p:[[1,2]],lpos:0.5}]}).ann.map(a => [a.lpos ?? null, a.lrot ?? null])`), [[1, 'v'], [null, null], [null, null]]);
+    ev(`P.ann=[];renderNow()`);
     ev(`projName='';projSnap='';updateProjUI()`);
     // Eine Reihe überschreibt Stilwerte, ohne den Stil zu ändern
     ev(`P.ann=[];P.series['Sensor A']={markerEdge:'white',errW:3};renderNow();`);
@@ -343,6 +358,11 @@ document.getElementById('app').onload = async () => {
     ev(`noteUndo(); S.title='Vorher'; noteUndo(); S.title='Nachher'; noteUndo(); undo();`);
     check('Rückgängig', ev('S.title'), 'Vorher');
     check('Wiederholen', ev('redo(), S.title'), 'Nachher');
+    // Neues Projekt: Daten, Diagramm, Texte und Annotationen leer, Stil bleibt
+    ev(`S.palette='colorblind';S.title='Alt';S.xMax='9';P.ann=[{id:'n1',type:'vline',ref:'data',p:[[1,1]],text:'x',st:{}}];P.norm.mode='max';projName='Alt';projSnap='';newProject(false)`);
+    check('Neues Projekt: alles leer, Stil bleibt',
+      [ev(`$('#src').value`), ev('P.ann.length'), ev('P.norm.mode'), ev('S.title'), ev('S.xMax'), ev('S.palette'), ev('projName'), ev(`$('#btnUndo').disabled`), ev('!!R && R.plot.svg.startsWith("<svg")')],
+      ['', 0, 'none', '', '', 'colorblind', '', true, true]);
     // PNG-Export: 8,5 × 6 cm bei 300 dpi, DPI-Angabe (pHYs) in der Datei
     ev(`S={...DEF};P=freshP();$('#src').value=${JSON.stringify(await text('samples/messreihe.csv'))};parseSrc();
       Object.assign(P,{type:'line',x:'Zeit [s]',ys:['Sensor A','Sensor B','Sensor C']});S.figW=8.5;S.figH=6;S.figUnit='cm';S.dpi=300;`);

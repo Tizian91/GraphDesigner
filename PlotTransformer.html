@@ -139,6 +139,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 <body>
 <header>
   <h1 title="Tabelle einfügen → Diagramm gestalten → als Bild oder für Word exportieren">Diagramm-Designer</h1>
+  <button id="btnProjNew" title="Neues, leeres Projekt: Daten, Diagramm-Einstellungen, Titel und Annotationen werden geleert, der Stil (Aussehen) bleibt">Neu</button>
   <button id="btnProjOpen" title="Projektdatei öffnen (Strg+O)">Projekt öffnen…</button>
   <button id="btnProjSave" title="Daten, Diagramm und Stil als Projektdatei speichern (Strg+S)">Projekt speichern</button>
   <button id="btnProjSaveAs" title="Unter neuem Namen speichern (Strg+Umschalt+S)">Speichern unter…</button>
@@ -2479,13 +2480,27 @@ function annotSVG(a, geo, cf, preview) {
       s += svgBlock(blk, p1[0] + pd, blk.w, p1[1] + pd, 'left', tcol);
     }
   } else if (a.type === 'hline' || a.type === 'vline') {
-    const hz = a.type === 'hline', c = hz ? p1[1] : p1[0], g = lwp(3);
+    const hz = a.type === 'hline', c = hz ? p1[1] : p1[0];
     if (w > 0) s += el('path', { d: hz ? pathD([[R0.x0, c], [R0.x1, c]]) : pathD([[c, R0.y0], [c, R0.y1]]), fill: 'none', ...stroke });
-    if (a.text && a.text.trim()) s += hz ? svgText(R0.x1 - g, c - g - font.px * 0.6 + baselineOff(font), a.text, font, tcol, 'end')
-      : svgText(c + g, R0.y0 + g + font.px * 0.6 + baselineOff(font), a.text, font, tcol);
     box = hz ? [R0.x0, c - 3, R0.x1 - R0.x0, 6] : [c - 3, R0.y0, 6, R0.y1 - R0.y0];
+    if (a.text && a.text.trim()) {
+      const lb = lineLabel(a, c, R0, font, lwp(3));
+      s += svgText(lb.xc, lb.yc + baselineOff(font), a.text, font, tcol, 'middle', lb.rot ? ` transform="rotate(-90 ${f2(lb.xc)} ${f2(lb.yc)})"` : '');
+      return { svg: s, pts: [p1, p2], box, w, lab: lb };
+    }
   }
   return { svg: s, pts: [p1, p2], box, w };
+}
+// Beschriftung einer Bezugslinie: neben der Linie, entlang der Linie bei a.lpos (0 = oben bzw. links, 1 = unten bzw. rechts;
+// Standard: senkrechte Linie oben, waagerechte rechts), a.lrot = 'v' dreht den Text senkrecht (von unten nach oben lesbar).
+// a0/a1 = Mitte der Beschriftung bei lpos 0/1 (für das Ziehen), box = Fläche zum Anklicken.
+function lineLabel(a, c, R0, font, g) {
+  const hz = a.type === 'hline', rot = a.lrot === 'v', L = tw(a.text, font), th = font.px * 1.2;
+  const lp = clamp(a.lpos ?? (hz ? 1 : 0), 0, 1), ext = (hz ? !rot : rot) ? L : th;
+  const a0 = (hz ? R0.x0 : R0.y0) + g + ext / 2, a1 = Math.max(a0, (hz ? R0.x1 : R0.y1) - g - ext / 2), m = a0 + lp * (a1 - a0);
+  const xc = hz ? m : c + g + (rot ? th : L) / 2, yc = hz ? c - g - (rot ? L : th) / 2 : m;
+  const bw = rot ? th : L, bh = rot ? L : th;
+  return { xc, yc, rot, hz, a0, a1, m, box: [xc - bw / 2, yc - bh / 2, bw, bh] };
 }
 // Griffe der gewählten Annotation: Pfeil/Linie an beiden Enden (k = 0/1), Rechteck/Ellipse an Ecken und Kantenmitten
 function annHandles(g) {
@@ -3158,9 +3173,9 @@ $('#wrap').addEventListener('pointermove', e => {
   if (!R) return;
   const p = figPos(e); if (!p) return;
   if (drag) { tip.style.display = 'none'; dragMove(e, p); return; }
-  const hh = hitHandle(p), ha = !hh && tool === 'select' && hitAnn(p), lg = !hh && !ha && tool === 'select' && legendAt(p);
-  $('#wrap').style.cursor = hh ? (hh.a.type === 'arrow' ? 'crosshair' : RESIZE_CUR[hh.k]) : ha || lg ? 'move' : '';
-  if (!$('#tips').checked || hh || ha || tool !== 'select' || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
+  const hh = hitHandle(p), hl = !hh && tool === 'select' && hitLabel(p), ha = !hh && !hl && tool === 'select' && hitAnn(p), lg = !hh && !hl && !ha && tool === 'select' && legendAt(p);
+  $('#wrap').style.cursor = hh ? (hh.a.type === 'arrow' ? 'crosshair' : RESIZE_CUR[hh.k]) : hl ? (hl.lab.hz ? 'ew-resize' : 'ns-resize') : ha || lg ? 'move' : '';
+  if (!$('#tips').checked || hh || hl || ha || tool !== 'select' || e.target.closest('[data-sk],[data-lv]')) { tip.style.display = 'none'; return; }
   const best = hitAt(p);
   if (!best) { tip.style.display = 'none'; return; }
   tip.textContent = plainRich(best.tip); tip.style.display = 'block';
@@ -3179,7 +3194,7 @@ $('#wrap').addEventListener('click', e => {
 // Was liegt an dieser Stelle? Annotation \u2192 Legende \u2192 Reihe \u2192 Titel, Achsen, Plotbereich \u2192 nichts (Grundeinstellungen)
 function pickAt(pt) {
   if (!R || !pt) return null;
-  const g = hitAnn(pt); if (g) return { kind: 'ann', id: g.a.id };
+  const g = hitLabel(pt) || hitAnn(pt); if (g) return { kind: 'ann', id: g.a.id };
   const reg = R.plot.regions.find(r => inBox(pt, r.box));
   if (reg && reg.sel === 'legend') return { kind: 'legend' };
   const h = hitAt(pt); if (h && h.sk != null) return { kind: 'series', key: h.sk };
@@ -3350,7 +3365,12 @@ function annInsp(box) {
   const nOwn = a.st ? Object.keys(a.st).length : 0;
   let h = '';
   if (a.type === 'text') h += `<textarea data-a="text" class="small" placeholder="Text – **fett**, *kursiv*, Formeln in $…$">${esc(a.text)}</textarea>`;
-  if (a.type === 'hline' || a.type === 'vline') h += `<div class="row"><span>Beschriftung</span><input data-a="text" value="${esc(a.text)}" style="width:150px"></div>`;
+  if (a.type === 'hline' || a.type === 'vline') {
+    const hz = a.type === 'hline', lp = Math.round(100 * clamp(a.lpos ?? (hz ? 1 : 0), 0, 1)), rot = a.lrot === 'v';
+    h += `<div class="row"><span>Beschriftung</span><input data-a="text" value="${esc(a.text)}" style="width:150px"></div>
+      <div class="row" title="Lage der Beschriftung entlang der Linie. In der Vorschau lässt sie sich auch direkt ziehen."><span>Lage auf der Linie</span><span class="hint" style="margin:0">${hz ? 'links' : 'oben'}</span><input type="range" data-a="lpos" min="0" max="100" step="1" value="${lp}" style="flex:1;min-width:60px"><span class="hint" style="margin:0">${hz ? 'rechts' : 'unten'}</span><input type="number" data-a="lposN" min="0" max="100" step="1" value="${lp}" style="width:52px"><span>%</span></div>
+      <div class="row"><span>Textrichtung</span><span class="btns" style="margin:0"><button class="mini${rot ? '' : ' on'}" data-act="lrotH" title="Text waagerecht">A waagerecht</button><button class="mini${rot ? ' on' : ''}" data-act="lrotV" title="Text senkrecht, von unten nach oben lesbar">↥ senkrecht</button></span></div>`;
+  }
   h += `<div class="sub">Lage</div><div class="row"><span>Bezug</span><select data-a="ref" title="Daten: bleibt am Datenpunkt, auch wenn sich die Achsen ändern. Abbildung: feste Stelle im Bild">${opts({ data: 'Daten (Achsenwerte)', fig: 'Abbildung (feste Stelle)' }, a.ref)}</select></div>`;
   if (a.type === 'arrow') h += ptRow('Anfang X / Y', 0, 'xy') + ptRow('Ende X / Y', 1, 'xy') +
     '<div class="btns"><button data-act="ahor" title="Ende auf die Höhe des Anfangs setzen">⟷ waagerecht</button><button data-act="aver" title="Ende senkrecht über/unter den Anfang setzen">↕ senkrecht</button><button data-act="aflip" title="Anfang und Ende tauschen">⇄ umdrehen</button></div>';
@@ -3378,6 +3398,7 @@ function annInsp(box) {
   }));
   box.querySelectorAll('[data-a]').forEach(inp => inp.addEventListener(evOf(inp), () => {
     if (inp.dataset.a === 'ref') { const px = a.p.map(q => g.toFig(a.ref, q)); a.ref = inp.value; a.p = px.map(q => g.fromFig(a.ref, q[0], q[1])); buildInsp(); }
+    else if (inp.dataset.a === 'lpos' || inp.dataset.a === 'lposN') { const v = parseFloat(inp.value); if (!isFinite(v)) return; a.lpos = clamp(v, 0, 100) / 100; syncLabelInputs(a, inp); }
     else { a.text = inp.value; updAnnStd(); }
     redraw();
   }));
@@ -3389,12 +3410,19 @@ function annInsp(box) {
   }));
   box.querySelectorAll('[data-act]').forEach(b => b.onclick = () => annAction(b.dataset.act, a, b));
 }
+// Schieberegler und Zahl der Beschriftungslage gleich halten (außer dem gerade bedienten Feld)
+function syncLabelInputs(a, except) {
+  const v = Math.round(100 * clamp(a.lpos ?? (a.type === 'hline' ? 1 : 0), 0, 1));
+  $$('#insp [data-a="lpos"], #insp [data-a="lposN"]').forEach(i => { if (i !== except) i.value = v; });
+}
 function annAction(act, a, b) {
   const keys = () => b.closest('.row').dataset.keys.split(',');
   switch (act) {
     case 'ahor': a.p[1][1] = a.p[0][1]; break;
     case 'aver': a.p[1][0] = a.p[0][0]; break;
     case 'aflip': a.p.reverse(); break;
+    case 'lrotH': delete a.lrot; break;
+    case 'lrotV': a.lrot = 'v'; break;
     case 'sreset': if (a.st) keys().forEach(k => delete a.st[k]); break;
     case 'sstd': for (const k of keys()) if (a.st && a.st[k] != null) { S[k] = a.st[k]; delete a.st[k]; } syncUI(); break;
     case 'resetAll': a.st = {}; break;
@@ -3499,6 +3527,10 @@ function hitAnn(pt) {
   }
   return null;
 }
+function hitLabel(pt) {
+  if (!R) return null;
+  return [...R.plot.annGeo].reverse().find(g => g.lab && inBox(pt, g.lab.box, 2)) || null;
+}
 function snap45(o, q) {
   const dx = q[0] - o[0], dy = q[1] - o[1], L = Math.hypot(dx, dy), an = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
   const c = Math.cos(an), s = Math.sin(an);
@@ -3521,6 +3553,10 @@ $('#wrap').addEventListener('pointerdown', e => {
     const a = newAnn(tool, pt);
     drag = ['text', 'hline', 'vline'].includes(tool) ? { t: 'move', a, created: true } : { t: 'create', a };
     buildInsp(); updAnnStd();
+  } else if (hitLabel(pt)) {   // Beschriftung einer Bezugslinie: entlang der Linie ziehen
+    const g = hitLabel(pt);
+    if (!(sel && sel.id === g.a.id)) setSel({ kind: 'ann', id: g.a.id });
+    drag = { t: 'label', a: g.a, lab: g.lab };
   } else {
     const g = hitAnn(pt);
     if (!g) {   // Legende: erst das Ziehen verschiebt sie, ein Klick blendet weiter Einträge aus. Bis dahin nichts neu zeichnen, sonst geht der Klick verloren
@@ -3554,6 +3590,12 @@ function dragMove(e, p) {
     return;
   }
   d.moved = true;
+  if (d.t === 'label') {
+    const L = d.lab, span = L.a1 - L.a0;
+    a.lpos = span > 0 ? r4(clamp((L.m + (L.hz ? dx : dy) - L.a0) / span, 0, 1)) : 0;
+    syncLabelInputs(a); redraw();
+    return;
+  }
   let pts;
   if (d.t === 'move') {
     if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
@@ -4287,8 +4329,12 @@ function pyAnnots(L, cf) {
       const hz = a.type === 'hline', q = fig ? g.fromFig('data', q1[0] * g.W, q1[1] * g.H) : q1;
       const val = hz ? cv(q[1], g.yKind) : cv(q[0], g.xKind);
       out.push(`ax.ax${hz ? 'h' : 'v'}line(${val}, color=${col}, lw=${w}, linestyle=${ls})`);
-      if (a.text && a.text.trim()) out.push(hz ? `ax.text(0.99, ${val}, ${txt(a.text)}, transform=ax.get_yaxis_transform(), ha="right", va="bottom", ${font})`
-        : `ax.text(${val}, 0.99, ${txt(a.text)}, transform=ax.get_xaxis_transform(), ha="left", va="top", ${font})`);
+      if (a.text && a.text.trim()) {   // Lage entlang der Linie als Achsenanteil, 3 pt neben der Linie
+        const lp = clamp(a.lpos ?? (hz ? 1 : 0), 0, 1), end = lp === 0 ? 0 : lp === 1 ? 2 : 1, rot = a.lrot === 'v' ? ', rotation=90' : '';
+        const f = r4(0.01 + 0.98 * (hz ? lp : 1 - lp));
+        out.push(hz ? `ax.annotate(${txt(a.text)}, xy=(${f}, ${val}), xycoords=ax.get_yaxis_transform(), xytext=(0, 3), textcoords="offset points", ha=${py(['left', 'center', 'right'][end])}, va="bottom"${rot}, ${font})`
+          : `ax.annotate(${txt(a.text)}, xy=(${val}, ${f}), xycoords=ax.get_xaxis_transform(), xytext=(3, 0), textcoords="offset points", ha="left", va=${py(['top', 'center', 'bottom'][end])}${rot}, ${font})`);
+      }
     }
   }
   const at = L.indexOf('from matplotlib.ticker import FuncFormatter') + 1;
@@ -4319,7 +4365,12 @@ function sanitizeAnn(a) {
   if ((a.type === 'arrow' || isShape(a)) && p.length < 2) p.push(p[0].slice());
   const st = {}, ok = a.st && typeof a.st === 'object' ? sanitizeStyle(a.st) : {};
   for (const k of AN_KEYS) if (k in ok) st[k] = ok[k];
-  return { id: typeof a.id === 'string' && a.id ? a.id.slice(0, 40) : newId(), type: a.type, ref: a.ref === 'fig' ? 'fig' : 'data', p, text: typeof a.text === 'string' ? a.text : '', st };
+  const out = { id: typeof a.id === 'string' && a.id ? a.id.slice(0, 40) : newId(), type: a.type, ref: a.ref === 'fig' ? 'fig' : 'data', p, text: typeof a.text === 'string' ? a.text : '', st };
+  if (a.type === 'hline' || a.type === 'vline') {   // Beschriftung: Lage entlang der Linie (0…1) und Textrichtung
+    if (typeof a.lpos === 'number' && isFinite(a.lpos)) out.lpos = clamp(a.lpos, 0, 1);
+    if (a.lrot === 'v') out.lrot = 'v';
+  }
+  return out;
 }
 // Gespeicherten Plot-Zustand gegen die Standardwerte prüfen
 function sanitizeP(o) {
@@ -4426,6 +4477,25 @@ async function saveProject(as) {
   projSnap = stateStr(); updateProjUI();
   toast(`Projekt „${projName}“ gespeichert`);
 }
+// Neues, leeres Projekt: Daten, Diagramm (P), Texte und Achsengrenzen leeren; der Stil (Aussehen) bleibt erhalten
+function newProject(ask = true) {
+  if (ask) {
+    const has = $('#src').value.trim() || P.ann.length;
+    if (projDirty ? !confirm(`Ungespeicherte Änderungen an „${projName}“ verwerfen und neu beginnen?`)
+      : !projName && has && !confirm('Neues Projekt beginnen? Das aktuelle Diagramm ist nicht als Projekt gespeichert und wird geleert.')) return false;
+  }
+  NON_STYLE.forEach(k => { S[k] = DEF[k]; });
+  P = freshP(); sel = null; seriesSig = '';
+  $('#src').value = ''; tIdx = 0; wb = null; $('#sheetSel').hidden = true; srcName = '';
+  projName = ''; projHandle = null; projSnap = '';
+  parseSrc(); syncUI(); renderNow(); buildInsp(); updAnnStd(); updateProjUI();
+  undoStack.length = 0; redoStack.length = 0; undoCur = null; noteUndo(); updUndoUI();   // Rückgängig würde sonst alte Einstellungen ohne die alten Daten zurückholen
+  const d = $('#src').closest('details'); if (d) d.open = true;
+  $('#src').focus();
+  toast('Neues Projekt – Daten einfügen, Datei öffnen oder hineinziehen');
+  return true;
+}
+$('#btnProjNew').onclick = () => newProject();
 $('#btnProjOpen').onclick = openProject;
 $('#btnProjSave').onclick = () => saveProject(false);
 $('#btnProjSaveAs').onclick = () => saveProject(true);
