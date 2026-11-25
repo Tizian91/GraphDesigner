@@ -2552,12 +2552,13 @@ function annotSVG(a, geo, cf, preview) {
 }
 // Beschriftung einer Bezugslinie: neben der Linie, entlang der Linie bei a.lpos (0 = oben bzw. links, 1 = unten bzw. rechts;
 // Standard: senkrechte Linie oben, waagerechte rechts), a.lrot = 'v' dreht den Text senkrecht (von unten nach oben lesbar).
+// a.lside = 'o': auf der anderen Seite der Linie (senkrecht links statt rechts, waagerecht unten statt oben).
 // a0/a1 = Mitte der Beschriftung bei lpos 0/1 (für das Ziehen), box = Fläche zum Anklicken.
 function lineLabel(a, c, R0, font, g) {
   const hz = a.type === 'hline', rot = a.lrot === 'v', L = tw(a.text, font), th = font.px * 1.2;
-  const lp = clamp(a.lpos ?? (hz ? 1 : 0), 0, 1), ext = (hz ? !rot : rot) ? L : th;
+  const lp = clamp(a.lpos ?? (hz ? 1 : 0), 0, 1), ext = (hz ? !rot : rot) ? L : th, sd = a.lside === 'o' ? -1 : 1;
   const a0 = (hz ? R0.x0 : R0.y0) + g + ext / 2, a1 = Math.max(a0, (hz ? R0.x1 : R0.y1) - g - ext / 2), m = a0 + lp * (a1 - a0);
-  const xc = hz ? m : c + g + (rot ? th : L) / 2, yc = hz ? c - g - (rot ? L : th) / 2 : m;
+  const xc = hz ? m : c + sd * (g + (rot ? th : L) / 2), yc = hz ? c - sd * (g + (rot ? L : th) / 2) : m;
   const bw = rot ? th : L, bh = rot ? L : th;
   return { xc, yc, rot, hz, a0, a1, m, box: [xc - bw / 2, yc - bh / 2, bw, bh] };
 }
@@ -3458,10 +3459,13 @@ function annInsp(box) {
   let h = '';
   if (a.type === 'text') h += `<textarea data-a="text" class="small" placeholder="Text – **fett**, *kursiv*, Formeln in $…$">${esc(a.text)}</textarea>`;
   if (a.type === 'hline' || a.type === 'vline') {
-    const hz = a.type === 'hline', lp = Math.round(100 * clamp(a.lpos ?? (hz ? 1 : 0), 0, 1)), rot = a.lrot === 'v';
+    const hz = a.type === 'hline', lp = Math.round(100 * clamp(a.lpos ?? (hz ? 1 : 0), 0, 1)), rot = a.lrot === 'v', oth = a.lside === 'o';
     h += `<div class="row"><span>Beschriftung</span><input data-a="text" value="${esc(a.text)}" style="width:150px"></div>
       <div class="row" title="Lage der Beschriftung entlang der Linie. In der Vorschau lässt sie sich auch direkt ziehen."><span>Lage auf der Linie</span><span class="hint" style="margin:0">${hz ? 'links' : 'oben'}</span><input type="range" data-a="lpos" min="0" max="100" step="1" value="${lp}" style="flex:1;min-width:60px"><span class="hint" style="margin:0">${hz ? 'rechts' : 'unten'}</span><input type="number" data-a="lposN" min="0" max="100" step="1" value="${lp}" style="width:52px"><span>%</span></div>
-      <div class="row"><span>Textrichtung</span><span class="btns" style="margin:0"><button class="mini${rot ? '' : ' on'}" data-act="lrotH" title="Text waagerecht">A waagerecht</button><button class="mini${rot ? ' on' : ''}" data-act="lrotV" title="Text senkrecht, von unten nach oben lesbar">↥ senkrecht</button></span></div>`;
+      <div class="row"><span>Textrichtung</span><span class="btns" style="margin:0"><button class="mini${rot ? '' : ' on'}" data-act="lrotH" title="Text waagerecht">A waagerecht</button><button class="mini${rot ? ' on' : ''}" data-act="lrotV" title="Text senkrecht, von unten nach oben lesbar">↥ senkrecht</button></span></div>
+      <div class="row"><span>Seite der Linie</span><span class="btns" style="margin:0">${hz
+        ? `<button class="mini${oth ? '' : ' on'}" data-act="lsideN" title="Text über der Linie">▴ oben</button><button class="mini${oth ? ' on' : ''}" data-act="lsideO" title="Text unter der Linie">▾ unten</button>`
+        : `<button class="mini${oth ? ' on' : ''}" data-act="lsideO" title="Text links der Linie">◂ links</button><button class="mini${oth ? '' : ' on'}" data-act="lsideN" title="Text rechts der Linie">rechts ▸</button>`}</span></div>`;
   }
   h += `<div class="sub">Lage</div><div class="row"><span>Bezug</span><select data-a="ref" title="Daten: bleibt am Datenpunkt, auch wenn sich die Achsen ändern. Abbildung: feste Stelle im Bild">${opts({ data: 'Daten (Achsenwerte)', fig: 'Abbildung (feste Stelle)' }, a.ref)}</select></div>`;
   if (a.type === 'arrow') h += ptRow('Anfang X / Y', 0, 'xy') + ptRow('Ende X / Y', 1, 'xy') +
@@ -3515,6 +3519,8 @@ function annAction(act, a, b) {
     case 'aflip': a.p.reverse(); break;
     case 'lrotH': delete a.lrot; break;
     case 'lrotV': a.lrot = 'v'; break;
+    case 'lsideN': delete a.lside; break;
+    case 'lsideO': a.lside = 'o'; break;
     case 'sreset': if (a.st) keys().forEach(k => delete a.st[k]); break;
     case 'sstd': for (const k of keys()) if (a.st && a.st[k] != null) { S[k] = a.st[k]; delete a.st[k]; } syncUI(); break;
     case 'resetAll': a.st = {}; break;
@@ -4425,9 +4431,9 @@ function pyAnnots(L, cf) {
       out.push(`ax.ax${hz ? 'h' : 'v'}line(${val}, color=${col}, lw=${w}, linestyle=${ls})`);
       if (a.text && a.text.trim()) {   // Lage entlang der Linie als Achsenanteil, 3 pt neben der Linie
         const lp = clamp(a.lpos ?? (hz ? 1 : 0), 0, 1), end = lp === 0 ? 0 : lp === 1 ? 2 : 1, rot = a.lrot === 'v' ? ', rotation=90' : '';
-        const f = r4(0.01 + 0.98 * (hz ? lp : 1 - lp));
-        out.push(hz ? `ax.annotate(${txt(a.text)}, xy=(${f}, ${val}), xycoords=ax.get_yaxis_transform(), xytext=(0, 3), textcoords="offset points", ha=${py(['left', 'center', 'right'][end])}, va="bottom"${rot}, ${font})`
-          : `ax.annotate(${txt(a.text)}, xy=(${val}, ${f}), xycoords=ax.get_xaxis_transform(), xytext=(3, 0), textcoords="offset points", ha="left", va=${py(['top', 'center', 'bottom'][end])}${rot}, ${font})`);
+        const f = r4(0.01 + 0.98 * (hz ? lp : 1 - lp)), o = a.lside === 'o';   // andere Seite: links bzw. unter der Linie
+        out.push(hz ? `ax.annotate(${txt(a.text)}, xy=(${f}, ${val}), xycoords=ax.get_yaxis_transform(), xytext=(0, ${o ? -3 : 3}), textcoords="offset points", ha=${py(['left', 'center', 'right'][end])}, va=${o ? '"top"' : '"bottom"'}${rot}, ${font})`
+          : `ax.annotate(${txt(a.text)}, xy=(${val}, ${f}), xycoords=ax.get_xaxis_transform(), xytext=(${o ? -3 : 3}, 0), textcoords="offset points", ha=${o ? '"right"' : '"left"'}, va=${py(['top', 'center', 'bottom'][end])}${rot}, ${font})`);
       }
     }
   }
@@ -4463,6 +4469,7 @@ function sanitizeAnn(a) {
   if (a.type === 'hline' || a.type === 'vline') {   // Beschriftung: Lage entlang der Linie (0…1) und Textrichtung
     if (typeof a.lpos === 'number' && isFinite(a.lpos)) out.lpos = clamp(a.lpos, 0, 1);
     if (a.lrot === 'v') out.lrot = 'v';
+    if (a.lside === 'o') out.lside = 'o';
   }
   return out;
 }

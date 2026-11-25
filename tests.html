@@ -290,6 +290,19 @@ document.getElementById('app').onload = async () => {
     const pyl = ev('pythonCode()');
     check('Python: Lage und Drehung der Beschriftungen', [pyl.includes('xy=(0.5, 12), xycoords=ax.get_yaxis_transform(), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", rotation=90'), pyl.includes('xy=(2, 0.99), xycoords=ax.get_xaxis_transform(), xytext=(3, 0), textcoords="offset points", ha="left", va="top", rotation=90')], [true, true]);
     check('Beschriftungslage im Projekt geprüft', ev(`sanitizeP({ann:[{type:'vline',p:[[1,2]],lpos:7,lrot:'v'},{type:'hline',p:[[1,2]],lpos:'x',lrot:'quer'},{type:'text',p:[[1,2]],lpos:0.5}]}).ann.map(a => [a.lpos ?? null, a.lrot ?? null])`), [[1, 'v'], [null, null], [null, null]]);
+    // Seite der Beschriftung: senkrecht links/rechts, waagerecht oben/unten
+    const side = id => ev(`(() => { const g = R.plot.annGeo.find(x => x.a.id === '${id}'), c = g.a.type === 'hline' ? g.pts[0][1] : g.pts[0][0]; return Math.sign((g.a.type === 'hline' ? g.lab.yc : g.lab.xc) - c); })()`);
+    check('Beschriftung: Standardseite rechts bzw. oben', [side('v1'), side('h1')], [1, -1]);
+    ev(`P.ann[1].lside='o';P.ann[0].lside='o';renderNow()`);
+    check('Beschriftung: andere Seite links bzw. unten', [side('v1'), side('h1')], [-1, 1]);
+    const pyo = ev('pythonCode()');
+    check('Python: Beschriftung links bzw. unter der Linie', [pyo.includes('xytext=(-3, 0), textcoords="offset points", ha="right", va="top", rotation=90'), pyo.includes('xytext=(0, -3), textcoords="offset points", ha="center", va="top", rotation=90')], [true, true]);
+    ev(`setSel({kind:'ann',id:'v1'})`);
+    check('Knöpfe für die Seite (senkrechte Linie)', ev(`[...$$('#insp [data-act^="lside"]')].map(b => b.textContent + (b.classList.contains('on') ? '*' : ''))`), ['◂ links*', 'rechts ▸']);
+    ev(`$('#insp [data-act="lsideN"]').click();renderNow()`);
+    check('Knopf „rechts“ setzt die Standardseite', [ev(`'lside' in P.ann[1]`), side('v1')], [false, 1]);
+    ev(`sel=null;buildInsp()`);
+    check('Seite im Projekt geprüft', ev(`sanitizeP({ann:[{type:'vline',p:[[1,2]],lside:'o'},{type:'hline',p:[[1,2]],lside:'links'},{type:'text',p:[[1,2]],lside:'o'}]}).ann.map(a => a.lside ?? null)`), ['o', null, null]);
     ev(`P.ann=[];renderNow()`);
     ev(`projName='';projSnap='';updateProjUI()`);
     // Eine Reihe überschreibt Stilwerte, ohne den Stil zu ändern
