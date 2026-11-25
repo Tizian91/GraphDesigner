@@ -291,7 +291,7 @@ document.getElementById('app').onload = async () => {
     check('Normierung: Faktoren werden angezeigt', ev(`$('#normInfo').textContent`), 'Faktoren: A × 16,67 · B × 8,333');
     check('Normierung: Y-Titel bekommt „(normiert)“', ev(`R.plot.svg.includes('>(normiert)<')`), true);
     normed({ mode: 'x', x: 10, to: 1 });
-    check('Normierung außerhalb der Daten: Reihen bleiben, Hinweis', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert bei X = 10 oder 0): A, B'))`)], [[null, null], true]);
+    check('Normierung außerhalb der Daten: Reihen bleiben, Hinweis', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert bei X = 10): A, B'))`)], [[null, null], true]);
     normed({ x: 2 });
     check('Python: Normierung mit denselben Faktoren', ['df.loc[(df["g"] == "A"), ["y"]] *= 0.25', 'df.loc[(df["g"] == "B"), ["y"]] *= 0.125'].map(s => ev('pythonCode()').includes(s)), [true, true]);
     // Maximum nur in einem X-Bereich: eigene Grenzen, sonst die der X-Achse
@@ -303,7 +303,18 @@ document.getElementById('app').onload = async () => {
     check('Python: Bereich im Kommentar', ev('pythonCode()').includes('an ihrem Maximum zwischen x = 0 und 2 auf 1'), true);
     ev(`S.xMin='';S.xMax=''`);
     normed({ lo: '5', hi: '6' });
-    check('Normierung: kein Wert im Bereich → Hinweis', ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert zwischen X = 5 und 6 oder 0): A, B'))`), true);
+    check('Normierung: kein Wert im Bereich → Hinweis', ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert zwischen X = 5 und 6): A, B'))`), true);
+    // Bezugswert 0 oder negativ: nicht spiegeln, sondern Reihe unverändert lassen
+    normed({ mode: 'x', x: 0, w: 0, lo: '', hi: '' });
+    check('Normierung: Bezugswert ≤ 0 → nicht normiert, Hinweis', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.some(n => n.startsWith('nicht normiert (Bezugswert ≤ 0'))`)], [[null, null], true]);
+    ev(`$('#src').value='x;y;g\\n0;-2;A\\n1;-1;A\\n2;-3;A';tIdx=0;parseSrc();Object.assign(P,{x:'x',ys:['y'],hue:'g'})`);
+    check('Normierung: negatives Mittel kippt die Kurve nicht', normed({ mode: 'x', x: 1, w: 1 }).map(s => [s[1], s[2]]), [[null, [-2, -1, -3]]]);
+    ev(`$('#src').value='x;y;g\\n0;0;A\\n1;2;A\\n2;4;A\\n3;6;A\\n0;0;B\\n1;4;B\\n2;8;B\\n3;12;B';tIdx=0;parseSrc();Object.assign(P,{x:'x',ys:['y'],hue:'g'})`);
+    // Minimum → 0, Maximum → Zielwert (im Bereich)
+    check('Normierung Min–Max zwischen X = 1 und 3', normed({ mode: 'minmax', lo: '1', hi: '3', to: 1 }), [['A', 0.25, [-0.5, 0, 0.5, 1]], ['B', 0.125, [-0.5, 0, 0.5, 1]]]);
+    check('Normierung Min–Max: Anzeige', ev(`$('#normInfo').textContent`), 'Minimum und Maximum zwischen X = 1 und 3. Faktoren: A − 2 × 0,25 · B − 4 × 0,125');
+    check('Python: Min–Max mit Abzug', ev('pythonCode()').includes('df.loc[(df["g"] == "A"), ["y"]] = (df.loc[(df["g"] == "A"), ["y"]] - 2) * 0.25'), true);
+    check('Normierung Min–Max im Projekt erlaubt', ev(`sanitizeP({norm:{mode:'minmax'}}).norm.mode`), 'minmax');
     check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1, lo: '', hi: '' }, 'none']);
     ev(`P.norm=freshP().norm;renderNow()`);
     // X-Achse begrenzt: Y-Bereich nur aus dem sichtbaren Ausschnitt, an der Grenze interpoliert
