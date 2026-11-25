@@ -294,8 +294,27 @@ document.getElementById('app').onload = async () => {
     check('Normierung außerhalb der Daten: Reihen bleiben, Hinweis', [ev(`R.res.series.map(s => s.norm ?? null)`), ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert bei X = 10 oder 0): A, B'))`)], [[null, null], true]);
     normed({ x: 2 });
     check('Python: Normierung mit denselben Faktoren', ['df.loc[(df["g"] == "A"), ["y"]] *= 0.25', 'df.loc[(df["g"] == "B"), ["y"]] *= 0.125'].map(s => ev('pythonCode()').includes(s)), [true, true]);
-    check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1 }, 'none']);
-    ev(`P.norm={mode:'none',x:0,w:0,to:1};renderNow()`);
+    // Maximum nur in einem X-Bereich: eigene Grenzen, sonst die der X-Achse
+    check('Normierung: Maximum zwischen X = 0 und 1', normed({ mode: 'max', to: 1, lo: '0', hi: '1' }).map(s => s[1]), [0.5, 0.25]);
+    check('Normierung: Bereich mit Komma und vertauschten Grenzen', normed({ lo: '1,5', hi: '0' }).map(s => s[1]), [0.5, 0.25]);
+    ev(`S.xMin='0';S.xMax='2'`);
+    check('Normierung: leerer Bereich nimmt die X-Achse', normed({ lo: '', hi: '' }).map(s => s[1]), [0.25, 0.125]);
+    check('Normierung: Bereich wird angezeigt', ev(`$('#normInfo').textContent`), 'Maximum zwischen X = 0 und 2. Faktoren: A × 0,25 · B × 0,125');
+    check('Python: Bereich im Kommentar', ev('pythonCode()').includes('an ihrem Maximum zwischen x = 0 und 2 auf 1'), true);
+    ev(`S.xMin='';S.xMax=''`);
+    normed({ lo: '5', hi: '6' });
+    check('Normierung: kein Wert im Bereich → Hinweis', ev(`R.res.notes.some(n => n.startsWith('nicht normiert (kein Wert zwischen X = 5 und 6 oder 0): A, B'))`), true);
+    check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1, lo: '', hi: '' }, 'none']);
+    ev(`P.norm=freshP().norm;renderNow()`);
+    // X-Achse begrenzt: Y-Bereich nur aus dem sichtbaren Ausschnitt, an der Grenze interpoliert
+    const yDom = () => ev(`renderNow();R.plot.yDom.map(v => +v.toFixed(6))`);
+    check('Y-Bereich ohne X-Grenzen: alle Daten', yDom(), [-0.6, 12.6]);
+    ev(`S.xMax='1,5'`);
+    check('Y-Bereich folgt dem X-Ausschnitt (B bei X = 1,5 → 6)', yDom(), [-0.3, 6.3]);
+    check('Python: Y-Grenzen des Ausschnitts', ev('pythonCode()').includes('ylim=(-0.3, 6.3)'), true);
+    ev(`S.xMin='20';S.xMax=''`);
+    check('Y-Bereich: nichts im Ausschnitt → alle Daten', yDom(), [-0.6, 12.6]);
+    ev(`S.xMin='';S.xMax='';renderNow()`);
     // Rückgängig / Wiederholen
     ev(`noteUndo(); S.title='Vorher'; noteUndo(); S.title='Nachher'; noteUndo(); undo();`);
     check('Rückgängig', ev('S.title'), 'Vorher');

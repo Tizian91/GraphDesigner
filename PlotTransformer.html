@@ -206,6 +206,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
         <div class="row"><span>Jede Reihe normieren</span><select data-p="norm.mode"><option value="none">aus</option><option value="x">an einem X-Wert</option><option value="max">auf ihr Maximum</option></select></div>
         <div class="row" id="rowNormX"><span>bei X =</span><input type="number" step="any" data-p="norm.x" style="width:80px" title="Stelle auf der X-Achse, an der alle Reihen denselben Wert bekommen">
           <span title="0 = Wert genau an dieser Stelle (zwischen zwei Messpunkten linear interpoliert). Größer 0 = Mittelwert aller Punkte von X − Breite bis X + Breite, gut bei verrauschten Daten">±</span><input type="number" step="any" min="0" data-p="norm.w" style="width:60px" title="0 = Wert genau an dieser Stelle (zwischen zwei Messpunkten linear interpoliert). Größer 0 = Mittelwert aller Punkte von X − Breite bis X + Breite, gut bei verrauschten Daten"></div>
+        <div class="row" id="rowNormRange"><span title="Nur in diesem X-Bereich nach dem Maximum suchen. Leer = Grenzen der X-Achse (Min / Max), sind auch die leer, die ganze Reihe">Maximum zwischen X</span><input data-p="norm.lo" placeholder="Achse" style="width:60px" title="Untere Grenze; leer = X-Achse Min"><span>und</span><input data-p="norm.hi" placeholder="Achse" style="width:60px" title="Obere Grenze; leer = X-Achse Max"></div>
         <div class="row" id="rowNormTo"><span>auf den Wert</span><input type="number" step="any" data-p="norm.to" style="width:80px"></div>
         <p class="hint" id="normInfo"></p>
       </div>
@@ -601,7 +602,7 @@ const freshP = () => ({
   roleCol: '',                                   // '' = automatisch erkennen, '-' = aus
   fileCols: 'merge',                             // eigene Messwert-Spalten zusammengeführter Dateien: 'merge' = zu „Wert“, 'separate' = getrennt
   errCols: { mode: 'bounds', hi: '', lo: '' },   // Fehler aus Spalten: Grenzen oder Abstände
-  norm: { mode: 'none', x: 0, w: 0, to: 1 },     // Normierung je Reihe: 'none' / 'x' (bei X = x, Mittel über ± w) / 'max', Zielwert to
+  norm: { mode: 'none', x: 0, w: 0, to: 1, lo: '', hi: '' },   // Normierung je Reihe: 'none' / 'x' (bei X = x, Mittel über ± w) / 'max' (zwischen lo und hi, leer = X-Achse), Zielwert to
   filters: [], types: {},
   levels: { hue: {}, style: {}, size: {}, extra: {} },
   order: { hue: [], style: [], size: [], extra: [], x: [] },
@@ -1291,12 +1292,12 @@ function pipeline() {
 
 /* ---------- Normierung: jede Reihe so skalieren, dass sie an einer Stelle denselben Wert hat ---------- */
 const NORM_TYPES = ['line', 'scatter', 'linept', 'area'];
-// Bezugswert einer Reihe: ihr Maximum, das Mittel aller Punkte in x0 ± w oder der Wert bei x0 (zwischen den
-// Nachbarpunkten linear interpoliert). null, wenn es dort keine Daten gibt.
-function normRef(pts, mode, x0, w) {
+// Bezugswert einer Reihe: ihr Maximum (nur zwischen lo und hi, null = offen), das Mittel aller Punkte in x0 ± w
+// oder der Wert bei x0 (zwischen den Nachbarpunkten linear interpoliert). null, wenn es dort keine Daten gibt.
+function normRef(pts, mode, x0, w, lo = null, hi = null) {
   const ps = pts.filter(p => p.y != null && isFinite(p.y) && isFinite(p.x)).sort((a, b) => a.x - b.x);
   if (!ps.length) return null;
-  if (mode === 'max') return maxOf(ps.map(p => p.y));
+  if (mode === 'max') { const ys = ps.filter(p => (lo == null || p.x >= lo) && (hi == null || p.x <= hi)).map(p => p.y); return ys.length ? maxOf(ys) : null; }
   if (w > 0) { const ys = ps.filter(p => Math.abs(p.x - x0) <= w).map(p => p.y); return ys.length ? mean(ys) : null; }
   if (x0 < ps[0].x || x0 > ps[ps.length - 1].x) return null;
   const i = ps.findIndex(p => p.x >= x0), b = ps[i];
@@ -1308,14 +1309,32 @@ function normRef(pts, mode, x0, w) {
 function normalizeSeries(out, sp) {
   const { mode, x: x0, to } = P.norm, w = Math.max(0, +P.norm.w || 0);
   if (mode === 'x' && (sp.xCat || !sp.xc || sp.xc.type !== 'num')) { out.notes.push('Normierung an einem X-Wert nur mit Zahlen auf der X-Achse'); return; }
+  const [lo, hi] = mode === 'max' ? normRange(sp) : [null, null];
+  out.normRange = lo != null || hi != null ? [lo, hi] : null;
   const miss = [];
   for (const s of out.series) {
-    const ref = normRef(s.pts, mode, x0, w);
+    const ref = normRef(s.pts, mode, x0, w, lo, hi);
     if (ref == null || !isFinite(ref) || ref === 0) { miss.push(s.label); continue; }
     s.norm = to / ref;
     for (const p of s.pts) for (const k of ['y', 'lo', 'hi']) if (p[k] != null) p[k] *= s.norm;
   }
-  if (miss.length) out.notes.push(`nicht normiert (${mode === 'x' ? `kein Wert bei X = ${fmtNum(x0, -1)}${w > 0 ? ` ± ${fmtNum(w, -1)}` : ''}` : 'Maximum'} oder 0): ${miss.join(', ')}`);
+  const where = mode === 'x' ? `kein Wert bei X = ${fmtNum(x0, -1)}${w > 0 ? ` ± ${fmtNum(w, -1)}` : ''}`
+    : out.normRange ? `kein Wert zwischen X = ${normRangeText(sp, lo, hi)}` : 'Maximum';
+  if (miss.length) out.notes.push(`nicht normiert (${where} oder 0): ${miss.join(', ')}`);
+}
+// X-Bereich, in dem das Maximum gesucht wird: eigene Grenzen, sonst die der X-Achse (leer = offen).
+// Nur bei Zahlen oder Datum auf der X-Achse; Kategorien haben keinen Bereich.
+function normRange(sp) {
+  if (sp.xCat || !sp.xc || (sp.xc.type !== 'num' && sp.xc.type !== 'date')) return [null, null];
+  const kind = sp.xc.type === 'date' ? 'date' : 'lin';
+  const pick = (own, ax) => parseUser(own, kind) ?? parseUser(ax, kind);
+  let lo = pick(P.norm.lo, S.xMin), hi = pick(P.norm.hi, S.xMax);
+  if (lo != null && hi != null && lo > hi) [lo, hi] = [hi, lo];
+  return [lo, hi];
+}
+function normRangeText(sp, lo, hi) {
+  const f = v => v == null ? '…' : sp.xc && sp.xc.type === 'date' ? fmtDate(v, S.xDate || 'TT.MM.JJJJ') : fmtNum(v, -1);
+  return `${f(lo)} und ${f(hi)}`;
 }
 
 // Ist eine Reihe ausgeblendet (selbst oder über eine ihrer Stufen)?
@@ -1831,6 +1850,11 @@ function buildPlot(res, preview) {
     // Linie, Punkte, Fläche (ggf. gestapelt)
     const stack = t === 'area' && P.bar.mode !== 'dodge';
     const acc = new Map(), tot = new Map();
+    // X-Achse begrenzt: Y-Bereich nur aus dem sichtbaren Ausschnitt (an den Rändern linear interpoliert)
+    const xk = sp.xc && sp.xc.type === 'date' ? 'date' : 'lin';
+    const xLo = sp.xCat ? null : parseUser(S.xMin, xk), xHi = sp.xCat ? null : parseUser(S.xMax, xk);
+    const inX = x => (xLo == null || x >= xLo) && (xHi == null || x <= xHi);
+    const yAll = { y: [], y2: [] };
     if (stack && P.bar.mode === 'stack100') for (const s of vis) for (const p of s.pts) if (p.y != null) tot.set(p.x, (tot.get(p.x) || 0) + Math.abs(p.y));
     for (const s of vis) {
       let pts = s.pts.map(p => ({ ...p }));
@@ -1841,8 +1865,25 @@ function buildPlot(res, preview) {
       }
       pts = shiftPts(pts, s.look.offset, t === 'area');
       marks.push({ m: 'line', s, pts, area: t === 'area' });
-      for (const p of pts) { vVals[s.look.axis].push(p.y); if (P.err !== 'none') vVals[s.look.axis].push(p.lo, p.hi); if (p.y0 != null) vVals[s.look.axis].push(p.y0); if (p.y != null) xVals.push(p.x); }
+      const ax = s.look.axis, vv = vVals[ax];
+      for (const p of pts) {
+        const ys = [p.y]; if (P.err !== 'none') ys.push(p.lo, p.hi); if (p.y0 != null) ys.push(p.y0);
+        yAll[ax].push(...ys);
+        if (p.x == null || inX(p.x)) vv.push(...ys);
+        if (p.y != null) xVals.push(p.x);
+      }
+      if (xLo != null || xHi != null) for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        if (a.y == null || b.y == null || a.x == null || b.x == null || a.x === b.x) continue;
+        for (const e of [xLo, xHi]) if (e != null && (a.x - e) * (b.x - e) < 0) {
+          const f = (e - a.x) / (b.x - a.x);
+          vv.push(a.y + (b.y - a.y) * f);
+          if (a.y0 != null && b.y0 != null) vv.push(a.y0 + (b.y0 - a.y0) * f);
+        }
+      }
     }
+    // Nichts im Ausschnitt: wie bisher alle Werte nehmen
+    for (const k of ['y', 'y2']) if (!vVals[k].some(v => v != null && isFinite(v))) vVals[k] = yAll[k];
     if (t === 'area') sticky.y = 0;
   }
   // Trendlinien
@@ -2359,7 +2400,8 @@ function buildPlot(res, preview) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W2 * 0.75)}pt" height="${f2(H2 * 0.75)}pt" viewBox="${-grow.l} ${-grow.t} ${W2} ${H2}">` +
     (defs.length ? `<defs>${defs.join('')}</defs>` : '') + out.join('') + '</svg>';
   // W, H = Größe des Bildes; ox, oy = Ursprung, falls es nach links oder oben gewachsen ist
-  return { svg, W: W2, H: H2, ox: -grow.l, oy: -grow.t, grown: W2 !== W || H2 !== H, hits, rect, notes, geo, annGeo, regions };
+  const yDom = roles.y && roles.y.kind !== 'cat' ? [roles.y.d0, roles.y.d1] : null;
+  return { svg, W: W2, H: H2, ox: -grow.l, oy: -grow.t, grown: W2 !== W || H2 !== H, hits, rect, notes, geo, annGeo, regions, yDom };
 }
 
 /* ---------- Annotationen zeichnen ---------- */
@@ -2755,6 +2797,7 @@ function updateVisibility() {
   show('#rowTrend', ['line', 'scatter', 'linept'].includes(t));
   show('#normBox', NORM_TYPES.includes(t));
   show('#rowNormX', P.norm.mode === 'x');
+  show('#rowNormRange', P.norm.mode === 'max');
   show('#rowNormTo', P.norm.mode !== 'none');
   show('#rowBins', P.hist.binMode === 'n');
   show('#rowBinW', P.hist.binMode === 'w');
@@ -2976,7 +3019,8 @@ function showNormInfo(res) {
   const fs = res.series.filter(s => s.norm != null && !s.hidden);
   $('#normInfo').textContent = P.norm.mode === 'none'
     ? 'Skaliert jede Reihe so, dass alle an einem X-Wert (oder an ihrem Maximum) denselben Wert haben, z. B. 1 – zum Vergleich von Kurven mit unterschiedlicher Intensität.'
-    : fs.length ? 'Faktoren: ' + fs.map(s => `${plainRich(s.legend)} × ${fmtNum(+s.norm.toPrecision(4), -1)}`).join(' · ') : 'Keine Reihe normiert.';
+    : (P.norm.mode === 'max' && res.normRange ? `Maximum zwischen X = ${normRangeText(res.sp, ...res.normRange)}. ` : '')
+      + (fs.length ? 'Faktoren: ' + fs.map(s => `${plainRich(s.legend)} × ${fmtNum(+s.norm.toPrecision(4), -1)}`).join(' · ') : 'Keine Reihe normiert.');
 }
 function render() {
   if (rafPending) return;
@@ -4027,7 +4071,7 @@ function pythonCode() {
   const normS = res.series.filter(s => s.norm != null && !s.hidden);
   if (normS.length) {
     const n = P.norm, w = Math.max(0, +n.w || 0);
-    L.push(`# Normierung: jede Reihe ${n.mode === 'max' ? 'an ihrem Maximum' : `bei ${plainRich(X || 'x')} = ${pyNum(n.x)}${w > 0 ? ` (Mittel über ± ${pyNum(w)})` : ''}`} auf ${pyNum(n.to)}`);
+    L.push(`# Normierung: jede Reihe ${n.mode === 'max' ? 'an ihrem Maximum' + (res.normRange ? ` zwischen ${plainRich(X || 'x')} = ${normRangeText(sp, ...res.normRange)}` : '') :`bei ${plainRich(X || 'x')} = ${pyNum(n.x)}${w > 0 ? ` (Mittel über ± ${pyNum(w)})` : ''}`} auf ${pyNum(n.to)}`);
     const cols = [Y, ...(ec ? [ec.hi, ec.lo].filter(Boolean) : [])].map(py).join(', ');
     for (const s of normS) {
       const mask = maskOf(s);
@@ -4104,6 +4148,9 @@ function pythonCode() {
   const lim = (a, b) => (parseUser(a) != null || parseUser(b) != null) ? `(${pyNum(parseUser(a))}, ${pyNum(parseUser(b))})` : null;
   if (!sp.xCat) sets.xlim = lim(S.xMin, S.xMax);
   sets.ylim = lim(S.yMin, S.yMax);
+  // X begrenzt: matplotlib skaliert Y über alle Daten, daher den Y-Bereich des Ausschnitts aus der Vorschau übernehmen
+  if (sets.xlim && NORM_TYPES.includes(t) && res2 && res2.yDom && (parseUser(S.yMin) == null || parseUser(S.yMax) == null) && S.yScale !== 'log')
+    sets.ylim = `(${pyNum(parseUser(S.yMin) ?? +res2.yDom[0].toPrecision(6))}, ${pyNum(parseUser(S.yMax) ?? +res2.yDom[1].toPrecision(6))})`;
   const sk = kw(sets); if (sk) L.push(`ax.set(${sk})`);
   if (S.spines === 'lb') L.push('sns.despine(ax=ax)');
   if (S.labelBold) L.push('ax.xaxis.label.set_fontweight("bold")', 'ax.yaxis.label.set_fontweight("bold")');
