@@ -313,8 +313,21 @@ document.getElementById('app').onload = async () => {
     // Minimum → 0, Maximum → Zielwert (im Bereich)
     check('Normierung Min–Max zwischen X = 1 und 3', normed({ mode: 'minmax', lo: '1', hi: '3', to: 1 }), [['A', 0.25, [-0.5, 0, 0.5, 1]], ['B', 0.125, [-0.5, 0, 0.5, 1]]]);
     check('Normierung Min–Max: Anzeige', ev(`$('#normInfo').textContent`), 'Minimum und Maximum zwischen X = 1 und 3. Faktoren: A − 2 × 0,25 · B − 4 × 0,125');
+    check('Methodentext Min–Max (deutsch)', ev(`$('#normMethodDe').textContent`), 'Jede Kurve wurde im Bereich x = 1–3 min-max-normiert, y′ = (y − y_min) / (y_max − y_min), sodass ihr Minimum 0 und ihr Maximum 1 entspricht.');
+    check('Methodentext Min–Max (englisch)', ev(`normMethodText(R.res, 'en')`), 'Each curve was min–max normalized in the range x = 1–3, y′ = (y − y_min) / (y_max − y_min), so that its minimum corresponds to 0 and its maximum to 1.');
+    normed({ mode: 'x', x: 1.5, w: 0.5, to: 9 });
+    check('Methodentext an einem X-Wert mit Breite', ev(`normMethodText(R.res, 'de')`), 'Alle Kurven wurden bei x = 1,5 auf 9 normiert (geteilt durch den Mittelwert über x = 1,5 ± 0,5).');
+    ev(`P.series.A={offset:2};renderNow()`);
+    check('Methodentext erwähnt den Versatz', ev(`normMethodText(R.res, 'en')`).endsWith('Curves are vertically offset for clarity.'), true);
+    ev(`delete P.series.A`);
+    normed({ mode: 'none' });
+    check('Methodentext aus: Knöpfe gesperrt', [ev(`$('#normMethodDe').textContent`), ev(`$('#btnNormCopyDe').disabled`)], ['Keine Normierung eingestellt.', true]);
+    normed({ mode: 'minmax', lo: '1', hi: '3', to: 1, w: 0 });
     check('Python: Min–Max mit Abzug', ev('pythonCode()').includes('df.loc[(df["g"] == "A"), ["y"]] = (df.loc[(df["g"] == "A"), ["y"]] - 2) * 0.25'), true);
     check('Normierung Min–Max im Projekt erlaubt', ev(`sanitizeP({norm:{mode:'minmax'}}).norm.mode`), 'minmax');
+    ev(`$('#src').value='E (eV);y\\n0;1\\n1;3\\n2;2';tIdx=0;parseSrc();Object.assign(P,{x:'E (eV)',ys:['y'],hue:''})`);
+    check('Methodentext: Einheit aus dem Spaltennamen hinter die Zahlen', normed({ mode: 'max', lo: '0', hi: '1,5' }) && ev(`normMethodText(R.res, 'de')`), 'Jede Kurve wurde auf ihr Maximum im Bereich E = 0–1,5 eV normiert (Maximum = 1).');
+    ev(`$('#src').value='x;y;g\\n0;0;A\\n1;2;A\\n2;4;A\\n3;6;A\\n0;0;B\\n1;4;B\\n2;8;B\\n3;12;B';tIdx=0;parseSrc();Object.assign(P,{x:'x',ys:['y'],hue:'g'})`);
     check('Normierung im Projekt geprüft', ev(`[sanitizeP({norm:{mode:'x',x:2.5,w:'a',to:1}}).norm, sanitizeP({norm:{mode:'quatsch'}}).norm.mode]`), [{ mode: 'x', x: 2.5, w: 0, to: 1, lo: '', hi: '' }, 'none']);
     ev(`P.norm=freshP().norm;renderNow()`);
     // X-Achse begrenzt: Y-Bereich nur aus dem sichtbaren Ausschnitt, an der Grenze interpoliert

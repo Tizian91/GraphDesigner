@@ -62,6 +62,8 @@ summary{font-weight:600;cursor:pointer;padding:6px 0;user-select:none}
 #btnOpen,#btnAddFiles{white-space:nowrap;flex:none}#sampleSel{min-width:0}
 .row>label:first-child,.row>span:first-child{flex:1}
 .hint{color:var(--muted);font-size:12px;margin:4px 0}
+details.help{border:0;padding:0 0 4px}details.help summary{font-weight:400;font-size:12px;color:var(--accent);padding:2px 0}
+details.help .hint p{margin:4px 0}.method{font-size:12px;margin:6px 0;padding:6px 8px;border-left:3px solid var(--accent);background:var(--accent-soft)}
 .sub{font-weight:600;font-size:12px;color:var(--muted);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.03em}
 input,select,textarea,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 6px}
 input[type=number]{width:72px}
@@ -209,6 +211,18 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
         <div class="row" id="rowNormRange"><span title="Nur in diesem X-Bereich nach Maximum (und Minimum) suchen. Leer = Grenzen der X-Achse (Min / Max), sind auch die leer, die ganze Reihe">im Bereich X</span><input data-p="norm.lo" placeholder="Achse" style="width:60px" title="Untere Grenze; leer = X-Achse Min"><span>und</span><input data-p="norm.hi" placeholder="Achse" style="width:60px" title="Obere Grenze; leer = X-Achse Max"></div>
         <div class="row" id="rowNormTo"><span>auf den Wert</span><input type="number" step="any" data-p="norm.to" style="width:80px"></div>
         <p class="hint" id="normInfo"></p>
+        <details class="help" id="normHelp"><summary>ⓘ Was passiert genau? Text für die Publikation</summary>
+          <div class="hint">
+            <p><b>An einem X-Wert:</b> y′ = y · Z / y(x₀). Jede Kurve wird so gestreckt, dass sie bei x₀ den Zielwert Z hat (zwischen Messpunkten linear interpoliert, mit ± Breite das Mittel über x₀ ± Breite). Sinnvoll, wenn die Kurven an dieser Stelle physikalisch gleich sein sollten, z. B. im Untergrund weit hinter einer Kante. Der Bezugswert muss deutlich über 0 liegen.</p>
+            <p><b>Auf ihr Maximum:</b> y′ = y · Z / max(y). Der höchste Punkt jeder Kurve (im gewählten Bereich) liegt danach bei Z; verglichen werden die übrigen Strukturen relativ zum stärksten Peak. Ein einzelner Ausreißer bestimmt den Faktor.</p>
+            <p><b>Minimum → 0, Maximum → Zielwert:</b> y′ = (y − min) · Z / (max − min), Minimum und Maximum im gewählten Bereich. Verschiebung und Streckung: Unterschiede in Untergrund und Intensität fallen weg, nur die Form bleibt vergleichbar. Absolute Intensitäten lassen sich danach nicht mehr vergleichen.</p>
+            <p>Alle Arten wirken auf jede Reihe einzeln, nach der Mittelung gleicher X-Werte; Fehlerbalken und Bänder werden genauso umgerechnet. Ein Versatz wird erst danach addiert. Kurven mit Bezugswert ≤ 0 (bzw. ohne Spanne) bleiben unverändert.</p>
+            <p><b>Für eine Publikation</b> gehören Art, Bezugsstelle oder -bereich und Zielwert in den Methodenteil oder die Bildunterschrift, die Y-Achse beschriftet man z. B. mit „normierte Intensität (a. u.)“. Vorschlag mit den aktuellen Einstellungen:</p>
+          </div>
+          <p class="method" id="normMethodDe"></p>
+          <p class="method" id="normMethodEn" lang="en"></p>
+          <div class="row"><button id="btnNormCopyDe">Deutsch kopieren</button><button id="btnNormCopyEn">Englisch kopieren</button></div>
+        </details>
       </div>
     </div>
     <div id="barBox">
@@ -3037,7 +3051,42 @@ function showNormInfo(res) {
     ? 'Skaliert jede Reihe so, dass alle an einem X-Wert (oder an ihrem Maximum) denselben Wert haben, z. B. 1 – zum Vergleich von Kurven mit unterschiedlicher Intensität.'
     : ((P.norm.mode === 'max' || P.norm.mode === 'minmax') && res.normRange ? `${P.norm.mode === 'max' ? 'Maximum' : 'Minimum und Maximum'} zwischen X = ${normRangeText(res.sp, ...res.normRange)}. ` : '')
       + (fs.length ? 'Faktoren: ' + fs.map(s => `${plainRich(s.legend)} ${normFactorText(s)}`).join(' · ') : 'Keine Reihe normiert.');
+  const de = normMethodText(res, 'de'), en = normMethodText(res, 'en');
+  $('#normMethodDe').textContent = de || 'Keine Normierung eingestellt.';
+  $('#normMethodEn').textContent = en || 'No normalization selected.';
+  $('#btnNormCopyDe').disabled = $('#btnNormCopyEn').disabled = !de;
 }
+// Methodentext für Publikation oder Bildunterschrift mit den aktuellen Einstellungen (leer, wenn aus)
+function normMethodText(res, lang) {
+  const n = P.norm, sp = res.sp, en = lang === 'en';
+  if (n.mode === 'none' || !res.series.some(s => s.norm != null)) return '';
+  const date = sp.xc && sp.xc.type === 'date';
+  const num = v => date ? fmtDate(v, S.xDate || (en ? 'JJJJ-MM-TT' : 'TT.MM.JJJJ')) : en ? String(+(+v).toPrecision(6)) : String(+(+v).toPrecision(6)).replace('.', ',');
+  // „Energy loss (eV)“ → Name „Energy loss“, Einheit „eV“ hinter die Zahlen
+  const full = sp.x && sp.x !== VAR ? plainRich(sp.x) : 'x', mu = full.match(/^(.+?)\s*[([]([^()[\]]+)[)\]]$/);
+  const xn = mu ? mu[1] : full, u = mu ? ' ' + mu[2] : '';
+  const Z = num(n.to), w = Math.max(0, +n.w || 0);
+  const [lo, hi] = res.normRange || [null, null];
+  const range = lo != null && hi != null ? (en ? `in the range ${xn} = ${num(lo)}–${num(hi)}${u}` : `im Bereich ${xn} = ${num(lo)}–${num(hi)}${u}`)
+    : lo != null ? (en ? `for ${xn} ≥ ${num(lo)}${u}` : `für ${xn} ≥ ${num(lo)}${u}`)
+    : hi != null ? (en ? `for ${xn} ≤ ${num(hi)}${u}` : `für ${xn} ≤ ${num(hi)}${u}`)
+    : en ? 'over the full data range' : 'über den gesamten Datenbereich';
+  const zf = +n.to === 1 ? '' : ` · ${Z}`;
+  let t;
+  if (n.mode === 'x') t = en
+    ? `All curves were normalized to ${Z} at ${xn} = ${num(n.x)}${u} (divided by ${w > 0 ? `the mean value over ${xn} = ${num(n.x)} ± ${num(w)}${u}` : 'the value at this position, linearly interpolated between data points'}).`
+    : `Alle Kurven wurden bei ${xn} = ${num(n.x)}${u} auf ${Z} normiert (geteilt durch ${w > 0 ? `den Mittelwert über ${xn} = ${num(n.x)} ± ${num(w)}${u}` : 'den dort zwischen den Messpunkten linear interpolierten Wert'}).`;
+  else if (n.mode === 'max') t = en
+    ? `Each curve was normalized to its maximum ${range} (maximum = ${Z}).`
+    : `Jede Kurve wurde auf ihr Maximum ${range} normiert (Maximum = ${Z}).`;
+  else t = en
+    ? `Each curve was min–max normalized ${range}, y′ = (y − y_min) / (y_max − y_min)${zf}, so that its minimum corresponds to 0 and its maximum to ${Z}.`
+    : `Jede Kurve wurde ${range} min-max-normiert, y′ = (y − y_min) / (y_max − y_min)${zf}, sodass ihr Minimum 0 und ihr Maximum ${Z} entspricht.`;
+  if (res.series.some(s => !s.hidden && s.look && s.look.offset)) t += en ? ' Curves are vertically offset for clarity.' : ' Die Kurven sind zur besseren Übersicht vertikal versetzt.';
+  return t;
+}
+$('#btnNormCopyDe').onclick = () => copyText($('#normMethodDe').textContent, 'Methodentext kopiert');
+$('#btnNormCopyEn').onclick = () => copyText($('#normMethodEn').textContent, 'Methodentext (englisch) kopiert');
 function render() {
   if (rafPending) return;
   rafPending = true;
